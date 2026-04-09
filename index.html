@@ -269,28 +269,9 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
       <input class="auth-input" id="auth-password" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')signIn()"/>
       <div class="auth-error" id="auth-error"></div>
       <button class="auth-btn" id="auth-btn" onclick="signIn()">Sign In to Portal</button>
-      <div class="auth-switch">Don't have access? <a onclick="showMode('signup')">Request access</a> · <a onclick="showMode('reset')">Forgot password?</a></div>
+      <div class="auth-switch" style="font-size:11px;color:var(--txt3);text-align:center;margin-top:14px">Don't have access? Contact the firm to get your login credentials.</div>
     </div>
-    <div id="auth-mode-signup" style="display:none">
-      <p style="font-size:12px;color:var(--txt3);text-align:center;margin-bottom:20px;line-height:1.6">Create your portal account using the email address registered with our firm.</p>
-      <label class="auth-label">Full Name</label>
-      <input class="auth-input" id="signup-name" type="text" placeholder="John Otieno"/>
-      <label class="auth-label">Email Address</label>
-      <input class="auth-input" id="signup-email" type="email" placeholder="your@email.com"/>
-      <label class="auth-label">Password (min 8 characters)</label>
-      <input class="auth-input" id="signup-password" type="password" placeholder="Create a strong password" onkeydown="if(event.key==='Enter')signUp()"/>
-      <div class="auth-error" id="signup-error"></div>
-      <button class="auth-btn" id="signup-btn" onclick="signUp()">Create Account</button>
-      <div class="auth-switch"><a onclick="showMode('signin')">← Back to Sign In</a></div>
-    </div>
-    <div id="auth-mode-reset" style="display:none">
-      <p style="font-size:12px;color:var(--txt3);text-align:center;margin-bottom:20px;line-height:1.6">Enter your registered email to receive a password reset link.</p>
-      <label class="auth-label">Email Address</label>
-      <input class="auth-input" id="reset-email" type="email" placeholder="your@email.com" onkeydown="if(event.key==='Enter')sendReset()"/>
-      <div class="auth-error" id="reset-error"></div>
-      <button class="auth-btn" id="reset-btn" onclick="sendReset()">Send Reset Link</button>
-      <div class="auth-switch"><a onclick="showMode('signin')">← Back to Sign In</a></div>
-    </div>
+
     <div id="auth-mode-newpassword" style="display:none">
       <p style="font-size:12px;color:var(--txt3);text-align:center;margin-bottom:20px;line-height:1.6">Choose a new password for your portal account.</p>
       <label class="auth-label">New Password</label>
@@ -530,9 +511,7 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
             <div style="padding:16px 20px">
               <div style="font-size:11px;color:var(--txt3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Signed in as</div>
               <div style="font-size:13px;font-weight:500;color:var(--txt)" id="portal-email">—</div>
-              <div style="margin-top:14px">
-                <button class="pbtn" onclick="showMode('reset');document.getElementById('auth-screen').style.display='flex';document.getElementById('portal-shell').style.display='none'" style="width:100%;text-align:center;padding:8px">Change Password</button>
-              </div>
+              <div style="margin-top:14px;font-size:11px;color:var(--txt3);line-height:1.5">To change your password, contact the firm and they will send you new credentials.</div>
             </div>
           </div>
           <div class="pcard">
@@ -641,7 +620,7 @@ function empty(icon,title,sub=''){
 
 // ── AUTH SCREENS ──────────────────────────────────────────────────
 function showMode(mode){
-  ['signin','signup','reset','newpassword'].forEach(m=>{
+  ['signin','newpassword'].forEach(m=>{
     const el=document.getElementById('auth-mode-'+m);
     if(el)el.style.display=m===mode?'block':'none';
   });
@@ -658,37 +637,7 @@ async function signIn(){
   btn.disabled=false;btn.textContent='Sign In to Portal';
   if(error){errEl.textContent=error.message;}
 }
-async function signUp(){
-  const name=document.getElementById('signup-name').value.trim();
-  const email=document.getElementById('signup-email').value.trim();
-  const pw=document.getElementById('signup-password').value;
-  const errEl=document.getElementById('signup-error');
-  errEl.textContent='';
-  if(!name){errEl.textContent='Please enter your full name.';return;}
-  if(!email){errEl.textContent='Please enter your email address.';return;}
-  if(!pw||pw.length<8){errEl.textContent='Password must be at least 8 characters.';return;}
-  const btn=document.getElementById('signup-btn');
-  btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Creating account…';
-  const{error}=await sb.auth.signUp({email,password:pw,options:{data:{full_name:name,role:'client'}}});
-  btn.disabled=false;btn.textContent='Create Account';
-  if(error){errEl.textContent=error.message;return;}
-  errEl.style.color='var(--green)';
-  errEl.textContent='Account created! Check your email to confirm, then sign in.';
-}
-async function sendReset(){
-  const email=document.getElementById('reset-email').value.trim();
-  const errEl=document.getElementById('reset-error');
-  errEl.textContent='';
-  if(!email){errEl.textContent='Please enter your email address.';return;}
-  const btn=document.getElementById('reset-btn');
-  btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Sending…';
-  // Use the portal's own URL as redirect so the token lands back here
-  const redirectTo='https://dkmutongadvocate-sys.github.io/dkmaclient/';
-  const{error}=await sb.auth.resetPasswordForEmail(email,{redirectTo});
-  btn.disabled=false;btn.textContent='Send Reset Link';
-  if(error){errEl.textContent=error.message;return;}
-  errEl.style.color='var(--green)';errEl.textContent='Reset link sent! Check your email.';
-}
+// signUp and sendReset removed — accounts are managed by the firm
 async function signOut(){
   await sb.auth.signOut();
   document.getElementById('portal-shell').style.display='none';
@@ -752,7 +701,7 @@ function showNewPasswordScreen(){
   document.getElementById('auth-screen').style.display='flex';
   document.getElementById('portal-shell').style.display='none';
   // Show new password mode
-  ['signin','signup','reset','newpassword'].forEach(m=>{
+  ['signin','newpassword'].forEach(m=>{
     const el=document.getElementById('auth-mode-'+m);
     if(el)el.style.display=m==='newpassword'?'block':'none';
   });
