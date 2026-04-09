@@ -291,6 +291,15 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
       <button class="auth-btn" id="reset-btn" onclick="sendReset()">Send Reset Link</button>
       <div class="auth-switch"><a onclick="showMode('signin')">← Back to Sign In</a></div>
     </div>
+    <div id="auth-mode-newpassword" style="display:none">
+      <p style="font-size:12px;color:var(--txt3);text-align:center;margin-bottom:20px;line-height:1.6">Choose a new password for your portal account.</p>
+      <label class="auth-label">New Password</label>
+      <input class="auth-input" id="newpw-password" type="password" placeholder="Min. 8 characters"/>
+      <label class="auth-label">Confirm New Password</label>
+      <input class="auth-input" id="newpw-confirm" type="password" placeholder="Repeat your new password" onkeydown="if(event.key==='Enter')setNewPassword()"/>
+      <div class="auth-error" id="newpw-error"></div>
+      <button class="auth-btn" id="newpw-btn" onclick="setNewPassword()">Set New Password</button>
+    </div>
   </div>
   <div class="auth-notice">Your portal is secured with end-to-end encryption. Dennis Kimani Mutonga & Associates — Advocates of the High Court of Kenya.</div>
 </div>
@@ -632,8 +641,9 @@ function empty(icon,title,sub=''){
 
 // ── AUTH SCREENS ──────────────────────────────────────────────────
 function showMode(mode){
-  ['signin','signup','reset'].forEach(m=>{
-    document.getElementById('auth-mode-'+m).style.display=m===mode?'block':'none';
+  ['signin','signup','reset','newpassword'].forEach(m=>{
+    const el=document.getElementById('auth-mode-'+m);
+    if(el)el.style.display=m===mode?'block':'none';
   });
 }
 async function signIn(){
@@ -672,7 +682,9 @@ async function sendReset(){
   if(!email){errEl.textContent='Please enter your email address.';return;}
   const btn=document.getElementById('reset-btn');
   btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Sending…';
-  const{error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:window.location.href});
+  // Use the portal's own URL as redirect so the token lands back here
+  const redirectTo=window.location.origin+window.location.pathname;
+  const{error}=await sb.auth.resetPasswordForEmail(email,{redirectTo});
   btn.disabled=false;btn.textContent='Send Reset Link';
   if(error){errEl.textContent=error.message;return;}
   errEl.style.color='var(--green)';errEl.textContent='Reset link sent! Check your email.';
@@ -702,14 +714,15 @@ function showPView(id,el){
 
 // ── INIT ──────────────────────────────────────────────────────────
 async function initPortal(){
+  // Supabase picks up the #access_token from the URL automatically
   const{data:{session}}=await sb.auth.getSession();
-  if(session){
-    currentUser=session.user;
-    launchPortal();
-  } else {
-    document.getElementById('auth-screen').style.display='flex';
-  }
+
   sb.auth.onAuthStateChange(async(event,session)=>{
+    if(event==='PASSWORD_RECOVERY'){
+      // User clicked the reset link — show new password form
+      showNewPasswordScreen();
+      return;
+    }
     if(event==='SIGNED_IN'&&session){
       currentUser=session.user;
       launchPortal();
@@ -718,8 +731,48 @@ async function initPortal(){
       currentUser=null;clientRecord=null;
       document.getElementById('portal-shell').style.display='none';
       document.getElementById('auth-screen').style.display='flex';
+      showMode('signin');
     }
   });
+
+  if(session){
+    currentUser=session.user;
+    launchPortal();
+  } else {
+    document.getElementById('auth-screen').style.display='flex';
+  }
+}
+
+function showNewPasswordScreen(){
+  document.getElementById('auth-screen').style.display='flex';
+  document.getElementById('portal-shell').style.display='none';
+  // Show new password mode
+  ['signin','signup','reset','newpassword'].forEach(m=>{
+    const el=document.getElementById('auth-mode-'+m);
+    if(el)el.style.display=m==='newpassword'?'block':'none';
+  });
+}
+
+async function setNewPassword(){
+  const pw=document.getElementById('newpw-password').value;
+  const pw2=document.getElementById('newpw-confirm').value;
+  const errEl=document.getElementById('newpw-error');
+  errEl.textContent='';
+  if(!pw||pw.length<8){errEl.textContent='Password must be at least 8 characters.';return;}
+  if(pw!==pw2){errEl.textContent='Passwords do not match.';return;}
+  const btn=document.getElementById('newpw-btn');
+  btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Updating…';
+  const{error}=await sb.auth.updateUser({password:pw});
+  btn.disabled=false;btn.textContent='Set New Password';
+  if(error){errEl.textContent=error.message;return;}
+  errEl.style.color='var(--green)';
+  errEl.textContent='Password updated! Signing you in…';
+  setTimeout(()=>{
+    showMode('signin');
+    const{data:{session}}=sb.auth.getSession().then(({data:{session}})=>{
+      if(session){currentUser=session.user;launchPortal();}
+    });
+  },1500);
 }
 
 async function launchPortal(){
