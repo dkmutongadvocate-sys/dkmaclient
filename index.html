@@ -273,13 +273,14 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
     </div>
 
     <div id="auth-mode-newpassword" style="display:none">
-      <p style="font-size:12px;color:var(--txt3);text-align:center;margin-bottom:20px;line-height:1.6">You're using a temporary password. Please set a new password to continue.</p>
+      <p style="font-size:12px;color:var(--txt3);text-align:center;margin-bottom:20px;line-height:1.6">You signed in with a temporary password. Please choose a new password to secure your account and continue.</p>
       <label class="auth-label">New Password</label>
       <input class="auth-input" id="newpw-password" type="password" placeholder="Min. 8 characters"/>
       <label class="auth-label">Confirm New Password</label>
       <input class="auth-input" id="newpw-confirm" type="password" placeholder="Repeat your new password" onkeydown="if(event.key==='Enter')setNewPassword()"/>
       <div class="auth-error" id="newpw-error"></div>
-      <button class="auth-btn" id="newpw-btn" onclick="setNewPassword()">Set New Password</button>
+      <button class="auth-btn" id="newpw-btn" onclick="setNewPassword()">Set New Password &amp; Continue</button>
+      <div class="auth-switch" style="margin-top:14px"><a onclick="signOut();showMode('signin')">← Back to sign in</a></div>
     </div>
   </div>
   <div class="auth-notice">Your portal is secured with end-to-end encryption. Dennis Kimani Mutonga Advocate — Advocates of the High Court of Kenya.</div>
@@ -650,7 +651,18 @@ async function signIn(){
   const portalEmail=toPortalEmail(email);
   const{data,error}=await sb.auth.signInWithPassword({email:portalEmail,password:pw});
   btn.disabled=false;btn.textContent='Sign In to Portal';
-  if(error){errEl.textContent=error.message;return;}
+  if(error){
+    // Supabase returns a generic "Invalid login credentials" for wrong password OR
+    // when a temporary password has expired / not yet been confirmed.
+    // Show a friendlier message that guides the client to contact the firm.
+    const msg=error.message||'';
+    if(msg.toLowerCase().includes('invalid login')||msg.toLowerCase().includes('invalid credentials')){
+      errEl.innerHTML='Incorrect email or password.<br><span style="font-size:11px;color:var(--txt3)">If you were sent a temporary password, please ensure you copied it exactly, or contact the firm for a new one.</span>';
+    } else {
+      errEl.textContent=msg;
+    }
+    return;
+  }
   // Always fetch a fresh user to get the latest metadata (avoids stale session cache
   // which can cause must_change_password=false to persist after a temp password reset)
   const{data:{user:freshUser}}=await sb.auth.getUser();
