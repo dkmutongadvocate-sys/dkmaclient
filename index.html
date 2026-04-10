@@ -6,7 +6,7 @@
 <title>DKMA — Client Portal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -282,7 +282,7 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
       <button class="auth-btn" id="newpw-btn" onclick="setNewPassword()">Set New Password</button>
     </div>
   </div>
-  <div class="auth-notice">Your portal is secured with end-to-end encryption. Dennis Kimani Mutonga Advocate — Advocates of the High Court of Kenya.</div>
+  <div class="auth-notice">Your portal is secured with end-to-end encryption. Dennis Kimani Mutonga & Associates — Advocates of the High Court of Kenya.</div>
 </div>
 
 <!-- PORTAL SHELL -->
@@ -329,7 +329,7 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
         <div class="welcome-text">
           <div class="welcome-name" id="welcome-name">Welcome back</div>
           <div class="welcome-sub" id="welcome-sub">Client Portal</div>
-          <div class="welcome-firm">Dennis Kimani Mutonga Advocate</div>
+          <div class="welcome-firm">Dennis Kimani Mutonga &amp; Associates · Advocates</div>
         </div>
       </div>
       <div class="pstats" id="overview-stats">
@@ -570,8 +570,12 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 
 <script>
 // ── SUPABASE ──────────────────────────────────────────────────────
-const SUPABASE_URL='https://oolqcrpjuqmzxupaozpu.supabase.co';
-const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9vbHFjcnBqdXFtenh1cGFvenB1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU0NDk0MjYsImV4cCI6MjA5MTAyNTQyNn0.G6s3LMbpqpsWqEqbEII8yff4gD3tTZ7hNc3jqOBS1EI';
+const SUPABASE_URL='%%SUPABASE_URL%%';
+const SUPABASE_KEY='%%SUPABASE_ANON_KEY%%';
+if(SUPABASE_URL.includes('%%')||SUPABASE_KEY.includes('%%')){
+  document.body.innerHTML='<div style="font-family:sans-serif;padding:40px;text-align:center;color:#a33"><h2>Configuration Error</h2><p style="margin-top:12px;font-size:14px">Supabase credentials were not injected.<br>Ensure GitHub Actions secrets are set and the workflow has run.</p></div>';
+  throw new Error('Supabase credentials not injected — placeholders still present.');
+}
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const FIRM_BUCKET='matter-documents';
 const CLIENT_BUCKET='client-uploads';
@@ -806,7 +810,7 @@ function renderOverview(){
       <div class="welcome-banner"><div class="welcome-av">?</div><div class="welcome-text">
         <div class="welcome-name">Welcome to your Portal</div>
         <div class="welcome-sub" style="color:rgba(255,255,255,0.7);margin-top:6px;font-size:12px">Your account (${esc(currentUser?.email)}) is not yet linked to a client record. Please contact the firm to complete setup.</div>
-        <div class="welcome-firm">Dennis Kimani Mutonga Advocate</div>
+        <div class="welcome-firm">Dennis Kimani Mutonga &amp; Associates · Advocates</div>
       </div></div>`;return;
   }
   // Stats
