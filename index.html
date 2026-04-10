@@ -577,6 +577,15 @@ if(SUPABASE_URL.includes('%%')||SUPABASE_KEY.includes('%%')){
   throw new Error('Supabase credentials not injected — placeholders still present.');
 }
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{storageKey:'dkma-portal-session'}});
+
+// Portal accounts are stored with a +portal alias to avoid colliding with
+// staff accounts on the same email. The client always types their real email.
+function toPortalEmail(email){
+  if(!email)return email;
+  email=email.trim().toLowerCase();
+  if(email.includes('+portal@'))return email;
+  return email.replace('@','+portal@');
+}
 const FIRM_BUCKET='matter-documents';
 const CLIENT_BUCKET='client-uploads';
 
@@ -637,7 +646,9 @@ async function signIn(){
   if(!email||!pw){errEl.textContent='Please enter email and password.';return;}
   const btn=document.getElementById('auth-btn');
   btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Signing in…';
-  const{data,error}=await sb.auth.signInWithPassword({email,password:pw});
+  // Clients log in with their real email; we silently use the +portal alias
+  const portalEmail=toPortalEmail(email);
+  const{data,error}=await sb.auth.signInWithPassword({email:portalEmail,password:pw});
   btn.disabled=false;btn.textContent='Sign In to Portal';
   if(error){errEl.textContent=error.message;return;}
   // Check if user must change their temporary password
@@ -755,8 +766,9 @@ async function launchPortal(){
   document.getElementById('auth-screen').style.display='none';
   document.getElementById('portal-shell').style.display='flex';
   document.getElementById('portal-loading').style.display='flex';
-  // Find client record by email
-  const{data:cData}=await sb.from('clients').select('*').ilike('email',currentUser.email).maybeSingle();
+  // currentUser.email is the +portal alias — strip it to find the real client record
+  const realEmail=currentUser.email.replace('+portal@','@');
+  const{data:cData}=await sb.from('clients').select('*').ilike('email',realEmail).maybeSingle();
   clientRecord=cData||null;
   if(clientRecord){
     await Promise.all([loadMyMatters(),loadMyEvents(),loadMyInvoices()]);
@@ -772,12 +784,13 @@ async function launchPortal(){
 
 function updateNavUser(){
   const name=clientRecord?.name||currentUser?.email||'Client';
+  const realEmail=(currentUser?.email||'').replace('+portal@','@');
   document.getElementById('nav-av').textContent=initials(name);
   document.getElementById('nav-name').textContent=name;
   document.getElementById('welcome-av').textContent=initials(name);
   document.getElementById('welcome-name').textContent='Welcome, '+name.split(' ')[0];
   document.getElementById('welcome-sub').textContent=clientRecord?.type||'Client';
-  document.getElementById('portal-email').textContent=currentUser?.email||'—';
+  document.getElementById('portal-email').textContent=realEmail||'—';
 }
 
 // ── DATA LOADERS ──────────────────────────────────────────────────
