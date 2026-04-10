@@ -651,8 +651,10 @@ async function signIn(){
   const{data,error}=await sb.auth.signInWithPassword({email:portalEmail,password:pw});
   btn.disabled=false;btn.textContent='Sign In to Portal';
   if(error){errEl.textContent=error.message;return;}
-  // Check if user must change their temporary password
-  const meta=data.user?.user_metadata||{};
+  // Always fetch a fresh user to get the latest metadata (avoids stale session cache
+  // which can cause must_change_password=false to persist after a temp password reset)
+  const{data:{user:freshUser}}=await sb.auth.getUser();
+  const meta=freshUser?.user_metadata||data.user?.user_metadata||{};
   if(meta.must_change_password){
     window._mustChangePassword=true;
     showNewPasswordScreen();
@@ -694,8 +696,10 @@ async function initPortal(){
       // If user just signed in and must change their temporary password, stay on that screen
       if(window._mustChangePassword){return;}
       currentUser=session.user;
-      // If somehow they got here with must_change_password still set in metadata, intercept
-      if(session.user?.user_metadata?.must_change_password){
+      // Always fetch fresh metadata — session.user.user_metadata can be stale
+      // (e.g. after an admin resets the client's password via the service role API)
+      const{data:{user:freshSignedInUser}}=await sb.auth.getUser();
+      if(freshSignedInUser?.user_metadata?.must_change_password||session.user?.user_metadata?.must_change_password){
         window._mustChangePassword=true;
         showNewPasswordScreen();
         return;
@@ -713,8 +717,10 @@ async function initPortal(){
 
   if(session){
     currentUser=session.user;
-    // If the restored session still has the flag, force password change
-    if(session.user?.user_metadata?.must_change_password){
+    // Always fetch fresh metadata on session restore — the cached session token
+    // can carry a stale must_change_password=false even after an admin reset
+    const{data:{user:freshRestoredUser}}=await sb.auth.getUser();
+    if(freshRestoredUser?.user_metadata?.must_change_password||session.user?.user_metadata?.must_change_password){
       window._mustChangePassword=true;
       showNewPasswordScreen();
     } else {
