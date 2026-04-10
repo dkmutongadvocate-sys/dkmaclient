@@ -273,7 +273,7 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
     </div>
 
     <div id="auth-mode-newpassword" style="display:none">
-      <p style="font-size:12px;color:var(--txt3);text-align:center;margin-bottom:20px;line-height:1.6">Choose a new password for your portal account.</p>
+      <p style="font-size:12px;color:var(--txt3);text-align:center;margin-bottom:20px;line-height:1.6">You're using a temporary password. Please set a new password to continue.</p>
       <label class="auth-label">New Password</label>
       <input class="auth-input" id="newpw-password" type="password" placeholder="Min. 8 characters"/>
       <label class="auth-label">Confirm New Password</label>
@@ -282,7 +282,7 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
       <button class="auth-btn" id="newpw-btn" onclick="setNewPassword()">Set New Password</button>
     </div>
   </div>
-  <div class="auth-notice">Your portal is secured with end-to-end encryption. Dennis Kimani Mutonga & Associates — Advocates of the High Court of Kenya.</div>
+  <div class="auth-notice">Your portal is secured with end-to-end encryption. Dennis Kimani Mutonga Advocate — Advocates of the High Court of Kenya.</div>
 </div>
 
 <!-- PORTAL SHELL -->
@@ -329,7 +329,7 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
         <div class="welcome-text">
           <div class="welcome-name" id="welcome-name">Welcome back</div>
           <div class="welcome-sub" id="welcome-sub">Client Portal</div>
-          <div class="welcome-firm">Dennis Kimani Mutonga &amp; Associates · Advocates</div>
+          <div class="welcome-firm">Dennis Kimani Mutonga Advocate</div>
         </div>
       </div>
       <div class="pstats" id="overview-stats">
@@ -637,9 +637,17 @@ async function signIn(){
   if(!email||!pw){errEl.textContent='Please enter email and password.';return;}
   const btn=document.getElementById('auth-btn');
   btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Signing in…';
-  const{error}=await sb.auth.signInWithPassword({email,password:pw});
+  const{data,error}=await sb.auth.signInWithPassword({email,password:pw});
   btn.disabled=false;btn.textContent='Sign In to Portal';
-  if(error){errEl.textContent=error.message;}
+  if(error){errEl.textContent=error.message;return;}
+  // Check if user must change their temporary password
+  const meta=data.user?.user_metadata||{};
+  if(meta.must_change_password){
+    window._mustChangePassword=true;
+    showNewPasswordScreen();
+    return;
+  }
+  // Normal login — portal launches via onAuthStateChange SIGNED_IN
 }
 // signUp and sendReset removed — accounts are managed by the firm
 async function signOut(){
@@ -671,22 +679,21 @@ async function initPortal(){
   const{data:{session}}=await sb.auth.getSession();
 
   sb.auth.onAuthStateChange(async(event,session)=>{
-    if(event==='PASSWORD_RECOVERY'){
-      // User clicked the reset link — show new password form
-      // Set a flag so the SIGNED_IN event that follows doesn't launch the portal
-      window._passwordRecoveryMode=true;
-      showNewPasswordScreen();
-      return;
-    }
     if(event==='SIGNED_IN'&&session){
-      // Don't launch portal if we're in password-recovery mode
-      if(window._passwordRecoveryMode){return;}
+      // If user just signed in and must change their temporary password, stay on that screen
+      if(window._mustChangePassword){return;}
       currentUser=session.user;
+      // If somehow they got here with must_change_password still set in metadata, intercept
+      if(session.user?.user_metadata?.must_change_password){
+        window._mustChangePassword=true;
+        showNewPasswordScreen();
+        return;
+      }
       launchPortal();
     }
     if(event==='SIGNED_OUT'){
       currentUser=null;clientRecord=null;
-      window._passwordRecoveryMode=false;
+      window._mustChangePassword=false;
       document.getElementById('portal-shell').style.display='none';
       document.getElementById('auth-screen').style.display='flex';
       showMode('signin');
@@ -695,7 +702,13 @@ async function initPortal(){
 
   if(session){
     currentUser=session.user;
-    launchPortal();
+    // If the restored session still has the flag, force password change
+    if(session.user?.user_metadata?.must_change_password){
+      window._mustChangePassword=true;
+      showNewPasswordScreen();
+    } else {
+      launchPortal();
+    }
   } else {
     document.getElementById('auth-screen').style.display='flex';
   }
@@ -721,12 +734,16 @@ async function setNewPassword(){
   if(pw!==pw2){errEl.textContent='Passwords do not match.';return;}
   const btn=document.getElementById('newpw-btn');
   btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Updating…';
-  const{error}=await sb.auth.updateUser({password:pw});
+  // Update password AND clear the must_change_password flag from metadata
+  const{error}=await sb.auth.updateUser({
+    password:pw,
+    data:{must_change_password:false}
+  });
   btn.disabled=false;btn.textContent='Set New Password';
   if(error){errEl.textContent=error.message;return;}
   errEl.style.color='var(--green)';
   errEl.textContent='Password updated! Signing you in…';
-  window._passwordRecoveryMode=false;
+  window._mustChangePassword=false;
   setTimeout(async()=>{
     const{data:{session}}=await sb.auth.getSession();
     if(session){currentUser=session.user;launchPortal();}
@@ -810,7 +827,7 @@ function renderOverview(){
       <div class="welcome-banner"><div class="welcome-av">?</div><div class="welcome-text">
         <div class="welcome-name">Welcome to your Portal</div>
         <div class="welcome-sub" style="color:rgba(255,255,255,0.7);margin-top:6px;font-size:12px">Your account (${esc(currentUser?.email)}) is not yet linked to a client record. Please contact the firm to complete setup.</div>
-        <div class="welcome-firm">Dennis Kimani Mutonga &amp; Associates · Advocates</div>
+        <div class="welcome-firm">Dennis Kimani Mutonga Advocate</div>
       </div></div>`;return;
   }
   // Stats
