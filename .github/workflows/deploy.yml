@@ -25,10 +25,23 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      - name: Debug — verify file and secrets
+        run: |
+          echo "--- Files in root ---"
+          ls -la
+          echo "--- Placeholders in index.html ---"
+          grep -o '%%[^%]*%%' index.html | sort | uniq || echo "No placeholders found"
+          echo "--- SUPABASE_URL secret ---"
+          if [ -z "${{ secrets.SUPABASE_URL }}" ]; then echo "MISSING"; else echo "SET ($(echo '${{ secrets.SUPABASE_URL }}' | wc -c) chars)"; fi
+          echo "--- SUPABASE_ANON_KEY secret ---"
+          if [ -z "${{ secrets.SUPABASE_ANON_KEY }}" ]; then echo "MISSING"; else echo "SET ($(echo '${{ secrets.SUPABASE_ANON_KEY }}' | wc -c) chars)"; fi
+
       - name: Inject Supabase credentials
         run: |
           sed -i "s|%%SUPABASE_URL%%|${{ secrets.SUPABASE_URL }}|g" index.html
           sed -i "s|%%SUPABASE_ANON_KEY%%|${{ secrets.SUPABASE_ANON_KEY }}|g" index.html
+          echo "--- Post-injection check ---"
+          grep -o '%%[^%]*%%' index.html && echo "WARNING: placeholders still present!" || echo "OK — all replaced"
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
