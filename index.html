@@ -647,16 +647,31 @@ async function signIn(){
   if(!email||!pw){errEl.textContent='Please enter email and password.';return;}
   const btn=document.getElementById('auth-btn');
   btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Signing in…';
-  // Clients log in with their real email; we silently use the +portal alias
+
+  // Primary attempt: +portal alias (e.g. client+portal@gmail.com)
   const portalEmail=toPortalEmail(email);
-  const{data,error}=await sb.auth.signInWithPassword({email:portalEmail,password:pw});
+  let{data,error}=await sb.auth.signInWithPassword({email:portalEmail,password:pw});
+
+  // Fallback: if the +portal alias doesn't exist, try the raw email.
+  // This handles clients whose Supabase account was provisioned directly
+  // on their plain email (e.g. when a temp password is set via the dashboard
+  // before the +portal alias has been created).
+  if(error&&(error.message||'').toLowerCase().includes('invalid')){
+    const rawEmail=email.trim().toLowerCase();
+    if(rawEmail!==portalEmail){
+      const fallback=await sb.auth.signInWithPassword({email:rawEmail,password:pw});
+      if(!fallback.error){
+        data=fallback.data;
+        error=null;
+      }
+      // If both fail, keep the original error so the message below is shown
+    }
+  }
+
   btn.disabled=false;btn.textContent='Sign In to Portal';
   if(error){
-    // Supabase returns a generic "Invalid login credentials" for wrong password OR
-    // when a temporary password has expired / not yet been confirmed.
-    // Show a friendlier message that guides the client to contact the firm.
     const msg=error.message||'';
-    if(msg.toLowerCase().includes('invalid login')||msg.toLowerCase().includes('invalid credentials')){
+    if(msg.toLowerCase().includes('invalid login')||msg.toLowerCase().includes('invalid credentials')||msg.toLowerCase().includes('invalid')){
       errEl.innerHTML='Incorrect email or password.<br><span style="font-size:11px;color:var(--txt3)">If you were sent a temporary password, please ensure you copied it exactly, or contact the firm for a new one.</span>';
     } else {
       errEl.textContent=msg;
