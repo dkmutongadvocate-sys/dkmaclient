@@ -4,6 +4,14 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>DKMA — Client Portal</title>
+<meta name="theme-color" content="#0D1B2A"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="DKMA Portal"/>
+<meta name="description" content="Secure client portal — DKMA Advocates"/>
+<link rel="manifest" href="manifest-portal.json"/>
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='80' fill='%230D1B2A'/><text y='320' x='256' font-size='280' text-anchor='middle' font-family='Georgia,serif' fill='%23B8953A'>⚖</text></svg>"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"></script>
@@ -249,6 +257,21 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
   .welcome-banner{flex-direction:column;text-align:center}
   .msg-layout{height:calc(100vh - 130px)}
 }
+
+/* ── PWA INSTALL BANNER ──────────────────────────────────────────── */
+#pwa-install-banner{
+  position:fixed;bottom:0;left:0;right:0;background:var(--navy);z-index:8000;
+  padding:14px 20px;display:flex;align-items:center;gap:14px;
+  box-shadow:0 -4px 20px rgba(0,0,0,0.3);transform:translateY(100%);
+  transition:transform 0.35s cubic-bezier(0.34,1.2,0.64,1);
+}
+#pwa-install-banner.show{transform:translateY(0)}
+.pwa-banner-icon{font-size:28px;flex-shrink:0}
+.pwa-banner-text{flex:1}
+.pwa-banner-title{font-family:'Playfair Display',serif;font-size:14px;color:#fff;font-weight:500}
+.pwa-banner-sub{font-size:11px;color:rgba(255,255,255,0.55);margin-top:2px;line-height:1.4}
+.pwa-install-btn{background:var(--gold);color:var(--navy);border:none;padding:8px 18px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap;flex-shrink:0}
+.pwa-dismiss-btn{background:none;border:none;color:rgba(255,255,255,0.4);font-size:20px;cursor:pointer;padding:4px;line-height:1;flex-shrink:0}
 </style>
 </head>
 <body>
@@ -814,6 +837,8 @@ async function launchPortal(){
   document.getElementById('portal-loading').style.display='none';
   updateNavUser();
   showPView('overview',document.querySelector('.topnav-tab'));
+  // Init notifications after data is loaded so we can seed known state
+  setTimeout(initPortalNotifications, 1000);
 }
 
 function updateNavUser(){
@@ -1343,5 +1368,203 @@ window.addEventListener('load',()=>{
   initPortal();
 });
 </script>
+
+<!-- PWA INSTALL BANNER -->
+<div id="pwa-install-banner">
+  <div class="pwa-banner-icon">📱</div>
+  <div class="pwa-banner-text">
+    <div class="pwa-banner-title">Install DKMA Client Portal</div>
+    <div class="pwa-banner-sub">Add to your home screen for quick access — works offline too.</div>
+  </div>
+  <button class="pwa-install-btn" id="pwa-install-btn" onclick="triggerPwaInstall()">Install App</button>
+  <button class="pwa-dismiss-btn" onclick="dismissPwaBanner()" title="Dismiss">×</button>
+</div>
+
+<script>
+// ── SERVICE WORKER REGISTRATION ───────────────────────────────────
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js', {scope: './' })
+      .then(reg => {
+        console.log('[DKMA Portal] SW registered:', reg.scope);
+        window._swReg = reg;
+      })
+      .catch(err => console.warn('[DKMA Portal] SW registration failed:', err));
+  });
+  // Listen for messages from SW (e.g. notification click navigation)
+  navigator.serviceWorker.addEventListener('message', event => {
+    if(event.data?.type === 'NOTIFICATION_CLICK'){
+      const hash = (event.data.url || '').split('#')[1];
+      if(hash){
+        const tabMap = {messages:'messages', documents:'documents', matters:'matters'};
+        const view = tabMap[hash];
+        if(view){
+          const tab = document.querySelector(`.topnav-tab[onclick*="${view}"]`);
+          if(tab) tab.click();
+        }
+      }
+    }
+  });
+}
+
+// ── PWA INSTALL PROMPT ────────────────────────────────────────────
+let _deferredInstallPrompt = null;
+const _pwaInstallKey = 'dkma-portal-pwa-dismissed';
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _deferredInstallPrompt = e;
+  // Only show if not previously dismissed
+  if(!sessionStorage.getItem(_pwaInstallKey)){
+    setTimeout(showPwaBanner, 4000);
+  }
+});
+
+window.addEventListener('appinstalled', () => {
+  hidePwaBanner();
+  _deferredInstallPrompt = null;
+  toast('App installed! Find it on your home screen.');
+});
+
+function showPwaBanner(){
+  // Don't show if already running as installed PWA
+  if(window.matchMedia('(display-mode: standalone)').matches) return;
+  if(window.navigator.standalone) return; // iOS Safari
+  const b = document.getElementById('pwa-install-banner');
+  if(b) b.classList.add('show');
+}
+
+function hidePwaBanner(){
+  const b = document.getElementById('pwa-install-banner');
+  if(b) b.classList.remove('show');
+}
+
+function dismissPwaBanner(){
+  hidePwaBanner();
+  sessionStorage.setItem(_pwaInstallKey, '1');
+}
+
+async function triggerPwaInstall(){
+  if(!_deferredInstallPrompt){
+    // iOS Safari fallback — show instructions
+    showIosInstallGuide();
+    return;
+  }
+  _deferredInstallPrompt.prompt();
+  const { outcome } = await _deferredInstallPrompt.userChoice;
+  if(outcome === 'accepted') hidePwaBanner();
+  _deferredInstallPrompt = null;
+}
+
+function showIosInstallGuide(){
+  const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(13,27,42,0.85);z-index:9999;display:flex;align-items:flex-end;justify-content:center;padding:20px';
+  const steps = isIos && isSafari
+    ? `<div style="margin-top:14px;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;gap:12px;align-items:center"><div style="font-size:22px">1.</div><div>Tap the <strong>Share</strong> button <span style="font-size:18px">⎦⬆</span> at the bottom of Safari</div></div>
+        <div style="display:flex;gap:12px;align-items:center"><div style="font-size:22px">2.</div><div>Scroll down and tap <strong>"Add to Home Screen"</strong></div></div>
+        <div style="display:flex;gap:12px;align-items:center"><div style="font-size:22px">3.</div><div>Tap <strong>Add</strong> — the app icon will appear on your home screen</div></div>
+      </div>`
+    : `<div style="margin-top:12px;font-size:13px;color:rgba(255,255,255,0.7);line-height:1.6">
+        Open this page in <strong>Chrome</strong> on Android or <strong>Safari</strong> on iPhone, then use the browser menu to install or add to home screen.
+      </div>`;
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:16px 16px 8px 8px;padding:28px;max-width:420px;width:100%">
+      <div style="font-family:'Playfair Display',serif;font-size:18px;color:var(--navy);margin-bottom:6px">📱 Install on Your Device</div>
+      <div style="font-size:13px;color:var(--txt2)">Your browser doesn't support automatic install prompts.</div>
+      ${steps}
+      <button onclick="this.closest('div[style*=fixed]').remove()" style="margin-top:20px;width:100%;background:var(--navy);color:#fff;border:none;padding:11px;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer;font-weight:500">Got it</button>
+    </div>`;
+  document.body.appendChild(overlay);
+}
+
+// ── PORTAL BROWSER NOTIFICATIONS ─────────────────────────────────
+let _portalNotifPermission = 'default';
+let _portalNotifInterval = null;
+let _portalLastMsgIds = new Set();
+let _portalLastEventIds = new Set();
+
+async function initPortalNotifications(){
+  if(!('Notification' in window)) return;
+  _portalNotifPermission = Notification.permission;
+  if(Notification.permission === 'granted'){
+    startPortalNotifPolling();
+  } else if(Notification.permission !== 'denied'){
+    // Soft prompt after 5s
+    setTimeout(() => {
+      const t = document.createElement('div');
+      t.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;z-index:9000;display:flex;align-items:center;gap:12px;box-shadow:0 4px 20px rgba(0,0,0,0.25);max-width:360px;width:calc(100% - 40px)';
+      t.innerHTML = `<span>🔔</span><span style="flex:1;line-height:1.4">Get notified when the firm sends you messages or shares documents.</span><button onclick="requestPortalNotifPermission(this)" style="background:var(--gold);color:var(--navy);border:none;padding:5px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">Enable</button><button onclick="this.closest('div').remove()" style="background:none;border:none;color:rgba(255,255,255,0.5);cursor:pointer;font-size:18px;line-height:1;padding:0 4px;flex-shrink:0">×</button>`;
+      document.body.appendChild(t);
+      setTimeout(() => t.remove(), 14000);
+    }, 5000);
+  }
+}
+
+async function requestPortalNotifPermission(btn){
+  if(btn) btn.closest('div[style*=fixed]')?.remove();
+  const result = await Notification.requestPermission();
+  _portalNotifPermission = result;
+  if(result === 'granted'){
+    toast('Notifications enabled ✓');
+    startPortalNotifPolling();
+    setTimeout(() => portalFireNotif('DKMA Notifications Active', "You'll be notified of new messages and document shares.", '⚖️'), 600);
+  }
+}
+
+function portalFireNotif(title, body, icon='⚖️'){
+  if(_portalNotifPermission !== 'granted') return;
+  try {
+    const n = new Notification(title, {
+      body,
+      icon: `data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>${icon}</text></svg>`,
+      tag: title + '_' + body.slice(0,30),
+    });
+    n.onclick = () => { window.focus(); n.close(); };
+  } catch(e){}
+}
+
+function startPortalNotifPolling(){
+  if(_portalNotifInterval) return;
+  // Seed known state
+  _portalLastMsgIds = new Set(myMessages.map(m => m.id));
+  myEvents.forEach(e => _portalLastEventIds.add(e.id));
+  checkPortalTodayEvents();
+  _portalNotifInterval = setInterval(async () => {
+    await pollPortalNewMessages();
+  }, 60000);
+}
+
+async function pollPortalNewMessages(){
+  if(!clientRecord || _portalNotifPermission !== 'granted') return;
+  const{data} = await sb.from('client_messages')
+    .select('*')
+    .eq('client_id', clientRecord.id)
+    .eq('sender', 'firm')
+    .eq('read_by_client', false)
+    .order('created_at', {ascending: false})
+    .limit(10);
+  if(!data) return;
+  const newMsgs = data.filter(m => !_portalLastMsgIds.has(m.id));
+  newMsgs.forEach(m => {
+    _portalLastMsgIds.add(m.id);
+    portalFireNotif('New message from DKMA', m.message?.slice(0,100) || 'You have a new message', '💬');
+  });
+}
+
+function checkPortalTodayEvents(){
+  if(_portalNotifPermission !== 'granted') return;
+  const today = new Date().toISOString().slice(0,10);
+  const todayEvs = myEvents.filter(e => e.event_date === today && !_portalLastEventIds.has('fired_' + e.id));
+  todayEvs.forEach(e => {
+    _portalLastEventIds.add('fired_' + e.id);
+    const body = (e.event_time ? e.event_time + ' · ' : '') + (e.location || '');
+    portalFireNotif('Today: ' + e.title, body || 'Scheduled for today', '📅');
+  });
+}
+</script>
+
 </body>
 </html>
