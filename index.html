@@ -476,7 +476,7 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
       <div class="topnav-tab" onclick="showPView('invoices',this)">Invoices</div>
       <div class="topnav-tab" onclick="showPView('upload',this)">Upload</div>
       <div class="topnav-tab" onclick="showPView('messages',this)" id="msg-tab">Messages <span id="msg-unread-badge" style="display:none;background:#E2443A;color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;margin-left:3px;vertical-align:middle">0</span></div>
-      <div class="topnav-tab" onclick="showPView('profile',this)">My Profile</div>
+      <div class="topnav-tab" onclick="showPView('parties',this)">Other Parties</div>
     </div>
     <div class="topnav-right">
       <div class="topnav-user" onclick="showPView('profile',null)">
@@ -617,6 +617,17 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
           <div id="my-uploads-list"></div>
         </div>
       </div>
+    </div>
+
+    <!-- ── OTHER PARTIES ──────────────────────────────────── -->
+    <div class="pview" id="pview-parties">
+      <div style="margin-bottom:20px;display:flex;align-items:flex-end;justify-content:space-between">
+        <div>
+          <h2 style="font-family:'Playfair Display',serif;font-size:22px;font-weight:500">Other Parties</h2>
+          <p style="font-size:12px;color:var(--txt3);margin-top:4px">Parties involved in your matters. You may update their contact details below.</p>
+        </div>
+      </div>
+      <div id="parties-container"></div>
     </div>
 
     <!-- ── PROFILE ──────────────────────────────────────────── -->
@@ -771,9 +782,9 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
       Messages
       <span class="portal-drawer-badge" id="pdi-msg-badge" style="display:none">0</span>
     </div>
-    <div class="portal-drawer-item" id="pdi-profile" onclick="showPView('profile',null,true);closePortalDrawer()">
-      <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5" r="3" stroke="currentColor" stroke-width="1.4"/><path d="M2 14c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
-      My Profile
+    <div class="portal-drawer-item" id="pdi-parties" onclick="showPView('parties',null,true);closePortalDrawer()">
+      <svg viewBox="0 0 16 16" fill="none"><circle cx="5" cy="5" r="2.5" stroke="currentColor" stroke-width="1.4"/><circle cx="11" cy="5" r="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M1 14c0-2.761 1.791-5 4-5M15 14c0-2.761-1.791-5-4-5M8 9c1.5 0 3 1.2 3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+      Other Parties
     </div>
   </div>
   <div class="portal-drawer-footer">
@@ -955,6 +966,7 @@ function showPView(id,el,fromMobile){
   if(id==='invoices')renderInvoices();
   if(id==='upload'){renderMyUploads();populateUploadMatterSelect();}
   if(id==='profile')renderProfile();
+  if(id==='parties')renderParties();
   if(id==='messages'){loadAndRenderMessages();}
 }
 
@@ -2023,6 +2035,154 @@ function checkPortalTodayEvents(){
     const body = (e.event_time ? e.event_time + ' · ' : '') + (e.location || '');
     portalFireNotif('Today: ' + e.title, body || 'Scheduled for today', '📅');
   });
+}
+
+// ── OTHER PARTIES ────────────────────────────────────────────────
+let _partiesCache = {}; // keyed by matter_id
+
+async function renderParties(){
+  const c = document.getElementById('parties-container');
+  if(!clientRecord){c.innerHTML=`<div class="pcard">${empty('👥','Account not linked','Contact the firm to link your portal account.')}</div>`;return;}
+  if(!myMatters.length){c.innerHTML=`<div class="pcard">${empty('👥','No matters yet','Other parties will appear here once matters are opened.')}</div>`;return;}
+  c.innerHTML=`<div style="padding:32px;text-align:center;color:var(--txt3)"><div class="big-spinner" style="margin:0 auto 12px"></div><div style="font-size:13px">Loading parties…</div></div>`;
+
+  // Load all parties for the client's matters
+  const matterIds = myMatters.map(m=>m.id);
+  const {data, error} = await sb.from('matter_parties')
+    .select('*')
+    .in('matter_id', matterIds)
+    .order('created_at', {ascending:true});
+
+  if(error){
+    c.innerHTML=`<div class="pcard"><div style="padding:28px;text-align:center;font-size:13px;color:var(--txt3)">Unable to load parties. Please try again later.</div></div>`;
+    return;
+  }
+  const parties = data||[];
+  _partiesCache = {};
+  parties.forEach(p=>{ if(!_partiesCache[p.matter_id]) _partiesCache[p.matter_id]=[]; _partiesCache[p.matter_id].push(p); });
+
+  if(!parties.length){
+    c.innerHTML=`<div class="pcard">${empty('👥','No other parties recorded','Other parties in your matters will appear here once added by the firm.')}</div>`;
+    return;
+  }
+
+  const roleLabel = r => ({plaintiff:'Plaintiff',defendant:'Defendant',respondent:'Respondent',applicant:'Applicant',petitioner:'Petitioner',claimant:'Claimant',witness:'Witness',expert:'Expert Witness',insurer:'Insurer',employer:'Employer',employee:'Employee',landlord:'Landlord',tenant:'Tenant',buyer:'Buyer',seller:'Seller',borrower:'Borrower',lender:'Lender',guarantor:'Guarantor',trustee:'Trustee',beneficiary:'Beneficiary',executor:'Executor',administrator:'Administrator',other:'Other Party'}[r]||r||'Party');
+
+  const roleBadge = r => {
+    const colors = {plaintiff:'#FCEBEB:#A32D2D',defendant:'#E6F1FB:#185FA5',respondent:'#E6F1FB:#185FA5',applicant:'#EAF3DE:#2D6A4F',petitioner:'#FAEEDA:#854F0B',claimant:'#FCEBEB:#A32D2D',witness:'var(--cream2):var(--txt2)',expert:'#EEEDFE:#3C3489',other:'var(--cream2):var(--txt2)'};
+    const [bg,col] = (colors[r]||'var(--cream2):var(--txt2)').split(':');
+    return `<span style="font-size:10px;padding:2px 9px;border-radius:10px;font-weight:500;background:${bg};color:${col}">${esc(roleLabel(r))}</span>`;
+  };
+
+  c.innerHTML = myMatters.filter(m=>_partiesCache[m.id]&&_partiesCache[m.id].length).map(m=>{
+    const pts = _partiesCache[m.id]||[];
+    return `<div class="pcard" style="margin-bottom:18px">
+      <div class="pcard-header">
+        <div>
+          <div class="pcard-title">📁 ${esc(m.title)}</div>
+          <div class="pcard-sub">${pts.length} part${pts.length!==1?'ies':'y'} recorded</div>
+        </div>
+        ${spill(m.status)}
+      </div>
+      ${pts.map(p=>`
+      <div style="display:flex;align-items:flex-start;gap:14px;padding:14px 20px;border-bottom:1px solid var(--brd)" id="party-row-${p.id}">
+        <div style="width:38px;height:38px;border-radius:50%;background:var(--cream2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--txt2);flex-shrink:0;border:1px solid var(--brd)">${initials(p.name||'?')}</div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+            <span style="font-size:13px;font-weight:500;color:var(--txt)">${esc(p.name||'—')}</span>
+            ${roleBadge(p.role)}
+          </div>
+          <div style="font-size:11px;color:var(--txt3);line-height:1.7">
+            ${p.phone?`<span>📞 ${esc(p.phone)}</span>&nbsp;&nbsp;`:''}
+            ${p.email?`<span>✉️ ${esc(p.email)}</span>&nbsp;&nbsp;`:''}
+            ${p.address?`<span>📍 ${esc(p.address)}</span>`:''}
+            ${!p.phone&&!p.email&&!p.address?'<span style="color:var(--brd2)">No contact details on file</span>':''}
+          </div>
+          ${p.notes?`<div style="margin-top:5px;font-size:11px;color:var(--txt3);background:var(--cream);padding:5px 9px;border-radius:5px;line-height:1.5">${esc(p.notes.slice(0,120))}${p.notes.length>120?'…':''}</div>`:''}
+        </div>
+        <button class="pbtn" style="font-size:11px;flex-shrink:0" onclick="openPartyEditOverlay('${p.id}','${esc(p.matter_id)}')">✏️ Edit</button>
+      </div>`).join('')}
+    </div>`;
+  }).join('');
+}
+
+async function openPartyEditOverlay(partyId, matterId){
+  // Find party in cache
+  const allParties = Object.values(_partiesCache).flat();
+  const p = allParties.find(x=>String(x.id)===String(partyId));
+  if(!p){toast('Party not found.',true);return;}
+  const m = myMatters.find(x=>x.id===matterId);
+
+  const overlay = document.createElement('div');
+  overlay.id = 'party-edit-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(13,27,42,0.7);z-index:3000;display:flex;align-items:flex-end;justify-content:center;padding:0';
+  overlay.innerHTML = `
+    <div style="background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:540px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 -8px 40px rgba(0,0,0,0.25)">
+      <div style="background:var(--navy);padding:18px 22px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+        <div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">${m?esc(m.title):''}</div>
+          <div style="font-family:'Playfair Display',serif;font-size:17px;color:#fff;font-weight:500">Edit Party Details</div>
+        </div>
+        <button onclick="document.getElementById('party-edit-overlay').remove()" style="background:rgba(255,255,255,0.1);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;line-height:1">×</button>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:22px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--brd)">
+          <div style="width:42px;height:42px;border-radius:50%;background:var(--cream2);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:var(--txt2);border:1px solid var(--brd)">${initials(p.name||'?')}</div>
+          <div>
+            <div style="font-size:14px;font-weight:500;color:var(--txt)">${esc(p.name||'—')}</div>
+            <div style="font-size:11px;color:var(--txt3);margin-top:2px">Role: ${esc(p.role||'Party')}</div>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--txt3);background:#E6F1FB;padding:10px 14px;border-radius:7px;margin-bottom:18px;line-height:1.55">
+          ℹ️ You can update the contact details for this party. The firm will be notified of any changes.
+        </div>
+        <div class="pform-row">
+          <label class="pform-label">Phone Number</label>
+          <input class="pform-input" id="pedit-phone" value="${esc(p.phone||'')}" placeholder="e.g. +254 700 000 000"/>
+        </div>
+        <div class="pform-row">
+          <label class="pform-label">Email Address</label>
+          <input class="pform-input" id="pedit-email" type="email" value="${esc(p.email||'')}" placeholder="e.g. party@example.com"/>
+        </div>
+        <div class="pform-row">
+          <label class="pform-label">Physical Address</label>
+          <input class="pform-input" id="pedit-address" value="${esc(p.address||'')}" placeholder="e.g. Westlands, Nairobi"/>
+        </div>
+        <div class="pform-row">
+          <label class="pform-label">Notes / Additional Info</label>
+          <textarea class="pform-input" id="pedit-notes" rows="3" placeholder="Any additional information about this party…" style="resize:vertical">${esc(p.notes||'')}</textarea>
+        </div>
+        <div id="pedit-error" style="font-size:12px;color:var(--red);min-height:16px;margin-bottom:8px"></div>
+        <div style="display:flex;gap:10px">
+          <button class="pbtn primary" id="pedit-save-btn" onclick="savePartyEdit('${p.id}','${matterId}')" style="flex:1;padding:10px;font-size:13px">Save Changes</button>
+          <button class="pbtn" onclick="document.getElementById('party-edit-overlay').remove()" style="padding:10px 18px">Cancel</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', e=>{if(e.target===overlay)overlay.remove();});
+}
+
+async function savePartyEdit(partyId, matterId){
+  const btn = document.getElementById('pedit-save-btn');
+  const errEl = document.getElementById('pedit-error');
+  if(!btn)return;
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span>Saving…';
+  const payload = {
+    phone: document.getElementById('pedit-phone').value.trim()||null,
+    email: document.getElementById('pedit-email').value.trim()||null,
+    address: document.getElementById('pedit-address').value.trim()||null,
+    notes: document.getElementById('pedit-notes').value.trim()||null,
+  };
+  const {data, error} = await sb.from('matter_parties').update(payload).eq('id', partyId).select().single();
+  btn.disabled=false; btn.textContent='Save Changes';
+  if(error){ errEl.textContent='Error saving: '+error.message; return; }
+  // Update cache
+  const pts = _partiesCache[matterId];
+  if(pts){ const idx=pts.findIndex(x=>String(x.id)===String(partyId)); if(idx>-1)pts[idx]={...pts[idx],...payload}; }
+  document.getElementById('party-edit-overlay').remove();
+  toast('Party details updated.');
+  renderParties();
 }
 
 // ── MATTER UPDATES OVERLAY (client view) ──────────────────────────
