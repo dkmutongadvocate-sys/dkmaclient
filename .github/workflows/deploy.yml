@@ -23,25 +23,23 @@ jobs:
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
 
-      - name: Debug — verify file and secrets
-        run: |
-          echo "--- Files in root ---"
-          ls -la
-          echo "--- Placeholders in index.html ---"
-          grep -o '%%[^%]*%%' index.html | sort | uniq || echo "No placeholders found"
-          echo "--- SUPABASE_URL secret ---"
-          if [ -z "${{ secrets.SUPABASE_URL }}" ]; then echo "MISSING"; else echo "SET ($(echo '${{ secrets.SUPABASE_URL }}' | wc -c) chars)"; fi
-          echo "--- SUPABASE_ANON_KEY secret ---"
-          if [ -z "${{ secrets.SUPABASE_ANON_KEY }}" ]; then echo "MISSING"; else echo "SET ($(echo '${{ secrets.SUPABASE_ANON_KEY }}' | wc -c) chars)"; fi
-
-      - name: Inject Supabase credentials
+      - name: Inject secrets
         run: |
           sed -i "s|%%SUPABASE_URL%%|${{ secrets.SUPABASE_URL }}|g" index.html
           sed -i "s|%%SUPABASE_ANON_KEY%%|${{ secrets.SUPABASE_ANON_KEY }}|g" index.html
-          echo "--- Post-injection check ---"
-          grep -o '%%[^%]*%%' index.html && echo "WARNING: placeholders still present!" || echo "OK — all replaced"
+          sed -i "s|%%LAWYER_PHONE%%|${{ secrets.LAWYER_PHONE }}|g" index.html
+          echo "Secrets injected"
+
+      - name: Verify no placeholders remain
+        run: |
+          if grep -q '%%SUPABASE_URL%%\|%%SUPABASE_ANON_KEY%%\|%%LAWYER_PHONE%%' index.html; then
+            echo "ERROR: Unreplaced placeholders found"
+            grep -n '%%SUPABASE_URL%%\|%%SUPABASE_ANON_KEY%%\|%%LAWYER_PHONE%%' index.html
+            exit 1
+          fi
+          echo "All placeholders replaced successfully"
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
