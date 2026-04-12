@@ -2256,7 +2256,12 @@ async function portalSendAlert(){
   if(data?.id)refTxt.textContent=`Alert reference: ${String(data.id).slice(0,8).toUpperCase()}`;
 
   btn.disabled=false;
-  _sosSetState('sent');
+  // Go to 'active' locked state — client cannot resend until firm resolves
+  _sosSetState('active');
+  const dt=new Date(now);
+  const timeStr=dt.toLocaleString('en-KE',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+  const activeTimeEl=document.getElementById('sos-active-time');
+  if(activeTimeEl)activeTimeEl.textContent='Sent '+timeStr+' — awaiting firm response';
   // Poll until resolved so client can't send duplicates
   startAlertResolutionPoll(data?.id);
 }
