@@ -509,7 +509,7 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
       <div class="pstats" id="overview-stats">
         <div class="pstat"><div class="pstat-label">Active Matters</div><div class="pstat-val" id="stat-matters">—</div><div class="pstat-sub">Open cases</div></div>
         <div class="pstat"><div class="pstat-label">Upcoming Events</div><div class="pstat-val" id="stat-events">—</div><div class="pstat-sub">Next 30 days</div></div>
-        <div class="pstat"><div class="pstat-label">Documents</div><div class="pstat-val" id="stat-docs">—</div><div class="pstat-sub">Shared with you</div></div>
+        <div class="pstat"><div class="pstat-label">Documents</div><div class="pstat-val" id="stat-docs">—</div><div class="pstat-sub">Firm shared &amp; uploads</div></div>
         <div class="pstat"><div class="pstat-label">Invoices</div><div class="pstat-val" id="stat-invoices">—</div><div class="pstat-sub">Total issued</div></div>
       </div>
       <div style="display:grid;grid-template-columns:3fr 2fr;gap:18px">
@@ -538,7 +538,7 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
       <div style="margin-bottom:20px;display:flex;align-items:flex-end;justify-content:space-between">
         <div>
           <h2 style="font-family:'Playfair Display',serif;font-size:22px;font-weight:500">Documents</h2>
-          <p style="font-size:12px;color:var(--txt3);margin-top:4px">Files shared with you by the firm, organised by matter.</p>
+          <p style="font-size:12px;color:var(--txt3);margin-top:4px">Documents shared by the firm and files you have uploaded.</p>
         </div>
         <button class="pbtn gold" onclick="showPView('upload',null)">📎 Upload Document</button>
       </div>
@@ -1151,13 +1151,16 @@ async function loadSharedDocs(){
     }
   }
   sharedDocs=allDocs;
-  document.getElementById('stat-docs').textContent=sharedDocs.length;
+  document.getElementById('stat-docs').textContent=sharedDocs.length+myUploads.length;
 }
 
 async function loadMyUploads(){
   if(!clientRecord){myUploads=[];return;}
   const{data,error}=await sb.storage.from(CLIENT_BUCKET).list(clientRecord.id,{limit:200,sortBy:{column:'created_at',order:'desc'}});
   myUploads=(!error&&data)?data.filter(f=>f.name!=='.emptyFolderPlaceholder'):[];
+  // Update combined doc count (firm shared + my uploads)
+  const statEl=document.getElementById('stat-docs');
+  if(statEl)statEl.textContent=sharedDocs.length+myUploads.length;
 }
 
 async function loadGazettedHolidays(){
@@ -1281,21 +1284,72 @@ function renderMatters(){
 function renderDocuments(){
   const c=document.getElementById('documents-container');
   if(!clientRecord){c.innerHTML=empty('📂','Account not linked','Contact the firm to link your portal account.');return;}
-  if(!sharedDocs.length){
-    c.innerHTML=`<div class="pcard">${empty('📂','No documents shared yet','Documents shared by the firm will appear here, organised by matter.')}</div>`;return;
+
+  const hasFirmDocs=sharedDocs.length>0;
+  const hasMyUploads=myUploads.length>0;
+
+  if(!hasFirmDocs&&!hasMyUploads){
+    c.innerHTML=`<div class="pcard">${empty('📂','No documents yet','Documents shared by the firm and files you upload will both appear here.')}</div>`;return;
   }
-  // Group by matter
-  const byMatter={};
-  sharedDocs.forEach(f=>{
-    const key=f.matterId;
-    if(!byMatter[key])byMatter[key]={title:f.matterTitle,files:[]};
-    byMatter[key].files.push(f);
-  });
-  c.innerHTML=Object.values(byMatter).map(grp=>`
-    <div class="pcard">
-      <div class="pcard-header"><div class="pcard-title">📁 ${esc(grp.title)}</div><span style="font-size:11px;color:var(--txt3)">${grp.files.length} file${grp.files.length!==1?'s':''}</span></div>
-      ${grp.files.map(f=>sharedDocRow(f)).join('')}
-    </div>`).join('');
+
+  let html='';
+
+  // ── Section 1: Firm-shared documents, grouped by matter ──
+  if(hasFirmDocs){
+    const byMatter={};
+    sharedDocs.forEach(f=>{
+      const key=f.matterId;
+      if(!byMatter[key])byMatter[key]={title:f.matterTitle,files:[]};
+      byMatter[key].files.push(f);
+    });
+    html+=Object.values(byMatter).map(grp=>`
+      <div class="pcard" style="margin-bottom:18px">
+        <div class="pcard-header">
+          <div>
+            <div class="pcard-title">📁 ${esc(grp.title)}</div>
+            <div class="pcard-sub">Shared by the firm</div>
+          </div>
+          <span style="font-size:11px;color:var(--txt3)">${grp.files.length} file${grp.files.length!==1?'s':''}</span>
+        </div>
+        ${grp.files.map(f=>sharedDocRow(f)).join('')}
+      </div>`).join('');
+  }
+
+  // ── Section 2: Client's own uploads ──
+  if(hasMyUploads){
+    html+=`<div class="pcard" style="margin-bottom:18px">
+      <div class="pcard-header">
+        <div>
+          <div class="pcard-title">📤 My Uploaded Documents</div>
+          <div class="pcard-sub">Files you have sent to the firm</div>
+        </div>
+        <span style="font-size:11px;color:var(--txt3)">${myUploads.length} file${myUploads.length!==1?'s':''}</span>
+      </div>
+      ${myUploads.map(f=>{
+        let displayName=f.name;
+        const parts=f.name.split('__');
+        if(parts.length>=3){displayName=parts.slice(2).join('__');}
+        const tsMatch=displayName.match(/^\d+_(.+)$/);
+        if(tsMatch)displayName=tsMatch[1];
+        const{icon,cls}=docIcon(displayName);
+        const meta=f.metadata||{};
+        const cat=parts.length>=2?parts[0]:'';
+        const dateStr=f.created_at?new Date(f.created_at).toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'}):'';
+        return`<div class="doc-list-row">
+          <div class="doc-list-icon ${cls}">${icon}</div>
+          <div class="doc-list-info">
+            <div class="doc-list-name" title="${esc(displayName)}">${esc(displayName)}</div>
+            <div class="doc-list-meta">${cat?categoryLabel(cat)+' · ':''}${fmtFileSize(meta.size)}${dateStr?' · '+dateStr:''}</div>
+          </div>
+          <div class="doc-list-actions">
+            <button class="pbtn view" onclick="viewClientUpload('${esc(f.name)}','${esc(displayName)}')">👁 View</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  c.innerHTML=html;
 }
 
 function sharedDocRow(f){
