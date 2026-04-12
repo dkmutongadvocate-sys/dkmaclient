@@ -1093,6 +1093,7 @@ async function launchPortal(){
     await loadMyMessages();
     await loadGazettedHolidays();
     setupMessagesRealtime();
+    setupPortalRealtime();
   }
   document.getElementById('portal-loading').style.display='none';
   updateNavUser();
@@ -1784,6 +1785,52 @@ function setupMessagesRealtime(){
       updateMsgBadge();
       const feed=document.getElementById('msg-feed');
       if(feed)renderMsgFeed();
+    })
+    .subscribe();
+}
+
+function _activePortalView(){
+  const v=document.querySelector('.pview.active');
+  return v?v.id.replace('pview-',''):'';
+}
+
+function setupPortalRealtime(){
+  if(!clientRecord)return;
+  const cid=clientRecord.id;
+
+  // Matters — filter by client_id
+  sb.channel('portal-matters-'+cid)
+    .on('postgres_changes',{event:'*',schema:'public',table:'matters',filter:`client_id=eq.${cid}`},async()=>{
+      await loadMyMatters();
+      await loadMyEvents(); // events depend on matter IDs
+      const v=_activePortalView();
+      if(v==='matters')renderMatters();
+      if(v==='events')renderEvents();
+      if(v==='overview')renderOverview();
+    })
+    .subscribe();
+
+  // Invoices — filter by client_id
+  sb.channel('portal-invoices-'+cid)
+    .on('postgres_changes',{event:'*',schema:'public',table:'invoices',filter:`client_id=eq.${cid}`},async()=>{
+      await loadMyInvoices();
+      const v=_activePortalView();
+      if(v==='invoices')renderInvoices();
+      if(v==='overview')renderOverview();
+    })
+    .subscribe();
+
+  // Events — no direct filter on client_id; reload when any event for our matters changes
+  // We use a broad channel and filter in JS since matter_id is the FK
+  sb.channel('portal-events-'+cid)
+    .on('postgres_changes',{event:'*',schema:'public',table:'events'},async(payload)=>{
+      const mIds=myMatters.map(m=>m.id);
+      const evMatter=payload.new?.matter_id||payload.old?.matter_id;
+      if(!evMatter||!mIds.includes(evMatter))return; // not our matter
+      await loadMyEvents();
+      const v=_activePortalView();
+      if(v==='events')renderEvents();
+      if(v==='overview')renderOverview();
     })
     .subscribe();
 }
