@@ -2046,20 +2046,34 @@ async function renderParties(){
   if(!myMatters.length){c.innerHTML=`<div class="pcard">${empty('👥','No matters yet','Other parties will appear here once matters are opened.')}</div>`;return;}
   c.innerHTML=`<div style="padding:32px;text-align:center;color:var(--txt3)"><div class="big-spinner" style="margin:0 auto 12px"></div><div style="font-size:13px">Loading parties…</div></div>`;
 
-  // Load all parties for the client's matters
+  // Load all parties for this client (by client_id, or by their matter IDs as fallback)
   const matterIds = myMatters.map(m=>m.id);
-  const {data, error} = await sb.from('matter_parties')
+  const {data, error} = await sb.from('parties')
     .select('*')
-    .in('matter_id', matterIds)
+    .eq('client_id', clientRecord.id)
     .order('created_at', {ascending:true});
 
+  // If client_id query returns nothing, fall back to matter_id lookup
+  let partiesData = data;
+  if(!error && (!data || !data.length) && matterIds.length) {
+    const {data: byMatter} = await sb.from('parties')
+      .select('*')
+      .in('matter_id', matterIds)
+      .order('created_at', {ascending:true});
+    partiesData = byMatter;
+  }
+
   if(error){
-    c.innerHTML=`<div class="pcard"><div style="padding:28px;text-align:center;font-size:13px;color:var(--txt3)">Unable to load parties. Please try again later.</div></div>`;
+    c.innerHTML=`<div class="pcard"><div style="padding:28px;text-align:center;font-size:13px;color:var(--txt3)">Unable to load parties. Please try again later.<br><span style="font-size:10px;color:var(--brd2);margin-top:6px;display:block">${esc(error.message||error.code||'')}</span></div></div>`;
     return;
   }
-  const parties = data||[];
+  const parties = partiesData||[];
   _partiesCache = {};
-  parties.forEach(p=>{ if(!_partiesCache[p.matter_id]) _partiesCache[p.matter_id]=[]; _partiesCache[p.matter_id].push(p); });
+  parties.forEach(p=>{ 
+    const key = p.matter_id || '__none__';
+    if(!_partiesCache[key]) _partiesCache[key]=[];
+    _partiesCache[key].push(p);
+  });
 
   if(!parties.length){
     c.innerHTML=`<div class="pcard">${empty('👥','No other parties recorded','Other parties in your matters will appear here once added by the firm.')}</div>`;
@@ -2074,15 +2088,14 @@ async function renderParties(){
     return `<span style="font-size:10px;padding:2px 9px;border-radius:10px;font-weight:500;background:${bg};color:${col}">${esc(roleLabel(r))}</span>`;
   };
 
-  c.innerHTML = myMatters.filter(m=>_partiesCache[m.id]&&_partiesCache[m.id].length).map(m=>{
-    const pts = _partiesCache[m.id]||[];
-    return `<div class="pcard" style="margin-bottom:18px">
+  const renderPartyCard = (title, status, pts) => `
+    <div class="pcard" style="margin-bottom:18px">
       <div class="pcard-header">
         <div>
-          <div class="pcard-title">📁 ${esc(m.title)}</div>
+          <div class="pcard-title">📁 ${esc(title)}</div>
           <div class="pcard-sub">${pts.length} part${pts.length!==1?'ies':'y'} recorded</div>
         </div>
-        ${spill(m.status)}
+        ${status ? spill(status) : ''}
       </div>
       ${pts.map(p=>`
       <div style="display:flex;align-items:flex-start;gap:14px;padding:14px 20px;border-bottom:1px solid var(--brd)" id="party-row-${p.id}">
@@ -2100,10 +2113,21 @@ async function renderParties(){
           </div>
           ${p.notes?`<div style="margin-top:5px;font-size:11px;color:var(--txt3);background:var(--cream);padding:5px 9px;border-radius:5px;line-height:1.5">${esc(p.notes.slice(0,120))}${p.notes.length>120?'…':''}</div>`:''}
         </div>
-        <button class="pbtn" style="font-size:11px;flex-shrink:0" onclick="openPartyEditOverlay('${p.id}','${esc(p.matter_id)}')">✏️ Edit</button>
+        <button class="pbtn" style="font-size:11px;flex-shrink:0" onclick="openPartyEditOverlay('${p.id}','${esc(p.matter_id||'')}')">✏️ Edit</button>
       </div>`).join('')}
     </div>`;
-  }).join('');
+
+  let html = '';
+  // Parties grouped by matter
+  myMatters.forEach(m=>{
+    const pts = _partiesCache[m.id]||[];
+    if(pts.length) html += renderPartyCard(m.title, m.status, pts);
+  });
+  // Parties not linked to any specific matter
+  const unlinked = _partiesCache['__none__']||[];
+  if(unlinked.length) html += renderPartyCard('General / Not Matter-Specific', null, unlinked);
+
+  c.innerHTML = html || `<div class="pcard">${empty('👥','No other parties recorded','Other parties in your matters will appear here once added by the firm.')}</div>`;
 }
 
 async function openPartyEditOverlay(partyId, matterId){
@@ -2174,11 +2198,12 @@ async function savePartyEdit(partyId, matterId){
     address: document.getElementById('pedit-address').value.trim()||null,
     notes: document.getElementById('pedit-notes').value.trim()||null,
   };
-  const {data, error} = await sb.from('matter_parties').update(payload).eq('id', partyId).select().single();
+  const {data, error} = await sb.from('parties').update(payload).eq('id', partyId).select().single();
   btn.disabled=false; btn.textContent='Save Changes';
   if(error){ errEl.textContent='Error saving: '+error.message; return; }
-  // Update cache
-  const pts = _partiesCache[matterId];
+  // Update cache — key is matter_id or '__none__' for unlinked parties
+  const cacheKey = matterId || '__none__';
+  const pts = _partiesCache[cacheKey];
   if(pts){ const idx=pts.findIndex(x=>String(x.id)===String(partyId)); if(idx>-1)pts[idx]={...pts[idx],...payload}; }
   document.getElementById('party-edit-overlay').remove();
   toast('Party details updated.');
