@@ -1224,6 +1224,18 @@ async function launchPortal(){
   const realEmail=currentUser.email.replace('+portal@','@');
   const{data:cData}=await sb.from('clients').select('*').ilike('email',realEmail).maybeSingle();
   clientRecord=cData||null;
+
+  // Check if portal access has been disabled by the firm
+  if(clientRecord&&clientRecord.portal_enabled===false){
+    await sb.auth.signOut();
+    clientRecord=null;
+    document.getElementById('portal-loading').style.display='none';
+    document.getElementById('auth-section').style.display='flex';
+    const errEl=document.getElementById('auth-error');
+    if(errEl){errEl.textContent='Your portal access has been suspended. Please contact the firm.';errEl.style.display='block';}
+    return;
+  }
+
   if(clientRecord){
     await Promise.all([loadMyMatters(),loadMyEvents(),loadMyInvoices()]);
     await loadSharedDocs();
