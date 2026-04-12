@@ -409,6 +409,55 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 .pwa-dismiss-btn:hover{background:var(--cream)}
 .pwa-modal-close{position:absolute;top:14px;right:14px;background:var(--cream);border:none;width:32px;height:32px;border-radius:50%;font-size:18px;cursor:pointer;color:var(--txt3);display:flex;align-items:center;justify-content:center;touch-action:manipulation;line-height:1}
 .pwa-modal-close:hover{background:var(--cream2);color:var(--txt)}
+
+/* ── SOS / PANIC ─────────────────────────────────────────────── */
+.topnav-sos-btn{background:#A30000;color:#fff;border:none;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:0.3px;transition:background 0.15s;flex-shrink:0;animation:sos-pulse 3s ease-in-out infinite}
+.topnav-sos-btn:hover{background:#C0392B;animation:none}
+@keyframes sos-pulse{0%,100%{box-shadow:0 0 0 0 rgba(163,0,0,0.5)}50%{box-shadow:0 0 0 6px rgba(163,0,0,0)}}
+.sos-view{max-width:560px;margin:0 auto;padding:24px 0}
+.sos-header{text-align:center;margin-bottom:32px}
+.sos-header-icon{font-size:48px;margin-bottom:12px}
+.sos-header-title{font-family:'Playfair Display',serif;font-size:24px;color:var(--txt);margin-bottom:6px}
+.sos-header-sub{font-size:13px;color:var(--txt3);line-height:1.6}
+.panic-portal-btn-wrap{display:flex;align-items:center;justify-content:center;margin:32px 0;position:relative}
+.panic-portal-ring{position:absolute;border-radius:50%;border:2px solid rgba(163,0,0,0.25);animation:pp-pulse 2.5s ease-out infinite}
+.panic-portal-ring:nth-child(1){width:160px;height:160px}
+.panic-portal-ring:nth-child(2){width:200px;height:200px;animation-delay:0.8s;border-color:rgba(163,0,0,0.12)}
+.panic-portal-ring:nth-child(3){width:240px;height:240px;animation-delay:1.6s;border-color:rgba(163,0,0,0.06)}
+@keyframes pp-pulse{0%{transform:scale(0.85);opacity:1}100%{transform:scale(1.2);opacity:0}}
+.panic-portal-btn{position:relative;width:130px;height:130px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#E74C3C,#A30000);border:none;cursor:pointer;box-shadow:0 0 0 5px rgba(163,0,0,0.15),0 6px 28px rgba(163,0,0,0.4),inset 0 2px 4px rgba(255,255,255,0.15);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;transition:transform 0.12s,box-shadow 0.12s;touch-action:manipulation}
+.panic-portal-btn:active{transform:scale(0.93);box-shadow:0 0 0 5px rgba(163,0,0,0.25),0 3px 16px rgba(163,0,0,0.5)}
+.panic-portal-btn-icon{font-size:36px;line-height:1}
+.panic-portal-btn-lbl{font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.9)}
+.sos-form{display:flex;flex-direction:column;gap:14px}
+.sos-form-card{background:#fff;border-radius:12px;border:0.5px solid var(--brd);padding:20px}
+.sos-form-title{font-size:12px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:14px}
+.sos-sit-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sos-sit{border:1.5px solid var(--brd);border-radius:10px;padding:12px 10px;text-align:center;cursor:pointer;transition:all 0.15s;background:var(--cream)}
+.sos-sit:hover{border-color:var(--brd2);background:var(--cream2)}
+.sos-sit.sel{border-color:#A30000;background:#fff0f0}
+.sos-sit-icon{font-size:22px;display:block;margin-bottom:4px}
+.sos-sit-lbl{font-size:11px;font-weight:500;color:var(--txt2)}
+.sos-note{width:100%;border:1px solid var(--brd);border-radius:8px;padding:10px 13px;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--txt);outline:none;resize:none;min-height:72px;transition:border-color 0.15s;line-height:1.5}
+.sos-note:focus{border-color:var(--navy)}
+.sos-loc-row{display:flex;align-items:center;gap:10px;background:var(--cream);border:1px solid var(--brd);border-radius:8px;padding:10px 13px}
+.sos-loc-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;transition:background 0.3s;background:#ccc}
+.sos-loc-dot.got{background:#2D6A4F}.sos-loc-dot.err{background:#A33}.sos-loc-dot.spin{background:var(--gold);animation:blink2 1s infinite}
+@keyframes blink2{0%,100%{opacity:1}50%{opacity:0.3}}
+.sos-loc-txt{font-size:12px;color:var(--txt3);flex:1}
+.sos-send-btn{width:100%;background:linear-gradient(135deg,#C0392B,#A30000);color:#fff;border:none;padding:15px;border-radius:12px;font-size:15px;font-family:'DM Sans',sans-serif;font-weight:600;cursor:pointer;transition:all 0.15s;box-shadow:0 4px 16px rgba(163,0,0,0.3)}
+.sos-send-btn:hover{background:linear-gradient(135deg,#E74C3C,#C0392B)}
+.sos-send-btn:disabled{opacity:0.5;cursor:not-allowed}
+.sos-sent-box{background:#fff;border-radius:12px;border:0.5px solid var(--brd);padding:28px;text-align:center}
+.sos-sent-icon{font-size:44px;margin-bottom:12px}
+.sos-sent-title{font-family:'Playfair Display',serif;font-size:20px;color:var(--txt);margin-bottom:8px}
+.sos-sent-sub{font-size:13px;color:var(--txt3);line-height:1.7;margin-bottom:20px}
+.sos-call-btn{display:flex;align-items:center;justify-content:center;gap:8px;background:#1a6b3a;color:#fff;border:none;padding:13px 20px;border-radius:10px;font-size:14px;font-family:'DM Sans',sans-serif;font-weight:600;cursor:pointer;text-decoration:none;margin-bottom:8px;transition:background 0.15s;width:100%}
+.sos-call-btn:hover{background:#145c30}
+.sos-wa-btn{display:flex;align-items:center;justify-content:center;gap:8px;background:#128c24;color:#fff;border:none;padding:13px 20px;border-radius:10px;font-size:14px;font-family:'DM Sans',sans-serif;font-weight:600;cursor:pointer;text-decoration:none;margin-bottom:8px;transition:background 0.15s;width:100%}
+.sos-wa-btn:hover{background:#0d6b1a}
+.sos-reset-btn{background:transparent;border:1px solid var(--brd2);color:var(--txt3);padding:11px 20px;border-radius:10px;font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer;width:100%;transition:all 0.15s;margin-top:4px}
+.sos-reset-btn:hover{background:var(--cream)}
 </style>
 </head>
 <body>
@@ -479,6 +528,7 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
       <div class="topnav-tab" onclick="showPView('parties',this)">Other Parties</div>
     </div>
     <div class="topnav-right">
+      <button class="topnav-sos-btn" onclick="showPView('sos',this)" title="Emergency SOS">🆘 SOS</button>
       <div class="topnav-user" onclick="showPView('profile',null)">
         <div class="topnav-av" id="nav-av">?</div>
         <span class="topnav-uname" id="nav-name">—</span>
@@ -737,6 +787,75 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
       </div>
     </div>
 
+    <!-- ── SOS / EMERGENCY ────────────────────────────────────── -->
+    <div class="pview" id="pview-sos">
+      <div class="sos-view">
+        <div class="sos-header">
+          <div class="sos-header-icon">🆘</div>
+          <div class="sos-header-title">Emergency Alert</div>
+          <div class="sos-header-sub">If you have been arrested, are in danger, or need urgent legal assistance — press the button below to alert DKMA immediately.</div>
+        </div>
+
+        <!-- STATE: READY -->
+        <div id="sos-state-ready">
+          <div class="panic-portal-btn-wrap">
+            <div class="panic-portal-ring"></div>
+            <div class="panic-portal-ring"></div>
+            <div class="panic-portal-ring"></div>
+            <button class="panic-portal-btn" onclick="portalSosTriggered()">
+              <span class="panic-portal-btn-icon">🆘</span>
+              <span class="panic-portal-btn-lbl">SOS</span>
+            </button>
+          </div>
+          <p style="text-align:center;font-size:12px;color:var(--txt3);margin-bottom:28px">Tap the button to send an emergency alert to your legal team</p>
+          <div class="sos-form">
+            <div class="sos-form-card" id="sos-form-section" style="display:none">
+              <div class="sos-form-title">What is happening?</div>
+              <div class="sos-sit-grid">
+                <div class="sos-sit" id="sos-sit-arrested" onclick="portalSelectSit('arrested')"><span class="sos-sit-icon">🚔</span><span class="sos-sit-lbl">Arrested / Detained</span></div>
+                <div class="sos-sit" id="sos-sit-danger" onclick="portalSelectSit('danger')"><span class="sos-sit-icon">⚠️</span><span class="sos-sit-lbl">In Danger</span></div>
+                <div class="sos-sit" id="sos-sit-accident" onclick="portalSelectSit('accident')"><span class="sos-sit-icon">🏥</span><span class="sos-sit-lbl">Accident / Injury</span></div>
+                <div class="sos-sit" id="sos-sit-other" onclick="portalSelectSit('other')"><span class="sos-sit-icon">❗</span><span class="sos-sit-lbl">Other Emergency</span></div>
+              </div>
+              <div style="margin-top:14px">
+                <div class="sos-form-title">Brief note (optional)</div>
+                <textarea class="sos-note" id="sos-note" placeholder="e.g. Arrested at Gigiri Police Station, need lawyer immediately…" maxlength="300" rows="3"></textarea>
+              </div>
+              <div class="sos-loc-row" style="margin-top:4px">
+                <div class="sos-loc-dot spin" id="sos-loc-dot"></div>
+                <div class="sos-loc-txt" id="sos-loc-txt">Getting your location…</div>
+                <span style="font-size:11px;color:var(--gold);cursor:pointer;text-decoration:underline;display:none" id="sos-loc-retry" onclick="portalGetLocation()">Retry</span>
+              </div>
+              <button class="sos-send-btn" id="sos-send-btn" style="margin-top:14px" onclick="portalSendAlert()">🆘 Send Alert to DKMA Now</button>
+              <div style="text-align:center;margin-top:10px;font-size:12px;color:var(--txt3);cursor:pointer" onclick="portalSosCancel()">← Cancel</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- STATE: SENDING -->
+        <div id="sos-state-sending" style="display:none;text-align:center;padding:40px 0">
+          <div style="width:48px;height:48px;border:3px solid var(--brd);border-top-color:#A30000;border-radius:50%;animation:spin2 0.8s linear infinite;margin:0 auto 16px"></div>
+          <div style="font-family:'Playfair Display',serif;font-size:18px;color:var(--txt);margin-bottom:6px">Sending Alert…</div>
+          <div style="font-size:12px;color:var(--txt3)">Your emergency alert is being sent to DKMA.</div>
+        </div>
+        <style>@keyframes spin2{to{transform:rotate(360deg)}}</style>
+
+        <!-- STATE: SENT -->
+        <div id="sos-state-sent" style="display:none">
+          <div class="sos-sent-box">
+            <div class="sos-sent-icon">✅</div>
+            <div class="sos-sent-title">Alert Sent to DKMA</div>
+            <div class="sos-sent-sub">Your location and details have been recorded. For the fastest response, call or WhatsApp the lawyer directly now.</div>
+            <a class="sos-call-btn" id="sos-call-btn" href="#">📞 Call Lawyer Now</a>
+            <a class="sos-wa-btn" id="sos-wa-btn" href="#" target="_blank">💬 WhatsApp Lawyer</a>
+            <button class="sos-reset-btn" onclick="portalSosReset()">← Send Another Alert</button>
+          </div>
+          <div style="text-align:center;margin-top:10px;font-size:11px;color:var(--txt3)" id="sos-ref-txt"></div>
+        </div>
+
+      </div>
+    </div>
+
   </div><!-- /portal-content -->
 </div><!-- /portal-shell -->
 
@@ -786,6 +905,10 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
       <svg viewBox="0 0 16 16" fill="none"><circle cx="5" cy="5" r="2.5" stroke="currentColor" stroke-width="1.4"/><circle cx="11" cy="5" r="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M1 14c0-2.761 1.791-5 4-5M15 14c0-2.761-1.791-5-4-5M8 9c1.5 0 3 1.2 3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
       Other Parties
     </div>
+    <div class="portal-drawer-item" id="pdi-sos" onclick="showPView('sos',null,true);closePortalDrawer()" style="color:#A30000;font-weight:600">
+      <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.4"/><path d="M8 5v3.5M8 10.5v.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      🆘 Emergency SOS
+    </div>
   </div>
   <div class="portal-drawer-footer">
     <div class="portal-drawer-user">
@@ -832,6 +955,7 @@ function toPortalEmail(email){
 }
 const FIRM_BUCKET='matter-documents';
 const CLIENT_BUCKET='client-uploads';
+const LAWYER_PHONE='%%LAWYER_PHONE%%'; // e.g. +254712345678 — set in GitHub secrets
 
 // ── STATE ─────────────────────────────────────────────────────────
 let currentUser=null;
@@ -968,6 +1092,7 @@ function showPView(id,el,fromMobile){
   if(id==='profile')renderProfile();
   if(id==='parties')renderParties();
   if(id==='messages'){loadAndRenderMessages();}
+  if(id==='sos'){_sosSetState('ready');document.getElementById('sos-form-section').style.display='none';}
 }
 
 // ── PORTAL DRAWER open/close ──────────────────────────────────────
@@ -1775,19 +1900,14 @@ function _activePortalView(){
   return v?v.id.replace('pview-',''):'';
 }
 
-async function _portalPollMsgMax(){
-  if(!clientRecord)return'';
-  const{data}=await sb.from('client_messages').select('created_at').eq('client_id',clientRecord.id).order('created_at',{ascending:false}).limit(1);
-  return data&&data[0]?data[0].created_at:'';
-}
-
 async function portalPollAll(){
   if(!clientRecord)return;
   try{
     const cid=clientRecord.id;
 
-    // ── Messages — highest priority ───────────────────────────────
-    const msgMax=await _portalPollMsgMax();
+    // ── Messages ──────────────────────────────────────────────────
+    const{data:mxd}=await sb.from('client_messages').select('created_at').eq('client_id',cid).order('created_at',{ascending:false}).limit(1);
+    const msgMax=mxd&&mxd[0]?mxd[0].created_at:'';
     if(msgMax&&msgMax!==_portalSnap.messages){
       _portalSnap.messages=msgMax;
       await loadMyMessages();
@@ -1800,8 +1920,7 @@ async function portalPollAll(){
     const{count:mC}=await sb.from('matters').select('*',{count:'exact',head:true}).eq('client_id',cid);
     if((mC||0)!==_portalSnap.matters){
       _portalSnap.matters=mC||0;
-      await loadMyMatters();
-      await loadMyEvents();
+      await loadMyMatters();await loadMyEvents();
       const v=_activePortalView();
       if(v==='matters')renderMatters();
       if(v==='events')renderEvents();
@@ -1818,7 +1937,7 @@ async function portalPollAll(){
       if(v==='overview')renderOverview();
     }
 
-    // ── Events (catch direct event adds) ──────────────────────────
+    // ── Events (direct add) ───────────────────────────────────────
     const mIds=myMatters.map(m=>m.id);
     if(mIds.length){
       const{count:eC}=await sb.from('events').select('*',{count:'exact',head:true}).in('matter_id',mIds);
@@ -1830,23 +1949,21 @@ async function portalPollAll(){
         if(v==='overview')renderOverview();
       }
     }
-  }catch(e){/* network error — skip tick */}
+  }catch(e){}
 }
 
 function setupPortalPolling(){
   if(!clientRecord)return;
-  // Seed snapshot so first poll doesn't cause spurious re-renders
   _portalSnap.matters=myMatters.length;
   _portalSnap.invoices=myInvoices.length;
   _portalSnap.events=myEvents.length;
   _portalSnap.messages='';
   if(_portalPollInterval)clearInterval(_portalPollInterval);
-  // Poll every 4 seconds — fast enough to feel realtime
   _portalPollInterval=setInterval(portalPollAll,4000);
 }
 
 function setupMessagesRealtime(){
-  // Legacy name kept for compatibility — now handled by polling
+  // Legacy name — now handled by polling
   setupPortalPolling();
 }
 
@@ -1928,7 +2045,7 @@ async function sendPortalMessage(){
   }
   // Replace optimistic entry with real record from DB
   myMessages=myMessages.map(m=>m.id===optimistic.id?(data||optimistic):m);
-  // Advance the snapshot so the next poll doesn't treat our own message as "new"
+  // Advance snapshot so next poll doesn't treat our own send as "new"
   if(data?.created_at)_portalSnap.messages=data.created_at;
   renderMsgFeed();
 }
@@ -1954,6 +2071,134 @@ window.addEventListener('load',()=>{
   });
   initPortal();
 });
+
+// ── SOS / PANIC ALERT ─────────────────────────────────────────────
+let _sosLat=null,_sosLng=null,_sosSit=null;
+
+function portalSosTriggered(){
+  // Reset form state
+  _sosSit=null;_sosLat=null;_sosLng=null;
+  document.querySelectorAll('.sos-sit').forEach(b=>b.classList.remove('sel'));
+  document.getElementById('sos-note').value='';
+  document.getElementById('sos-form-section').style.display='block';
+  document.getElementById('sos-send-btn').disabled=false;
+  portalGetLocation();
+  // Scroll form into view on mobile
+  document.getElementById('sos-form-section').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function portalSosCancel(){
+  document.getElementById('sos-form-section').style.display='none';
+  _sosSit=null;
+}
+
+function portalSosReset(){
+  _sosSetState('ready');
+  document.getElementById('sos-form-section').style.display='none';
+  _sosSit=null;
+}
+
+function _sosSetState(state){
+  ['ready','sending','sent'].forEach(s=>{
+    document.getElementById('sos-state-'+s).style.display=s===state?'block':'none';
+  });
+}
+
+function portalSelectSit(sit){
+  _sosSit=sit;
+  document.querySelectorAll('.sos-sit').forEach(b=>b.classList.remove('sel'));
+  const el=document.getElementById('sos-sit-'+sit);
+  if(el)el.classList.add('sel');
+}
+
+function portalGetLocation(){
+  const dot=document.getElementById('sos-loc-dot');
+  const txt=document.getElementById('sos-loc-txt');
+  const retry=document.getElementById('sos-loc-retry');
+  dot.className='sos-loc-dot spin';
+  txt.textContent='Getting your location…';
+  retry.style.display='none';
+  if(!navigator.geolocation){
+    dot.className='sos-loc-dot err';
+    txt.textContent='Location unavailable on this device — alert will still send';
+    return;
+  }
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      _sosLat=pos.coords.latitude;
+      _sosLng=pos.coords.longitude;
+      const acc=Math.round(pos.coords.accuracy);
+      dot.className='sos-loc-dot got';
+      txt.textContent=`Location captured (±${acc}m)`;
+    },
+    ()=>{
+      dot.className='sos-loc-dot err';
+      txt.textContent='Could not get location — alert will still send without it';
+      retry.style.display='inline';
+    },
+    {timeout:10000,enableHighAccuracy:true}
+  );
+}
+
+async function portalSendAlert(){
+  if(!clientRecord){toast('Your account is not linked to a client record.',true);return;}
+  const btn=document.getElementById('sos-send-btn');
+  btn.disabled=true;
+  const note=(document.getElementById('sos-note').value||'').trim();
+  _sosSetState('sending');
+
+  const ua=navigator.userAgent;
+  const getDevice=ua=>{
+    let os='Unknown';
+    if(/android/i.test(ua))os='Android';
+    else if(/iphone|ipad/i.test(ua))os='iOS';
+    else if(/windows/i.test(ua))os='Windows';
+    else if(/mac/i.test(ua))os='macOS';
+    let br='Unknown';
+    if(/chrome/i.test(ua)&&!/edge|opr/i.test(ua))br='Chrome';
+    else if(/firefox/i.test(ua))br='Firefox';
+    else if(/safari/i.test(ua)&&!/chrome/i.test(ua))br='Safari';
+    else if(/edge/i.test(ua))br='Edge';
+    return`${os} / ${br}`;
+  };
+
+  const now=new Date();
+  const payload={
+    client_id:clientRecord.id,
+    situation:_sosSit||'unspecified',
+    note:note||null,
+    latitude:_sosLat,
+    longitude:_sosLng,
+    maps_link:_sosLat&&_sosLng?`https://maps.google.com/?q=${_sosLat},${_sosLng}`:null,
+    device_info:getDevice(ua),
+    user_agent:ua.slice(0,300),
+    triggered_at:now.toISOString(),
+    acknowledged:false
+  };
+
+  const{data,error}=await sb.from('panic_alerts').insert([payload]).select().single();
+  if(error)console.error('SOS insert error:',error);
+
+  // Build call / WhatsApp links
+  const phone=(LAWYER_PHONE||'').includes('%%')?'':LAWYER_PHONE;
+  const sitLabels={arrested:'ARRESTED / DETAINED',danger:'IN DANGER',accident:'ACCIDENT / INJURY',other:'EMERGENCY'};
+  const sitLabel=sitLabels[_sosSit||'other']||'EMERGENCY';
+  const locPart=_sosLat?`📍 https://maps.google.com/?q=${_sosLat},${_sosLng}`:'📍 Location not available';
+  const notePart=note?`\n📝 ${note}`:'';
+  const waMsg=encodeURIComponent(`🚨 *EMERGENCY — ${clientRecord.name}*\n\n*Situation:* ${sitLabel}\n${locPart}${notePart}\n\n*Time:* ${now.toLocaleString('en-KE')}\n*Device:* ${getDevice(ua)}`);
+
+  const callBtn=document.getElementById('sos-call-btn');
+  const waBtn=document.getElementById('sos-wa-btn');
+  const refTxt=document.getElementById('sos-ref-txt');
+  callBtn.href=phone?`tel:${phone}`:'#';
+  callBtn.onclick=phone?null:e=>{e.preventDefault();toast('Lawyer phone not configured. Contact DKMA directly.',true);};
+  waBtn.href=phone?`https://wa.me/${phone.replace(/\D/g,'')}?text=${waMsg}`:'#';
+  waBtn.onclick=phone?null:e=>{e.preventDefault();toast('WhatsApp not configured. Contact DKMA directly.',true);};
+  if(data?.id)refTxt.textContent=`Alert reference: ${String(data.id).slice(0,8).toUpperCase()}`;
+
+  btn.disabled=false;
+  _sosSetState('sent');
+}
 </script>
 
 <!-- PWA INSTALL BANNER -->
