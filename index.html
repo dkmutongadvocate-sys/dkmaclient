@@ -319,6 +319,13 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
   .topnav-uname{display:none}
   .welcome-banner{flex-direction:column;text-align:center}
   .msg-layout{height:calc(100dvh - 130px);min-height:320px}
+  /* Overview two-col → single col */
+  #pview-overview > div[style*="3fr"]{grid-template-columns:1fr!important}
+  /* Profile two-col → single col */
+  #pview-profile > div[style*="2fr"]{grid-template-columns:1fr!important}
+  /* Upload two-col → single col */
+  #pview-upload > div[style*="1fr 1fr"]{grid-template-columns:1fr!important}
+  /* Invoice summary → 3 still fine at tablet */
 }
 
 /* ── SMALL PHONE (640px) ─────────────────────────────────────────── */
@@ -332,6 +339,13 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 
   /* Stats */
   .pstats{grid-template-columns:1fr 1fr}
+
+  /* Invoice summary stats → 1 col on small phones */
+  #inv-summary{grid-template-columns:1fr!important}
+
+  /* Doc list actions — stack on narrow screens */
+  .doc-list-row{flex-wrap:wrap;gap:8px}
+  .doc-list-actions{flex:0 0 100%;justify-content:flex-end}
 
   /* Message layout height must account for topnav + bottom nav */
   .msg-layout{
@@ -399,8 +413,18 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 </head>
 <body>
 
+<!-- LOADING SPLASH -->
+<div id="portal-splash" style="display:flex;position:fixed;inset:0;background:var(--navy);z-index:9999;align-items:center;justify-content:center;flex-direction:column;gap:16px">
+  <div style="font-family:'Playfair Display',serif;font-size:24px;color:#fff;font-weight:500">DKMA</div>
+  <div style="font-size:10px;color:rgba(255,255,255,0.4);letter-spacing:2px;text-transform:uppercase">Client Portal</div>
+  <div style="margin-top:8px;width:32px;height:3px;background:rgba(255,255,255,0.15);border-radius:2px;overflow:hidden">
+    <div style="height:100%;background:var(--gold);border-radius:2px;animation:splashBar 1.2s ease-in-out infinite"></div>
+  </div>
+  <style>@keyframes splashBar{0%{width:0%;margin-left:0}50%{width:100%;margin-left:0}100%{width:0%;margin-left:100%}}</style>
+</div>
+
 <!-- AUTH SCREEN -->
-<div id="auth-screen" style="display:flex">
+<div id="auth-screen" style="display:none">
   <div class="auth-box">
     <div class="auth-logo">
       <div class="auth-logo-name">DKMA</div>
@@ -807,6 +831,7 @@ let myInvoices=[];
 let sharedDocs=[];           // files from matter-documents bucket tagged with shared
 let myUploads=[];            // files from client-uploads bucket
 let myMessages=[];           // messages from client_messages table
+let gazettedHolidays=[];     // ad-hoc holidays from gazetted_holidays table
 let profileEditing=false;
 
 // ── HELPERS ───────────────────────────────────────────────────────
@@ -837,7 +862,7 @@ function toast(msg,isError=false){
   setTimeout(()=>t.classList.remove('show'),3500);
 }
 function empty(icon,title,sub=''){
-  return`<div class="empty"><div class="empty-icon">${icon}</div><div class="empty-title">${title}</div>${sub?`<div>${sub}</div>`:''}`;
+  return`<div class="empty"><div class="empty-icon">${icon}</div><div class="empty-title">${title}</div>${sub?`<div>${sub}</div>`:''}  </div>`;
 }
 
 // ── AUTH SCREENS ──────────────────────────────────────────────────
@@ -902,7 +927,7 @@ async function signIn(){
 async function signOut(){
   await sb.auth.signOut();
   document.getElementById('portal-shell').style.display='none';
-  document.getElementById('auth-screen').style.display='flex';
+  showAuthScreen();
   showMode('signin');
 }
 
@@ -950,6 +975,13 @@ function closePortalDrawer(){
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closePortalDrawer();}});
 
+function hideSplash(){const s=document.getElementById('portal-splash');if(s)s.style.display='none';}
+function showAuthScreen(){
+  hideSplash();
+  document.getElementById('auth-screen').style.display='flex';
+  document.getElementById('portal-shell').style.display='none';
+}
+
 // ── INIT ──────────────────────────────────────────────────────────
 async function initPortal(){
   // Supabase picks up the #access_token from the URL automatically
@@ -974,7 +1006,7 @@ async function initPortal(){
       currentUser=null;clientRecord=null;
       window._mustChangePassword=false;
       document.getElementById('portal-shell').style.display='none';
-      document.getElementById('auth-screen').style.display='flex';
+      showAuthScreen();
       showMode('signin');
     }
   });
@@ -991,11 +1023,12 @@ async function initPortal(){
       launchPortal();
     }
   } else {
-    document.getElementById('auth-screen').style.display='flex';
+    showAuthScreen();
   }
 }
 
 function showNewPasswordScreen(){
+  hideSplash();
   document.getElementById('auth-screen').style.display='flex';
   document.getElementById('portal-shell').style.display='none';
   // Show new password mode
@@ -1033,6 +1066,7 @@ async function setNewPassword(){
 }
 
 async function launchPortal(){
+  hideSplash();
   document.getElementById('auth-screen').style.display='none';
   document.getElementById('portal-shell').style.display='flex';
   document.getElementById('portal-loading').style.display='flex';
@@ -1045,6 +1079,7 @@ async function launchPortal(){
     await loadSharedDocs();
     await loadMyUploads();
     await loadMyMessages();
+    await loadGazettedHolidays();
     setupMessagesRealtime();
   }
   document.getElementById('portal-loading').style.display='none';
@@ -1062,7 +1097,8 @@ function updateNavUser(){
   document.getElementById('welcome-av').textContent=initials(name);
   document.getElementById('welcome-name').textContent='Welcome, '+name.split(' ')[0];
   document.getElementById('welcome-sub').textContent=clientRecord?.type||'Client';
-  document.getElementById('portal-email').textContent=realEmail||'—';
+  const portalEmailEl=document.getElementById('portal-email');
+  if(portalEmailEl)portalEmailEl.textContent=realEmail||'—';
   // Sync drawer user info
   const dav=document.getElementById('portal-drawer-av');
   const dnm=document.getElementById('portal-drawer-name');
@@ -1112,6 +1148,11 @@ async function loadMyUploads(){
   myUploads=(!error&&data)?data.filter(f=>f.name!=='.emptyFolderPlaceholder'):[];
 }
 
+async function loadGazettedHolidays(){
+  const{data,error}=await sb.from('gazetted_holidays').select('*').order('date',{ascending:true});
+  if(!error)gazettedHolidays=data||[];
+}
+
 // ── RENDER: OVERVIEW ─────────────────────────────────────────────
 function renderOverview(){
   if(!clientRecord){
@@ -1148,11 +1189,20 @@ function renderOverview(){
       </div>`;}).join('');
   }
 
-  // Upcoming events
+  // Upcoming events — mix firm events + holidays (static + gazetted) in next 30 days
   const evEl=document.getElementById('overview-events');
-  const next4=upcoming.slice(0,4);
-  if(!next4.length){evEl.innerHTML=empty('📅','No upcoming events','Events linked to your matters will appear here.');}
-  else evEl.innerHTML=next4.map(e=>eventRow(e)).join('');
+  const todayStr=now.toISOString().split('T')[0];
+  const in30Str=in30.toISOString().split('T')[0];
+  const allHols=[...getKenyanHolidays(now.getFullYear()),...getKenyanHolidays(now.getFullYear()+1)];
+  gazettedHolidays.forEach(h=>{if(!allHols.find(x=>x.date===h.date&&x.name===h.name))allHols.push({date:h.date,name:h.name,gazetted:true,ghType:h.type});});
+  const upcomingHols=allHols.filter(h=>h.date>=todayStr&&h.date<=in30Str).sort((a,b)=>a.date.localeCompare(b.date));
+  const mixed=[
+    ...upcoming.map(e=>({date:e.event_date,type:'event',data:e})),
+    ...upcomingHols.map(h=>({date:h.date,type:'holiday',data:h}))
+  ].sort((a,b)=>a.date.localeCompare(b.date)).slice(0,5);
+  document.getElementById('stat-events').textContent=upcoming.length+upcomingHols.length;
+  if(!mixed.length){evEl.innerHTML=empty('📅','No upcoming events','Events and public holidays will appear here.');}
+  else evEl.innerHTML=mixed.map(item=>item.type==='holiday'?holidayRow(item.data):eventRow(item.data)).join('');
 }
 
 // ── RENDER: MATTERS ───────────────────────────────────────────────
@@ -1223,22 +1273,147 @@ function sharedDocRow(f){
 }
 
 // ── RENDER: EVENTS ────────────────────────────────────────────────
+// ── KENYAN PUBLIC HOLIDAYS ────────────────────────────────────────
+// Islamic holidays use a gazetted lookup table — update annually.
+// Dates marked estimated:true are computed estimates, not yet gazetted.
+// Source: https://www.kenyalaw.org/kl/index.php?id=4521 (Kenya Gazette)
+const ISLAMIC_HOLIDAYS={
+  2020:{eidFitr:'2020-05-24', eidAdha:'2020-07-31'},
+  2021:{eidFitr:'2021-05-13', eidAdha:'2021-07-20'},
+  2022:{eidFitr:'2022-05-02', eidAdha:'2022-07-09'},
+  2023:{eidFitr:'2023-04-21', eidAdha:'2023-06-28'},
+  2024:{eidFitr:'2024-04-10', eidAdha:'2024-06-16'},
+  2025:{eidFitr:'2025-03-30', eidAdha:'2025-06-06'},
+  2026:{eidFitr:'2026-03-20', eidAdha:'2026-05-27', estimated:true},
+  2027:{eidFitr:'2027-03-09', eidAdha:'2027-05-16', estimated:true},
+  2028:{eidFitr:'2028-02-26', eidAdha:'2028-05-04', estimated:true},
+};
+
+function getKenyanHolidays(year){
+  const fixed=[
+    {md:'01-01',name:"New Year's Day"},
+    {md:'05-01',name:'Labour Day'},
+    {md:'06-01',name:'Madaraka Day'},
+    {md:'10-10',name:'Huduma Day'},
+    {md:'10-20',name:'Mashujaa Day'},
+    {md:'12-12',name:'Jamhuri Day'},
+    {md:'12-25',name:'Christmas Day'},
+    {md:'12-26',name:'Boxing Day'},
+  ];
+  const holidays=fixed.map(h=>({date:`${year}-${h.md}`,name:h.name}));
+  function easterDate(y){
+    const a=y%19,b=Math.floor(y/100),c=y%100;
+    const d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25);
+    const g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30;
+    const i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7;
+    const m=Math.floor((a+11*h+22*l)/451);
+    const month=Math.floor((h+l-7*m+114)/31);
+    const day=((h+l-7*m+114)%31)+1;
+    return new Date(y,month-1,day);
+  }
+  const easter=easterDate(year);
+  function addDays(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r;}
+  function fmt(d){return d.toISOString().split('T')[0];}
+  holidays.push({date:fmt(addDays(easter,-2)),name:'Good Friday'});
+  holidays.push({date:fmt(addDays(easter,-1)),name:'Holy Saturday'});
+  holidays.push({date:fmt(easter),            name:'Easter Sunday'});
+  holidays.push({date:fmt(addDays(easter, 1)),name:'Easter Monday'});
+  // Islamic holidays
+  const islamic=ISLAMIC_HOLIDAYS[year];
+  if(islamic){
+    const est=islamic.estimated===true;
+    if(islamic.eidFitr) holidays.push({date:islamic.eidFitr, name:'Eid ul-Fitr'+(est?' *':''), islamic:true, estimated:est});
+    if(islamic.eidAdha) holidays.push({date:islamic.eidAdha, name:'Eid ul-Adha'+(est?' *':''), islamic:true, estimated:est});
+  }
+  const result=[];
+  holidays.forEach(h=>{
+    result.push(h);
+    if(!h.islamic){
+      const dow=parseDateLocal(h.date).getDay();
+      if(dow===0){
+        const obs=fmt(addDays(parseDateLocal(h.date),1));
+        if(!result.find(x=>x.date===obs))
+          result.push({date:obs,name:h.name+' (observed)'});
+      }
+    }
+  });
+  return result;
+}
+
+function holidayRow(h){
+  const d=parseDateLocal(h.date);
+  const isGazetted=h.gazetted===true;
+  const isIslamic=h.islamic===true;
+  const ghTypeLabel={gazetted:'Gazetted',election:'Election Day',mourning:'Natl. Mourning',proclamation:'Proclamation',other:'Ad-hoc'};
+  let bgColor,numColor,tagBg,tagColor,flag,tagLabel,subNote;
+  if(isGazetted){
+    const ghTypeBg={gazetted:'#FAEEDA',election:'#E6F1FB',mourning:'#FCEBEB',proclamation:'var(--cream2)',other:'#EEEDFE'};
+    const ghTypeColor={gazetted:'#854F0B',election:'#185FA5',mourning:'#A32D2D',proclamation:'var(--navy)',other:'#3C3489'};
+    bgColor='rgba(133,79,11,0.04)';
+    numColor='#854F0B';
+    tagBg=ghTypeBg[h.ghType]||ghTypeBg.other;
+    tagColor=ghTypeColor[h.ghType]||ghTypeColor.other;
+    flag='📋';
+    tagLabel=ghTypeLabel[h.ghType]||'Gazetted';
+    subNote='Gazetted Holiday · Kenya';
+  } else if(isIslamic){
+    bgColor='rgba(24,95,165,0.04)';
+    numColor='#185FA5';
+    tagBg='#E6F1FB';tagColor='#185FA5';
+    flag='☪️';tagLabel='Islamic Holiday';
+    subNote='Public Holiday · Kenya'+(h.estimated?' · Date subject to moon sighting':'');
+  } else {
+    bgColor='rgba(45,106,79,0.04)';
+    numColor='#2D6A4F';
+    tagBg='#EAF3DE';tagColor='#2D6A4F';
+    flag='🇰🇪';tagLabel='Public Holiday';
+    subNote='Public Holiday · Kenya';
+  }
+  return`<div class="event-row" style="background:${bgColor}">
+    <div class="event-date-box">
+      <div class="event-day" style="color:${numColor}">${d.getDate()}</div>
+      <div class="event-month">${d.toLocaleString('en',{month:'short'})}</div>
+    </div>
+    <div class="event-body">
+      <div class="event-title">${flag} ${esc(h.name)}</div>
+      <div class="event-meta">${subNote}</div>
+      <span class="event-tag" style="background:${tagBg};color:${tagColor}">${flag} ${tagLabel}</span>
+    </div>
+  </div>`;
+}
+
+
 function renderEvents(){
   const c=document.getElementById('events-card');
   if(!clientRecord){c.innerHTML=empty('📅','Account not linked','Contact the firm to link your portal account.');return;}
-  if(!myEvents.length){c.innerHTML=empty('📅','No events yet','Upcoming hearings and meetings linked to your matters will appear here.');return;}
   const now=new Date();
-  const upcoming=myEvents.filter(e=>parseDateLocal(e.event_date)>=now);
-  const past=myEvents.filter(e=>parseDateLocal(e.event_date)<now);
+  const todayStr=now.toISOString().split('T')[0];
+  const thisYear=now.getFullYear();
+  // Merge static + gazetted holidays
+  const allHolidays=[...getKenyanHolidays(thisYear),...getKenyanHolidays(thisYear+1)];
+  gazettedHolidays.forEach(h=>{if(!allHolidays.find(x=>x.date===h.date&&x.name===h.name))allHolidays.push({date:h.date,name:h.name,gazetted:true,ghType:h.type});});
+  const upcomingHolidays=allHolidays.filter(h=>h.date>=todayStr).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,10);
+  const pastHolidays=allHolidays.filter(h=>h.date<todayStr).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,4);
+  const upcomingEvents=myEvents.filter(e=>parseDateLocal(e.event_date)>=now);
+  const pastEvents=myEvents.filter(e=>parseDateLocal(e.event_date)<now);
+  const upcomingMixed=[
+    ...upcomingEvents.map(e=>({date:e.event_date,type:'event',data:e})),
+    ...upcomingHolidays.map(h=>({date:h.date,type:'holiday',data:h}))
+  ].sort((a,b)=>a.date.localeCompare(b.date));
   let html='';
-  if(upcoming.length){
+  if(upcomingMixed.length){
     html+=`<div style="padding:12px 20px 6px;font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:0.5px;font-weight:500;border-bottom:1px solid var(--brd)">Upcoming</div>`;
-    html+=upcoming.map(e=>eventRow(e)).join('');
+    html+=upcomingMixed.map(item=>item.type==='holiday'?holidayRow(item.data):eventRow(item.data)).join('');
   }
-  if(past.length){
-    html+=`<div style="padding:12px 20px 6px;font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:0.5px;font-weight:500;border-bottom:1px solid var(--brd);border-top:1px solid var(--brd);margin-top:6px">Past Events</div>`;
-    html+=past.reverse().slice(0,6).map(e=>eventRow(e,true)).join('');
+  if(pastEvents.length||pastHolidays.length){
+    const pastMixed=[
+      ...pastEvents.map(e=>({date:e.event_date,type:'event',data:e})),
+      ...pastHolidays.map(h=>({date:h.date,type:'holiday',data:h}))
+    ].sort((a,b)=>b.date.localeCompare(a.date));
+    html+=`<div style="padding:12px 20px 6px;font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:0.5px;font-weight:500;border-bottom:1px solid var(--brd);border-top:1px solid var(--brd);margin-top:6px">Past</div>`;
+    html+=pastMixed.slice(0,8).map(item=>item.type==='holiday'?holidayRow({...item.data}):eventRow(item.data,true)).join('');
   }
+  if(!html) html=empty('📅','No events yet','Upcoming hearings, meetings and public holidays will appear here.');
   c.innerHTML=html;
 }
 
@@ -1491,7 +1666,17 @@ function setupMessagesRealtime(){
   if(!clientRecord)return;
   sb.channel('portal-messages-'+clientRecord.id)
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'client_messages',filter:`client_id=eq.${clientRecord.id}`},async(payload)=>{
-      myMessages=[...myMessages,payload.new];
+      const incoming=payload.new;
+      // Skip own messages — already appended optimistically in sendPortalMessage
+      if(incoming.sender==='client'){
+        // Replace any optimistic temp entry that matches (same message, recent)
+        const tempIdx=myMessages.findIndex(m=>m.id&&String(m.id).startsWith('_tmp_')&&m.message===incoming.message);
+        if(tempIdx>-1){myMessages[tempIdx]=incoming;}
+        else if(!myMessages.find(m=>m.id===incoming.id)){myMessages=[...myMessages,incoming];}
+      } else {
+        // Firm message — always append if not already present
+        if(!myMessages.find(m=>m.id===incoming.id)){myMessages=[...myMessages,incoming];}
+      }
       updateMsgBadge();
       const feed=document.getElementById('msg-feed');
       if(feed)renderMsgFeed();
@@ -1554,17 +1739,29 @@ async function sendPortalMessage(){
   if(!msg)return;
   const btn=document.getElementById('msg-send-btn');
   btn.disabled=true;btn.textContent='Sending…';
-  const{error}=await sb.from('client_messages').insert([{
+  // Optimistically append message so UI feels instant
+  const optimistic={id:'_tmp_'+Date.now(),client_id:clientRecord.id,sender:'client',message:msg,read_by_client:true,created_at:new Date().toISOString()};
+  myMessages=[...myMessages,optimistic];
+  if(inp)inp.value='';
+  renderMsgFeed();
+  const{data,error}=await sb.from('client_messages').insert([{
     client_id:clientRecord.id,
     sender:'client',
     message:msg,
     read_by_firm:false,
     read_by_client:true
-  }]);
+  }]).select().single();
   btn.disabled=false;btn.textContent='Send';
-  if(error){toast('Failed to send message: '+error.message,true);return;}
-  if(inp)inp.value='';
-  await loadMyMessages();
+  if(error){
+    // Roll back optimistic update on failure
+    myMessages=myMessages.filter(m=>m.id!==optimistic.id);
+    renderMsgFeed();
+    toast('Failed to send message: '+error.message,true);
+    if(inp)inp.value=msg;
+    return;
+  }
+  // Replace optimistic entry with real record from DB
+  myMessages=myMessages.map(m=>m.id===optimistic.id?(data||optimistic):m);
   renderMsgFeed();
 }
 
