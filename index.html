@@ -1171,22 +1171,53 @@ function renderOverview(){
   document.getElementById('stat-events').textContent=upcoming.length;
   document.getElementById('stat-invoices').textContent=myInvoices.length;
 
-  // Updates feed from matters
+  // Updates feed — load from matter_updates table
   const updEl=document.getElementById('overview-updates');
   if(!myMatters.length){updEl.innerHTML=empty('⚖️','No matters yet','Your matters will appear here once opened by the firm.');
   }else{
-    updEl.innerHTML=myMatters.slice(0,5).map(m=>{
-      const updates=[];
-      if(m.next_date){const nd=parseDateLocal(m.next_date);if(nd>=now)updates.push(`Next date: <strong>${fmtDate(m.next_date)}</strong>`);}
-      if(m.court)updates.push(`Court: ${esc(m.court)}`);
-      return`<div class="update-item">
-        <div class="update-dot" style="background:${m.status==='urgent'?'#E2443A':m.status==='active'?'var(--green)':'var(--gold)'}"></div>
-        <div class="update-body">
-          <div class="update-text"><strong>${esc(m.title)}</strong> &nbsp;${spill(m.status)}</div>
-          ${updates.length?`<div class="update-time" style="margin-top:4px">${updates.join(' · ')}</div>`:''}
-          <div class="update-time">${esc(m.type||'')}${m.file_number?' · File: '+esc(m.file_number):''}</div>
-        </div>
-      </div>`;}).join('');
+    // Try to load recent updates from DB
+    const matterIds=myMatters.map(m=>m.id);
+    sb.from('matter_updates').select('matter_id,update_date,update_type,details').in('matter_id',matterIds).order('update_date',{ascending:false}).limit(8)
+      .then(({data,error})=>{
+        if(error||!data||!data.length){
+          // Fallback: show matter statuses
+          updEl.innerHTML=myMatters.slice(0,5).map(m=>{
+            const updates=[];
+            if(m.next_date){const nd=parseDateLocal(m.next_date);if(nd>=now)updates.push(`Next date: <strong>${fmtDate(m.next_date)}</strong>`);}
+            if(m.court)updates.push(`Court: ${esc(m.court)}`);
+            return`<div class="update-item">
+              <div class="update-dot" style="background:${m.status==='urgent'?'#E2443A':m.status==='active'?'var(--green)':'var(--gold)'}"></div>
+              <div class="update-body">
+                <div class="update-text"><strong>${esc(m.title)}</strong> &nbsp;${spill(m.status)}</div>
+                ${updates.length?`<div class="update-time" style="margin-top:4px">${updates.join(' · ')}</div>`:''}
+                <div class="update-time">${esc(m.type||'')}${m.file_number?' · File: '+esc(m.file_number):''}</div>
+              </div>
+            </div>`;}).join('');
+          return;
+        }
+        // Group by matter and render with type + date
+        const PORTAL_UPDATE_TYPE_LABELS={'hearing':'Hearing','filing':'Court Filing','correspondence':'Correspondence','negotiation':'Negotiation','instruction':'Client Instruction','order':'Court Order','settlement':'Settlement','research':'Legal Research','general':'General Update'};
+        const updbg={'hearing':'#FCEBEB','filing':'#E6F1FB','correspondence':'#EAF3DE','negotiation':'#EEEDFE','instruction':'#FAEEDA','order':'#FCEBEB','settlement':'#EAF3DE','research':'var(--cream2)','general':'var(--cream2)'};
+        const updcolor={'hearing':'#A32D2D','filing':'#185FA5','correspondence':'#2D6A4F','negotiation':'#3C3489','instruction':'#854F0B','order':'#A32D2D','settlement':'#2D6A4F','research':'var(--txt2)','general':'var(--txt2)'};
+        updEl.innerHTML=data.map(u=>{
+          const m=myMatters.find(x=>x.id===u.matter_id);
+          const dateStr=u.update_date?new Date(u.update_date+'T00:00').toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'}):'—';
+          const typeLabel=PORTAL_UPDATE_TYPE_LABELS[u.update_type]||u.update_type||'Update';
+          return`<div class="update-item">
+            <div class="update-dot" style="background:${updbg[u.update_type]||'var(--gold)'}"></div>
+            <div class="update-body">
+              <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:3px">
+                <span style="font-size:10px;padding:1px 7px;border-radius:8px;font-weight:500;background:${updbg[u.update_type]||'var(--cream2)'};color:${updcolor[u.update_type]||'var(--txt2)'}">${esc(typeLabel)}</span>
+                <span style="font-size:10px;color:var(--txt3)">${dateStr}</span>
+              </div>
+              <div class="update-text">${esc(u.details.slice(0,120))}${u.details.length>120?'…':''}</div>
+              ${m?`<div class="update-time" style="margin-top:3px">📁 ${esc(m.title)}</div>`:''}
+            </div>
+          </div>`;
+        }).join('');
+      });
+    // Show loading placeholder immediately
+    updEl.innerHTML=`<div style="padding:24px;text-align:center;color:var(--txt3);font-size:12px">Loading updates…</div>`;
   }
 
   // Upcoming events — mix firm events + holidays (static + gazetted) in next 30 days
@@ -1224,6 +1255,13 @@ function renderMatters(){
       </div>
       ${m.next_date?`<div style="margin-top:10px;padding:8px 12px;background:var(--cream);border-radius:6px;font-size:11px;color:var(--txt2)">⏰ Next Date: <strong style="color:var(--red)">${fmtDate(m.next_date)}</strong></div>`:''}
       ${m.notes?`<div style="margin-top:10px;font-size:11px;color:var(--txt3);line-height:1.5;border-top:1px solid var(--brd);padding-top:10px">${esc(m.notes.slice(0,120))}${m.notes.length>120?'…':''}</div>`:''}
+      <div class="matter-pcard-footer" style="margin-top:12px">
+        <button class="pbtn" style="font-size:11px;display:flex;align-items:center;gap:5px" onclick="openMatterUpdatesOverlay('${m.id}','${esc(m.title)}')">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.4"/><path d="M8 5v3.5l2 2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          View Updates
+        </button>
+        <span style="font-size:10px;color:var(--txt3)">${spill(m.status)}</span>
+      </div>
     </div>`).join('');
 }
 
@@ -1985,6 +2023,80 @@ function checkPortalTodayEvents(){
     const body = (e.event_time ? e.event_time + ' · ' : '') + (e.location || '');
     portalFireNotif('Today: ' + e.title, body || 'Scheduled for today', '📅');
   });
+}
+
+// ── MATTER UPDATES OVERLAY (client view) ──────────────────────────
+const PORTAL_UPDATE_TYPE_LABELS={
+  'hearing':'Hearing','filing':'Court Filing','correspondence':'Correspondence',
+  'negotiation':'Negotiation','instruction':'Client Instruction','order':'Court Order',
+  'settlement':'Settlement','research':'Legal Research','general':'General Update',
+};
+function portalUpdateTypeLabel(t){return PORTAL_UPDATE_TYPE_LABELS[t]||t||'Update';}
+function portalUpdateTypeBg(t){const m={'hearing':'#FCEBEB','filing':'#E6F1FB','correspondence':'#EAF3DE','negotiation':'#EEEDFE','instruction':'#FAEEDA','order':'#FCEBEB','settlement':'#EAF3DE','research':'var(--cream2)','general':'var(--cream2)'};return m[t]||'var(--cream2)';}
+function portalUpdateTypeColor(t){const m={'hearing':'#A32D2D','filing':'#185FA5','correspondence':'#2D6A4F','negotiation':'#3C3489','instruction':'#854F0B','order':'#A32D2D','settlement':'#2D6A4F','research':'var(--txt2)','general':'var(--txt2)'};return m[t]||'var(--txt2)';}
+
+async function openMatterUpdatesOverlay(matterId, matterTitle){
+  // Create overlay
+  const overlay=document.createElement('div');
+  overlay.id='matter-updates-overlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(13,27,42,0.7);z-index:3000;display:flex;align-items:flex-end;justify-content:center;padding:0';
+  overlay.innerHTML=`
+    <div style="background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:640px;max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 -8px 40px rgba(0,0,0,0.25)">
+      <div style="background:var(--navy);padding:18px 22px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+        <div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Matter Updates</div>
+          <div style="font-family:'Playfair Display',serif;font-size:17px;color:#fff;font-weight:500;line-height:1.3">${esc(matterTitle)}</div>
+        </div>
+        <button onclick="document.getElementById('matter-updates-overlay').remove()" style="background:rgba(255,255,255,0.1);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;line-height:1">×</button>
+      </div>
+      <div id="matter-updates-body" style="flex:1;overflow-y:auto;padding:0">
+        <div style="padding:40px;text-align:center;color:var(--txt3)"><div style="font-size:24px;margin-bottom:12px">⏳</div>Loading updates…</div>
+      </div>
+      <div style="padding:14px 22px;border-top:1px solid var(--brd);background:var(--cream);flex-shrink:0">
+        <div style="background:#E6F1FB;border-radius:8px;padding:11px 16px;display:flex;align-items:flex-start;gap:10px">
+          <span style="font-size:16px;flex-shrink:0">ℹ️</span>
+          <div style="font-size:12px;color:#185FA5;line-height:1.55">For more details on any update, or to ask a question, please <strong>contact the firm directly</strong>. Use the Messages tab or call our offices.</div>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  // Close on backdrop click
+  overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove();});
+
+  // Load updates from DB
+  const bodyEl=document.getElementById('matter-updates-body');
+  const{data,error}=await sb.from('matter_updates').select('update_date,update_type,details').eq('matter_id',matterId).order('update_date',{ascending:false});
+  if(error){
+    bodyEl.innerHTML=`<div style="padding:32px;text-align:center;color:var(--txt3);font-size:13px">Unable to load updates. Please try again later.</div>`;
+    return;
+  }
+  const updates=data||[];
+  if(!updates.length){
+    bodyEl.innerHTML=`<div style="padding:40px;text-align:center">
+      <div style="font-size:32px;margin-bottom:12px">📋</div>
+      <div style="font-family:'Playfair Display',serif;font-size:16px;color:var(--txt2);margin-bottom:6px">No updates yet</div>
+      <div style="font-size:12px;color:var(--txt3);line-height:1.6">The firm will record updates here as your matter progresses.<br>Contact us if you have any questions.</div>
+    </div>`;
+    return;
+  }
+  bodyEl.innerHTML=updates.map(u=>{
+    const dateStr=u.update_date?new Date(u.update_date+'T00:00').toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'}):'—';
+    const dayNum=u.update_date?new Date(u.update_date+'T00:00').getDate():'—';
+    const monthStr=u.update_date?new Date(u.update_date+'T00:00').toLocaleString('en',{month:'short'}):'';
+    return`<div style="display:flex;gap:14px;padding:16px 22px;border-bottom:1px solid var(--brd);align-items:flex-start">
+      <div style="width:40px;text-align:center;flex-shrink:0;padding-top:2px">
+        <div style="font-family:'Playfair Display',serif;font-size:20px;color:var(--navy);line-height:1">${dayNum}</div>
+        <div style="font-size:9px;color:var(--txt3);text-transform:uppercase;letter-spacing:0.5px">${monthStr}</div>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+          <span style="font-size:10px;padding:2px 9px;border-radius:10px;font-weight:500;background:${portalUpdateTypeBg(u.update_type)};color:${portalUpdateTypeColor(u.update_type)}">${esc(portalUpdateTypeLabel(u.update_type))}</span>
+          <span style="font-size:10px;color:var(--txt3)">${dateStr}</span>
+        </div>
+        <div style="font-size:13px;color:var(--txt);line-height:1.65">${esc(u.details)}</div>
+      </div>
+    </div>`;
+  }).join('');
 }
 </script>
 
