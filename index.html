@@ -841,6 +841,19 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
         <style>@keyframes spin2{to{transform:rotate(360deg)}}</style>
 
         <!-- STATE: SENT -->
+        <div id="sos-state-active" style="display:none">
+          <div class="sos-sent-box" style="border-color:#f5c6c6;background:#fff8f8">
+            <div class="sos-sent-icon">🚨</div>
+            <div class="sos-sent-title" style="color:#A30000">Alert Active</div>
+            <div class="sos-sent-sub" id="sos-active-time">Your emergency alert is with the firm.</div>
+            <div style="font-size:12px;color:var(--txt3);margin-bottom:20px;padding:12px;background:#fff;border-radius:8px;border:1px solid #f5c6c6">
+              You cannot send another alert until the firm marks this one as resolved. If this is urgent, call or WhatsApp directly.
+            </div>
+            <a class="sos-call-btn" id="sos-active-call-btn" href="tel:%%LAWYER_PHONE%%">📞 Call Lawyer Now</a>
+            <a class="sos-wa-btn" id="sos-active-wa-btn" href="https://wa.me/%%LAWYER_PHONE%%" target="_blank">💬 WhatsApp Lawyer</a>
+          </div>
+        </div>
+
         <div id="sos-state-sent" style="display:none">
           <div class="sos-sent-box">
             <div class="sos-sent-icon">✅</div>
@@ -1092,7 +1105,7 @@ function showPView(id,el,fromMobile){
   if(id==='profile')renderProfile();
   if(id==='parties')renderParties();
   if(id==='messages'){loadAndRenderMessages();}
-  if(id==='sos'){_sosSetState('ready');document.getElementById('sos-form-section').style.display='none';}
+  if(id==='sos'){checkActiveAlert();}
 }
 
 // ── PORTAL DRAWER open/close ──────────────────────────────────────
@@ -2093,14 +2106,39 @@ function portalSosCancel(){
 }
 
 function portalSosReset(){
+  // Only allow resending if the alert has been resolved by the firm
   _sosSetState('ready');
   document.getElementById('sos-form-section').style.display='none';
   _sosSit=null;
 }
 
+async function checkActiveAlert(){
+  if(!clientRecord){_sosSetState('ready');document.getElementById('sos-form-section').style.display='none';return;}
+  // Check if there is an unresolved alert for this client
+  const{data,error}=await sb.from('panic_alerts')
+    .select('id,triggered_at,situation,resolved')
+    .eq('client_id',clientRecord.id)
+    .eq('resolved',false)
+    .order('triggered_at',{ascending:false})
+    .limit(1)
+    .maybeSingle();
+  if(!error&&data){
+    // Active unresolved alert — show locked sent screen
+    _sosSetState('active');
+    const dt=new Date(data.triggered_at);
+    const timeStr=dt.toLocaleString('en-KE',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+    const el=document.getElementById('sos-active-time');
+    if(el)el.textContent='Sent '+timeStr+' — awaiting firm response';
+  } else {
+    _sosSetState('ready');
+    document.getElementById('sos-form-section').style.display='none';
+  }
+}
+
 function _sosSetState(state){
-  ['ready','sending','sent'].forEach(s=>{
-    document.getElementById('sos-state-'+s).style.display=s===state?'block':'none';
+  ['ready','sending','sent','active'].forEach(s=>{
+    const el=document.getElementById('sos-state-'+s);
+    if(el)el.style.display=s===state?'block':'none';
   });
 }
 
@@ -2198,6 +2236,21 @@ async function portalSendAlert(){
 
   btn.disabled=false;
   _sosSetState('sent');
+  // Poll until resolved so client can't send duplicates
+  startAlertResolutionPoll(data?.id);
+}
+
+function startAlertResolutionPoll(alertId){
+  if(!alertId)return;
+  const interval=setInterval(async()=>{
+    const{data}=await sb.from('panic_alerts').select('resolved').eq('id',alertId).maybeSingle();
+    if(data?.resolved){
+      clearInterval(interval);
+      _sosSetState('ready');
+      document.getElementById('sos-form-section').style.display='none';
+      toast('Your alert has been resolved by the firm. You may send a new alert if needed.');
+    }
+  },15000); // check every 15 seconds
 }
 </script>
 
