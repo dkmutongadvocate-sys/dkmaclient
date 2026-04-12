@@ -528,7 +528,7 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
       <div class="topnav-tab" onclick="showPView('parties',this)">Other Parties</div>
     </div>
     <div class="topnav-right">
-      <button class="topnav-sos-btn" onclick="showPView('sos',this)" title="Emergency SOS">🆘 SOS</button>
+      <button class="topnav-sos-btn" id="topnav-sos-btn" onclick="showPView('sos',this)" title="Emergency SOS" style="display:none">🆘 SOS</button>
       <div class="topnav-user" onclick="showPView('profile',null)">
         <div class="topnav-av" id="nav-av">?</div>
         <span class="topnav-uname" id="nav-name">—</span>
@@ -918,7 +918,7 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
       <svg viewBox="0 0 16 16" fill="none"><circle cx="5" cy="5" r="2.5" stroke="currentColor" stroke-width="1.4"/><circle cx="11" cy="5" r="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M1 14c0-2.761 1.791-5 4-5M15 14c0-2.761-1.791-5-4-5M8 9c1.5 0 3 1.2 3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
       Other Parties
     </div>
-    <div class="portal-drawer-item" id="pdi-sos" onclick="showPView('sos',null,true);closePortalDrawer()" style="color:#A30000;font-weight:600">
+    <div class="portal-drawer-item" id="pdi-sos" onclick="showPView('sos',null,true);closePortalDrawer()" style="color:#A30000;font-weight:600;display:none">
       <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.4"/><path d="M8 5v3.5M8 10.5v.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
       🆘 Emergency SOS
     </div>
@@ -1081,6 +1081,8 @@ async function signOut(){
 
 // ── NAVIGATION ────────────────────────────────────────────────────
 function showPView(id,el,fromMobile){
+  // Guard: if SOS is not enabled for this client, silently redirect to overview
+  if(id==='sos'&&!clientRecord?.sos_enabled){id='overview';el=null;}
   document.querySelectorAll('.pview').forEach(v=>v.classList.remove('active'));
   document.getElementById('pview-'+id).classList.add('active');
   document.querySelectorAll('.topnav-tab').forEach(t=>t.classList.remove('active'));
@@ -1268,6 +1270,12 @@ function updateNavUser(){
   if(dav)dav.textContent=initials(name);
   if(dnm)dnm.textContent=name;
   if(dem)dem.textContent=realEmail||'—';
+  // Show/hide SOS button based on whether the firm has enabled it for this client
+  const sosEnabled=!!clientRecord?.sos_enabled;
+  const sosTopBtn=document.getElementById('topnav-sos-btn');
+  const sosDrItem=document.getElementById('pdi-sos');
+  if(sosTopBtn)sosTopBtn.style.display=sosEnabled?'':'none';
+  if(sosDrItem)sosDrItem.style.display=sosEnabled?'':'none';
 }
 
 // ── DATA LOADERS ──────────────────────────────────────────────────
