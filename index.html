@@ -1093,7 +1093,6 @@ async function launchPortal(){
     await loadMyMessages();
     await loadGazettedHolidays();
     setupMessagesRealtime();
-    setupPortalRealtime();
   }
   document.getElementById('portal-loading').style.display='none';
   updateNavUser();
@@ -1767,72 +1766,88 @@ function updateMsgBadge(){
   if(drawerBadge){drawerBadge.textContent=unread;drawerBadge.style.display=unread>0?'':'none';}
 }
 
-function setupMessagesRealtime(){
-  if(!clientRecord)return;
-  sb.channel('portal-messages-'+clientRecord.id)
-    .on('postgres_changes',{event:'INSERT',schema:'public',table:'client_messages',filter:`client_id=eq.${clientRecord.id}`},async(payload)=>{
-      const incoming=payload.new;
-      // Skip own messages — already appended optimistically in sendPortalMessage
-      if(incoming.sender==='client'){
-        // Replace any optimistic temp entry that matches (same message, recent)
-        const tempIdx=myMessages.findIndex(m=>m.id&&String(m.id).startsWith('_tmp_')&&m.message===incoming.message);
-        if(tempIdx>-1){myMessages[tempIdx]=incoming;}
-        else if(!myMessages.find(m=>m.id===incoming.id)){myMessages=[...myMessages,incoming];}
-      } else {
-        // Firm message — always append if not already present
-        if(!myMessages.find(m=>m.id===incoming.id)){myMessages=[...myMessages,incoming];}
-      }
-      updateMsgBadge();
-      const feed=document.getElementById('msg-feed');
-      if(feed)renderMsgFeed();
-    })
-    .subscribe();
-}
+// ── POLLING-BASED REALTIME (works on GitHub Pages / static hosts) ──
+let _portalPollInterval=null;
+let _portalSnap={messages:'',matters:0,invoices:0,events:0};
 
 function _activePortalView(){
   const v=document.querySelector('.pview.active');
   return v?v.id.replace('pview-',''):'';
 }
 
-function setupPortalRealtime(){
-  if(!clientRecord)return;
-  const cid=clientRecord.id;
+async function _portalPollMsgMax(){
+  if(!clientRecord)return'';
+  const{data}=await sb.from('client_messages').select('created_at').eq('client_id',clientRecord.id).order('created_at',{ascending:false}).limit(1);
+  return data&&data[0]?data[0].created_at:'';
+}
 
-  // Matters — filter by client_id
-  sb.channel('portal-matters-'+cid)
-    .on('postgres_changes',{event:'*',schema:'public',table:'matters',filter:`client_id=eq.${cid}`},async()=>{
+async function portalPollAll(){
+  if(!clientRecord)return;
+  try{
+    const cid=clientRecord.id;
+
+    // ── Messages — highest priority ───────────────────────────────
+    const msgMax=await _portalPollMsgMax();
+    if(msgMax&&msgMax!==_portalSnap.messages){
+      _portalSnap.messages=msgMax;
+      await loadMyMessages();
+      updateMsgBadge();
+      const feed=document.getElementById('msg-feed');
+      if(feed)renderMsgFeed();
+    }
+
+    // ── Matters ───────────────────────────────────────────────────
+    const{count:mC}=await sb.from('matters').select('*',{count:'exact',head:true}).eq('client_id',cid);
+    if((mC||0)!==_portalSnap.matters){
+      _portalSnap.matters=mC||0;
       await loadMyMatters();
-      await loadMyEvents(); // events depend on matter IDs
+      await loadMyEvents();
       const v=_activePortalView();
       if(v==='matters')renderMatters();
       if(v==='events')renderEvents();
       if(v==='overview')renderOverview();
-    })
-    .subscribe();
+    }
 
-  // Invoices — filter by client_id
-  sb.channel('portal-invoices-'+cid)
-    .on('postgres_changes',{event:'*',schema:'public',table:'invoices',filter:`client_id=eq.${cid}`},async()=>{
+    // ── Invoices ──────────────────────────────────────────────────
+    const{count:iC}=await sb.from('invoices').select('*',{count:'exact',head:true}).eq('client_id',cid);
+    if((iC||0)!==_portalSnap.invoices){
+      _portalSnap.invoices=iC||0;
       await loadMyInvoices();
       const v=_activePortalView();
       if(v==='invoices')renderInvoices();
       if(v==='overview')renderOverview();
-    })
-    .subscribe();
+    }
 
-  // Events — no direct filter on client_id; reload when any event for our matters changes
-  // We use a broad channel and filter in JS since matter_id is the FK
-  sb.channel('portal-events-'+cid)
-    .on('postgres_changes',{event:'*',schema:'public',table:'events'},async(payload)=>{
-      const mIds=myMatters.map(m=>m.id);
-      const evMatter=payload.new?.matter_id||payload.old?.matter_id;
-      if(!evMatter||!mIds.includes(evMatter))return; // not our matter
-      await loadMyEvents();
-      const v=_activePortalView();
-      if(v==='events')renderEvents();
-      if(v==='overview')renderOverview();
-    })
-    .subscribe();
+    // ── Events (catch direct event adds) ──────────────────────────
+    const mIds=myMatters.map(m=>m.id);
+    if(mIds.length){
+      const{count:eC}=await sb.from('events').select('*',{count:'exact',head:true}).in('matter_id',mIds);
+      if((eC||0)!==_portalSnap.events){
+        _portalSnap.events=eC||0;
+        await loadMyEvents();
+        const v=_activePortalView();
+        if(v==='events')renderEvents();
+        if(v==='overview')renderOverview();
+      }
+    }
+  }catch(e){/* network error — skip tick */}
+}
+
+function setupPortalPolling(){
+  if(!clientRecord)return;
+  // Seed snapshot so first poll doesn't cause spurious re-renders
+  _portalSnap.matters=myMatters.length;
+  _portalSnap.invoices=myInvoices.length;
+  _portalSnap.events=myEvents.length;
+  _portalSnap.messages='';
+  if(_portalPollInterval)clearInterval(_portalPollInterval);
+  // Poll every 4 seconds — fast enough to feel realtime
+  _portalPollInterval=setInterval(portalPollAll,4000);
+}
+
+function setupMessagesRealtime(){
+  // Legacy name kept for compatibility — now handled by polling
+  setupPortalPolling();
 }
 
 async function loadAndRenderMessages(){
@@ -1913,6 +1928,8 @@ async function sendPortalMessage(){
   }
   // Replace optimistic entry with real record from DB
   myMessages=myMessages.map(m=>m.id===optimistic.id?(data||optimistic):m);
+  // Advance the snapshot so the next poll doesn't treat our own message as "new"
+  if(data?.created_at)_portalSnap.messages=data.created_at;
   renderMsgFeed();
 }
 
