@@ -50,7 +50,7 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 .topnav{background:var(--navy);height:60px;display:flex;align-items:center;padding:0 28px;gap:16px;flex-shrink:0;position:sticky;top:0;z-index:100}
 .topnav-logo{font-family:'Playfair Display',serif;font-size:16px;color:#fff;font-weight:500;white-space:nowrap}
 .topnav-badge{background:var(--gold);color:var(--navy);font-size:9px;font-weight:600;padding:2px 7px;border-radius:3px;margin-left:8px;letter-spacing:0.5px}
-.topnav-tabs{display:flex;gap:2px;margin-left:32px;flex:1;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;-webkit-overflow-scrolling:touch}
+.topnav-tabs{display:none;gap:2px;margin-left:32px;flex:1;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;-webkit-overflow-scrolling:touch}
 .topnav-tab{padding:8px 16px;font-size:12px;color:rgba(255,255,255,0.55);cursor:pointer;border-radius:6px;transition:all 0.15s;white-space:nowrap;user-select:none;border:1px solid transparent}
 .topnav-tab:hover{color:rgba(255,255,255,0.9);background:rgba(255,255,255,0.06)}
 .topnav-tab.active{color:#fff;background:rgba(184,149,58,0.2);border-color:rgba(184,149,58,0.4)}
@@ -245,7 +245,7 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 
 /* ── PORTAL HAMBURGER DRAWER ─────────────────────────────────────── */
 .portal-hamburger{
-  display:none;background:none;border:none;cursor:pointer;
+  display:flex;background:none;border:none;cursor:pointer;
   padding:8px;color:#fff;border-radius:6px;touch-action:manipulation;
   flex-shrink:0;margin-right:4px;
 }
@@ -335,6 +335,7 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
   .topnav-tabs{display:none}
   .topnav-right{margin-left:auto}
   .portal-hamburger{display:flex}
+
   .portal-content{padding:12px}
 
   /* Stats */
@@ -869,6 +870,18 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
       </div>
     </div>
 
+    <!-- ── SOS HISTORY ──────────────────────────────────────────── -->
+    <div class="pview" id="pview-sos-history">
+      <div style="max-width:640px;margin:0 auto">
+        <div style="margin-bottom:24px">
+          <div style="font-family:'Playfair Display',serif;font-size:22px;color:var(--txt);margin-bottom:4px">SOS Alert History</div>
+          <div style="font-size:13px;color:var(--txt3)">A record of all emergency alerts you have sent to DKMA.</div>
+        </div>
+        <div id="sos-history-summary" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:24px"></div>
+        <div id="sos-history-list"><div style="text-align:center;padding:40px;color:var(--txt3);font-size:13px">Loading…</div></div>
+      </div>
+    </div>
+
   </div><!-- /portal-content -->
 </div><!-- /portal-shell -->
 
@@ -921,6 +934,10 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
     <div class="portal-drawer-item" id="pdi-sos" onclick="showPView('sos',null,true);closePortalDrawer()" style="color:#A30000;font-weight:600;display:none">
       <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.4"/><path d="M8 5v3.5M8 10.5v.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
       🆘 Emergency SOS
+    </div>
+    <div class="portal-drawer-item" id="pdi-sos-history" onclick="showPView('sos-history',null,true);closePortalDrawer()" style="display:none">
+      <svg viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M5 5h6M5 8h6M5 11h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+      SOS History
     </div>
   </div>
   <div class="portal-drawer-footer">
@@ -1083,6 +1100,7 @@ async function signOut(){
 function showPView(id,el,fromMobile){
   // Guard: if SOS is not enabled for this client, silently redirect to overview
   if(id==='sos'&&!clientRecord?.sos_enabled){id='overview';el=null;}
+  if(id==='sos-history'&&!clientRecord?.sos_enabled){id='overview';el=null;}
   document.querySelectorAll('.pview').forEach(v=>v.classList.remove('active'));
   document.getElementById('pview-'+id).classList.add('active');
   document.querySelectorAll('.topnav-tab').forEach(t=>t.classList.remove('active'));
@@ -1108,6 +1126,7 @@ function showPView(id,el,fromMobile){
   if(id==='parties')renderParties();
   if(id==='messages'){loadAndRenderMessages();}
   if(id==='sos'){checkActiveAlert();}
+  if(id==='sos-history'){loadSosHistory();}
 }
 
 // ── PORTAL DRAWER open/close ──────────────────────────────────────
@@ -1274,8 +1293,10 @@ function updateNavUser(){
   const sosEnabled=!!clientRecord?.sos_enabled;
   const sosTopBtn=document.getElementById('topnav-sos-btn');
   const sosDrItem=document.getElementById('pdi-sos');
+  const sosHistItem=document.getElementById('pdi-sos-history');
   if(sosTopBtn)sosTopBtn.style.display=sosEnabled?'':'none';
   if(sosDrItem)sosDrItem.style.display=sosEnabled?'':'none';
+  if(sosHistItem)sosHistItem.style.display=sosEnabled?'':'none';
 }
 
 // ── DATA LOADERS ──────────────────────────────────────────────────
@@ -2130,6 +2151,75 @@ function portalSosReset(){
   _sosSetState('ready');
   document.getElementById('sos-form-section').style.display='none';
   _sosSit=null;
+}
+
+// ── SOS HISTORY ───────────────────────────────────────────────────
+async function loadSosHistory(){
+  const listEl=document.getElementById('sos-history-list');
+  const summaryEl=document.getElementById('sos-history-summary');
+  if(!clientRecord){
+    listEl.innerHTML='<div style="text-align:center;padding:40px;color:var(--txt3);font-size:13px">No client record found.</div>';
+    return;
+  }
+  listEl.innerHTML='<div style="text-align:center;padding:40px;color:var(--txt3);font-size:13px">Loading…</div>';
+  const{data,error}=await sb.from('panic_alerts')
+    .select('*')
+    .eq('client_id',clientRecord.id)
+    .order('triggered_at',{ascending:false});
+  if(error){
+    listEl.innerHTML=`<div style="text-align:center;padding:40px;color:#a33;font-size:13px">Could not load history: ${esc(error.message)}</div>`;
+    return;
+  }
+  const alerts=data||[];
+  const total=alerts.length;
+  const resolved=alerts.filter(a=>a.resolved).length;
+  const active=alerts.filter(a=>!a.resolved&&!a.acknowledged).length;
+
+  // Summary stats
+  summaryEl.innerHTML=`
+    <div style="background:#fff;border-radius:12px;border:0.5px solid var(--brd);padding:16px;text-align:center">
+      <div style="font-size:28px;font-weight:700;color:var(--navy)">${total}</div>
+      <div style="font-size:11px;color:var(--txt3);margin-top:2px;text-transform:uppercase;letter-spacing:0.5px">Total Alerts</div>
+    </div>
+    <div style="background:#fff;border-radius:12px;border:0.5px solid var(--brd);padding:16px;text-align:center">
+      <div style="font-size:28px;font-weight:700;color:#2D6A4F">${resolved}</div>
+      <div style="font-size:11px;color:var(--txt3);margin-top:2px;text-transform:uppercase;letter-spacing:0.5px">Resolved</div>
+    </div>
+    <div style="background:#fff;border-radius:12px;border:0.5px solid var(--brd);padding:16px;text-align:center">
+      <div style="font-size:28px;font-weight:700;color:${active>0?'#A30000':'var(--txt3)'}">${active}</div>
+      <div style="font-size:11px;color:var(--txt3);margin-top:2px;text-transform:uppercase;letter-spacing:0.5px">Active</div>
+    </div>`;
+
+  if(!total){
+    listEl.innerHTML='<div style="text-align:center;padding:48px;color:var(--txt3);font-size:13px">You have not sent any SOS alerts yet.</div>';
+    return;
+  }
+
+  const sitLabels={arrested:'Arrested / Detained',danger:'In Danger',accident:'Accident / Injury',other:'Other Emergency',unspecified:'Unspecified'};
+  const sitIcons={arrested:'🚔',danger:'⚠️',accident:'🏥',other:'❗',unspecified:'🆘'};
+
+  listEl.innerHTML=alerts.map(a=>{
+    const date=new Date(a.triggered_at);
+    const dateStr=date.toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'});
+    const timeStr=date.toLocaleTimeString('en-KE',{hour:'2-digit',minute:'2-digit'});
+    const status=a.resolved
+      ?'<span style="background:#e8f5e9;color:#2D6A4F;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">✓ Resolved</span>'
+      :a.acknowledged
+      ?'<span style="background:#fff8e1;color:#b8960a;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">👁 Acknowledged</span>'
+      :'<span style="background:#fff0f0;color:#A30000;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">🔴 Active</span>';
+    return`<div style="background:#fff;border-radius:12px;border:0.5px solid var(--brd);padding:16px 20px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:20px">${sitIcons[a.situation]||'🆘'}</span>
+          <span style="font-size:13px;font-weight:600;color:var(--txt)">${esc(sitLabels[a.situation]||a.situation)}</span>
+        </div>
+        ${status}
+      </div>
+      <div style="font-size:11px;color:var(--txt3)">${dateStr} at ${timeStr}</div>
+      ${a.note?`<div style="font-size:12px;color:var(--txt2);margin-top:6px;padding:8px 12px;background:var(--cream);border-radius:7px">${esc(a.note)}</div>`:''}
+      ${a.maps_link?`<a href="${esc(a.maps_link)}" target="_blank" style="font-size:11px;color:var(--gold);text-decoration:none;display:inline-block;margin-top:6px">📍 View location</a>`:''}
+    </div>`;
+  }).join('');
 }
 
 async function checkActiveAlert(){
