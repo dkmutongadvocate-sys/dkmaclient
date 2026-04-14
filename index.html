@@ -738,88 +738,6 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
       </div>
     </div>
 
-    <!-- ── SOS / EMERGENCY ────────────────────────────────────── -->
-    <div class="pview" id="pview-sos">
-      <div class="sos-view">
-        <div class="sos-header">
-          <div class="sos-header-title">Emergency Alert</div>
-          <div class="sos-header-sub">If you have been arrested, are in danger, or need urgent legal assistance — press the button below to alert DKMA immediately.</div>
-        </div>
-
-        <!-- STATE: READY -->
-        <div id="sos-state-ready" style="display:flex;flex-direction:column;align-items:center;width:100%">
-          <div class="panic-portal-btn-wrap">
-            <div class="panic-portal-ring"></div>
-            <div class="panic-portal-ring"></div>
-            <div class="panic-portal-ring"></div>
-            <button class="panic-portal-btn" onclick="portalSosTriggered()">
-              <span class="panic-portal-btn-icon">🆘</span>
-              <span class="panic-portal-btn-lbl">SOS</span>
-            </button>
-          </div>
-          <p class="sos-ready-hint">Tap SOS only for genuine emergencies</p>
-          <div class="sos-form" style="width:100%">
-            <div class="sos-form-card" id="sos-form-section" style="display:none">
-              <div class="sos-form-title">What is happening?</div>
-              <div class="sos-sit-grid">
-                <div class="sos-sit" id="sos-sit-arrested" onclick="portalSelectSit('arrested')"><span class="sos-sit-icon">🚔</span><span class="sos-sit-lbl">Arrested / Detained</span></div>
-                <div class="sos-sit" id="sos-sit-danger" onclick="portalSelectSit('danger')"><span class="sos-sit-icon">⚠️</span><span class="sos-sit-lbl">In Danger</span></div>
-                <div class="sos-sit" id="sos-sit-accident" onclick="portalSelectSit('accident')"><span class="sos-sit-icon">🏥</span><span class="sos-sit-lbl">Accident / Injury</span></div>
-                <div class="sos-sit" id="sos-sit-other" onclick="portalSelectSit('other')"><span class="sos-sit-icon">❗</span><span class="sos-sit-lbl">Other Emergency</span></div>
-              </div>
-              <div style="margin-top:14px">
-                <div class="sos-form-title">Brief note (optional)</div>
-                <textarea class="sos-note" id="sos-note" placeholder="e.g. Arrested at Gigiri Police Station, need lawyer immediately…" maxlength="300" rows="3"></textarea>
-              </div>
-              <div class="sos-loc-row" style="margin-top:8px">
-                <div class="sos-loc-dot spin" id="sos-loc-dot"></div>
-                <div class="sos-loc-txt" id="sos-loc-txt">Getting your location…</div>
-                <span style="font-size:11px;color:var(--gold);cursor:pointer;text-decoration:underline;display:none" id="sos-loc-retry" onclick="portalGetLocation()">Retry</span>
-              </div>
-              <button class="sos-send-btn" id="sos-send-btn" style="margin-top:14px" onclick="portalSendAlert()">🆘 Send Alert to DKMA Now</button>
-              <div style="text-align:center;margin-top:10px;font-size:12px;color:rgba(255,255,255,0.35);cursor:pointer" onclick="portalSosCancel()">← Cancel</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- STATE: SENDING -->
-        <div id="sos-state-sending" style="display:none;text-align:center;padding:40px 0;width:100%">
-          <div style="width:56px;height:56px;border:3px solid rgba(255,255,255,0.1);border-top-color:#E74C3C;border-radius:50%;animation:spin2 0.8s linear infinite;margin:0 auto 18px"></div>
-          <div style="font-family:'Playfair Display',serif;font-size:20px;color:#fff;margin-bottom:6px">Sending Alert…</div>
-          <div style="font-size:12px;color:rgba(255,255,255,0.45)">Your emergency alert is being sent to DKMA. Please stay as calm as possible.</div>
-        </div>
-        <style>@keyframes spin2{to{transform:rotate(360deg)}}</style>
-
-        <!-- STATE: ACTIVE (unresolved) -->
-        <div id="sos-state-active" style="display:none;width:100%">
-          <div class="sos-sent-box">
-            <div class="sos-sent-icon">🚨</div>
-            <div class="sos-sent-title" style="color:#ff6b6b">Alert Active</div>
-            <div class="sos-sent-sub" id="sos-active-time">Your emergency alert is with the firm.</div>
-            <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:20px;padding:12px;background:rgba(255,255,255,0.05);border-radius:8px;border:1px solid rgba(255,255,255,0.1);line-height:1.6">
-              You cannot send another alert until the firm marks this one as resolved. If this is urgent, call or WhatsApp directly.
-            </div>
-            <a class="sos-call-btn" id="sos-active-call-btn" href="tel:%%LAWYER_PHONE%%">📞 Call Lawyer Now</a>
-            <a class="sos-wa-btn" id="sos-active-wa-btn" href="https://wa.me/%%LAWYER_PHONE%%" target="_blank">💬 WhatsApp Lawyer</a>
-          </div>
-        </div>
-
-        <!-- STATE: SENT -->
-        <div id="sos-state-sent" style="display:none;width:100%">
-          <div class="sos-sent-box">
-            <div class="sos-sent-icon">🚨</div>
-            <div class="sos-sent-title" style="color:#ff6b6b">Alert Sent to DKMA</div>
-            <div class="sos-sent-sub">DKMA has been notified. Call or WhatsApp the lawyer for the fastest response.</div>
-            <a class="sos-call-btn" id="sos-call-btn" href="#">📞 Call Lawyer Now</a>
-            <a class="sos-wa-btn" id="sos-wa-btn" href="#" target="_blank">💬 WhatsApp Lawyer</a>
-            <button class="sos-reset-btn" onclick="portalSosReset()">← Send Another Alert</button>
-          </div>
-          <div style="text-align:center;margin-top:10px;font-size:11px;color:rgba(255,255,255,0.25)" id="sos-ref-txt"></div>
-        </div>
-
-      </div>
-    </div>
-
     <!-- ── SOS HISTORY ──────────────────────────────────────────── -->
     <div class="pview" id="pview-sos-history">
       <div style="max-width:640px;margin:0 auto">
@@ -940,10 +858,7 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
     </div>
     <div class="portal-drawer-item" id="pdi-sos" onclick="showPView('sos',null,true);closePortalDrawer()" style="color:#A30000;font-weight:600;display:none">
       <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.4"/><path d="M8 5v3.5M8 10.5v.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-      🆘 Emergency SOS
-    </div>
-    <div class="portal-drawer-item" id="pdi-sos-history" onclick="showPView('sos-history',null,true);closePortalDrawer()" style="display:none">
-      <svg viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M5 5h6M5 8h6M5 11h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+     
       SOS History
     </div>
   </div>
@@ -1298,14 +1213,6 @@ function updateNavUser(){
   if(dav)dav.textContent=initials(name);
   if(dnm)dnm.textContent=name;
   if(dem)dem.textContent=realEmail||'—';
-  // Show/hide SOS button based on whether the firm has enabled it for this client
-  const sosEnabled=!!clientRecord?.sos_enabled;
-  const sosTopBtn=document.getElementById('topnav-sos-btn');
-  const sosDrItem=document.getElementById('pdi-sos');
-  const sosHistItem=document.getElementById('pdi-sos-history');
-  if(sosTopBtn)sosTopBtn.style.display=sosEnabled?'':'none';
-  if(sosDrItem)sosDrItem.style.display=sosEnabled?'':'none';
-  if(sosHistItem)sosHistItem.style.display=sosEnabled?'':'none';
 }
 
 // ── DATA LOADERS ──────────────────────────────────────────────────
