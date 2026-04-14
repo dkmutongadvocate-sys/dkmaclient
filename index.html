@@ -67,6 +67,7 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 
 /* ── VIEWS ────────────────────────────────────────────────────── */
 .pview{display:none}.pview.active{display:block}
+#pview-sos.active{display:flex;flex-direction:column;align-items:center}
 
 /* ── CARDS / PANELS ──────────────────────────────────────────── */
 .pcard{background:#fff;border-radius:10px;border:0.5px solid var(--brd);overflow:hidden;margin-bottom:18px}
@@ -415,50 +416,72 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 .topnav-sos-btn{background:#A30000;color:#fff;border:none;padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;letter-spacing:0.3px;transition:background 0.15s;flex-shrink:0;animation:sos-pulse 3s ease-in-out infinite}
 .topnav-sos-btn:hover{background:#C0392B;animation:none}
 @keyframes sos-pulse{0%,100%{box-shadow:0 0 0 0 rgba(163,0,0,0.5)}50%{box-shadow:0 0 0 6px rgba(163,0,0,0)}}
-.sos-view{max-width:560px;margin:0 auto;padding:24px 0}
-.sos-header{text-align:center;margin-bottom:32px}
-.sos-header-icon{font-size:48px;margin-bottom:12px}
-.sos-header-title{font-family:'Playfair Display',serif;font-size:24px;color:var(--txt);margin-bottom:6px}
-.sos-header-sub{font-size:13px;color:var(--txt3);line-height:1.6}
-.panic-portal-btn-wrap{display:flex;align-items:center;justify-content:center;margin:32px 0;position:relative}
-.panic-portal-ring{position:absolute;border-radius:50%;border:2px solid rgba(163,0,0,0.25);animation:pp-pulse 2.5s ease-out infinite}
-.panic-portal-ring:nth-child(1){width:160px;height:160px}
-.panic-portal-ring:nth-child(2){width:200px;height:200px;animation-delay:0.8s;border-color:rgba(163,0,0,0.12)}
-.panic-portal-ring:nth-child(3){width:240px;height:240px;animation-delay:1.6s;border-color:rgba(163,0,0,0.06)}
-@keyframes pp-pulse{0%{transform:scale(0.85);opacity:1}100%{transform:scale(1.2);opacity:0}}
-.panic-portal-btn{position:relative;width:130px;height:130px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#E74C3C,#A30000);border:none;cursor:pointer;box-shadow:0 0 0 5px rgba(163,0,0,0.15),0 6px 28px rgba(163,0,0,0.4),inset 0 2px 4px rgba(255,255,255,0.15);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;transition:transform 0.12s,box-shadow 0.12s;touch-action:manipulation}
-.panic-portal-btn:active{transform:scale(0.93);box-shadow:0 0 0 5px rgba(163,0,0,0.25),0 3px 16px rgba(163,0,0,0.5)}
-.panic-portal-btn-icon{font-size:36px;line-height:1}
-.panic-portal-btn-lbl{font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.9)}
-.sos-form{display:flex;flex-direction:column;gap:14px}
-.sos-form-card{background:#fff;border-radius:12px;border:0.5px solid var(--brd);padding:20px}
-.sos-form-title{font-size:12px;font-weight:600;color:var(--txt2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:14px}
+/* Full-immersive SOS view — matches standalone emergency page */
+#pview-sos{background:radial-gradient(ellipse at 50% 30%,#1a0000 0%,var(--navy) 70%);min-height:calc(100vh - 60px);margin:-28px;padding:0;position:relative;overflow:hidden}
+#pview-sos::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% 45%,rgba(163,0,0,0.15) 0%,transparent 65%);pointer-events:none}
+#pview-sos.active{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:40px 24px 40px}
+.sos-view{width:100%;max-width:480px;display:flex;flex-direction:column;align-items:center;position:relative;z-index:1}
+.sos-header{text-align:center;margin-bottom:28px}
+.sos-header-icon{font-size:48px;margin-bottom:10px}
+.sos-header-title{font-family:'Playfair Display',serif;font-size:24px;color:#fff;margin-bottom:6px;font-weight:500}
+.sos-header-sub{font-size:13px;color:rgba(255,255,255,0.5);line-height:1.6;max-width:360px;margin:0 auto}
+/* Panic button — same as standalone index */
+.panic-portal-btn-wrap{display:flex;align-items:center;justify-content:center;margin:8px 0 28px;position:relative;width:300px;height:300px;flex-shrink:0}
+.panic-portal-ring{position:absolute;border-radius:50%;border:2px solid rgba(163,0,0,0.3);animation:pp-pulse 2.5s ease-out infinite}
+.panic-portal-ring:nth-child(1){width:200px;height:200px}
+.panic-portal-ring:nth-child(2){width:240px;height:240px;animation-delay:0.8s;border-color:rgba(163,0,0,0.15)}
+.panic-portal-ring:nth-child(3){width:280px;height:280px;animation-delay:1.6s;border-color:rgba(163,0,0,0.08)}
+@keyframes pp-pulse{0%{transform:scale(0.85);opacity:1}100%{transform:scale(1.15);opacity:0}}
+.panic-portal-btn{
+  position:relative;width:160px;height:160px;border-radius:50%;
+  background:radial-gradient(circle at 35% 35%,#E74C3C,#A30000);
+  border:none;cursor:pointer;
+  box-shadow:0 0 0 6px rgba(163,0,0,0.2),0 8px 32px rgba(163,0,0,0.5),inset 0 2px 4px rgba(255,255,255,0.15);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  transition:transform 0.12s,box-shadow 0.12s;
+  touch-action:manipulation;-webkit-user-select:none;user-select:none
+}
+.panic-portal-btn:active{
+  transform:scale(0.95);
+  box-shadow:0 0 0 6px rgba(163,0,0,0.3),0 4px 20px rgba(163,0,0,0.6),inset 0 2px 4px rgba(255,255,255,0.15)
+}
+.panic-portal-btn-icon{font-size:42px;line-height:1;margin-bottom:2px}
+.panic-portal-btn-lbl{font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,0.9)}
+/* Ready hint */
+.sos-ready-hint{font-size:11px;color:rgba(255,255,255,0.3);text-align:center;margin-bottom:20px}
+/* Form section — dark glass card */
+.sos-form{display:flex;flex-direction:column;gap:14px;width:100%}
+.sos-form-card{background:rgba(255,255,255,0.06);border-radius:14px;border:1px solid rgba(255,255,255,0.12);padding:20px;backdrop-filter:blur(4px)}
+.sos-form-title{font-size:11px;font-weight:600;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px}
 .sos-sit-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.sos-sit{border:1.5px solid var(--brd);border-radius:10px;padding:12px 10px;text-align:center;cursor:pointer;transition:all 0.15s;background:var(--cream)}
-.sos-sit:hover{border-color:var(--brd2);background:var(--cream2)}
-.sos-sit.sel{border-color:#A30000;background:#fff0f0}
-.sos-sit-icon{font-size:22px;display:block;margin-bottom:4px}
-.sos-sit-lbl{font-size:11px;font-weight:500;color:var(--txt2)}
-.sos-note{width:100%;border:1px solid var(--brd);border-radius:8px;padding:10px 13px;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--txt);outline:none;resize:none;min-height:72px;transition:border-color 0.15s;line-height:1.5}
-.sos-note:focus{border-color:var(--navy)}
-.sos-loc-row{display:flex;align-items:center;gap:10px;background:var(--cream);border:1px solid var(--brd);border-radius:8px;padding:10px 13px}
-.sos-loc-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;transition:background 0.3s;background:#ccc}
-.sos-loc-dot.got{background:#2D6A4F}.sos-loc-dot.err{background:#A33}.sos-loc-dot.spin{background:var(--gold);animation:blink2 1s infinite}
+.sos-sit{background:rgba(255,255,255,0.07);border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;padding:12px 10px;text-align:center;cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif}
+.sos-sit:hover{border-color:rgba(255,255,255,0.3);background:rgba(255,255,255,0.12)}
+.sos-sit.sel{border-color:#E74C3C;background:rgba(231,76,60,0.2)}
+.sos-sit-icon{font-size:24px;display:block;margin-bottom:5px}
+.sos-sit-lbl{font-size:11px;font-weight:500;color:rgba(255,255,255,0.85)}
+.sos-note{width:100%;background:rgba(255,255,255,0.07);border:1.5px solid rgba(255,255,255,0.12);border-radius:10px;padding:12px 14px;font-size:13px;font-family:'DM Sans',sans-serif;color:#fff;outline:none;resize:none;min-height:72px;transition:border-color 0.15s;line-height:1.5}
+.sos-note::placeholder{color:rgba(255,255,255,0.3)}
+.sos-note:focus{border-color:rgba(255,255,255,0.35)}
+.sos-loc-row{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:11px 14px}
+.sos-loc-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;transition:background 0.3s;background:#888}
+.sos-loc-dot.got{background:#2ecc71}.sos-loc-dot.err{background:#e74c3c}.sos-loc-dot.spin{background:var(--gold);animation:blink2 1s infinite}
 @keyframes blink2{0%,100%{opacity:1}50%{opacity:0.3}}
-.sos-loc-txt{font-size:12px;color:var(--txt3);flex:1}
-.sos-send-btn{width:100%;background:linear-gradient(135deg,#C0392B,#A30000);color:#fff;border:none;padding:15px;border-radius:12px;font-size:15px;font-family:'DM Sans',sans-serif;font-weight:600;cursor:pointer;transition:all 0.15s;box-shadow:0 4px 16px rgba(163,0,0,0.3)}
-.sos-send-btn:hover{background:linear-gradient(135deg,#E74C3C,#C0392B)}
+.sos-loc-txt{font-size:12px;color:rgba(255,255,255,0.6);flex:1}
+.sos-send-btn{width:100%;background:linear-gradient(135deg,#C0392B,#A30000);color:#fff;border:none;padding:15px;border-radius:12px;font-size:15px;font-family:'DM Sans',sans-serif;font-weight:600;cursor:pointer;transition:all 0.15s;box-shadow:0 4px 20px rgba(163,0,0,0.4);letter-spacing:0.3px}
+.sos-send-btn:hover{background:linear-gradient(135deg,#E74C3C,#C0392B);box-shadow:0 6px 24px rgba(163,0,0,0.5)}
 .sos-send-btn:disabled{opacity:0.5;cursor:not-allowed}
-.sos-sent-box{background:#fff;border-radius:12px;border:0.5px solid var(--brd);padding:28px;text-align:center}
-.sos-sent-icon{font-size:44px;margin-bottom:12px}
-.sos-sent-title{font-family:'Playfair Display',serif;font-size:20px;color:var(--txt);margin-bottom:8px}
-.sos-sent-sub{font-size:13px;color:var(--txt3);line-height:1.7;margin-bottom:20px}
-.sos-call-btn{display:flex;align-items:center;justify-content:center;gap:8px;background:#1a6b3a;color:#fff;border:none;padding:13px 20px;border-radius:10px;font-size:14px;font-family:'DM Sans',sans-serif;font-weight:600;cursor:pointer;text-decoration:none;margin-bottom:8px;transition:background 0.15s;width:100%}
-.sos-call-btn:hover{background:#145c30}
-.sos-wa-btn{display:flex;align-items:center;justify-content:center;gap:8px;background:#128c24;color:#fff;border:none;padding:13px 20px;border-radius:10px;font-size:14px;font-family:'DM Sans',sans-serif;font-weight:600;cursor:pointer;text-decoration:none;margin-bottom:8px;transition:background 0.15s;width:100%}
-.sos-wa-btn:hover{background:#0d6b1a}
-.sos-reset-btn{background:transparent;border:1px solid var(--brd2);color:var(--txt3);padding:11px 20px;border-radius:10px;font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer;width:100%;transition:all 0.15s;margin-top:4px}
-.sos-reset-btn:hover{background:var(--cream)}
+/* Sent / active states */
+.sos-sent-box{background:rgba(255,255,255,0.06);border-radius:14px;border:1px solid rgba(255,255,255,0.12);padding:28px;text-align:center;width:100%}
+.sos-sent-icon{font-size:56px;margin-bottom:14px;animation:pop 0.4s cubic-bezier(0.175,0.885,0.32,1.275)}
+@keyframes pop{0%{transform:scale(0)}100%{transform:scale(1)}}
+.sos-sent-title{font-family:'Playfair Display',serif;font-size:22px;color:#fff;margin-bottom:8px}
+.sos-sent-sub{font-size:13px;color:rgba(255,255,255,0.5);line-height:1.7;margin-bottom:20px}
+.sos-call-btn{display:flex;align-items:center;justify-content:center;gap:10px;background:linear-gradient(135deg,#1a6b3a,#145c30);color:#fff;border:none;padding:14px 20px;border-radius:12px;font-size:14px;font-family:'DM Sans',sans-serif;font-weight:600;cursor:pointer;text-decoration:none;margin-bottom:8px;transition:all 0.15s;width:100%;box-shadow:0 4px 16px rgba(0,100,50,0.4)}
+.sos-call-btn:hover{background:linear-gradient(135deg,#236a3e,#1a6b3a)}
+.sos-wa-btn{display:flex;align-items:center;justify-content:center;gap:10px;background:linear-gradient(135deg,#1a7a30,#128c24);color:#fff;border:none;padding:14px 20px;border-radius:12px;font-size:14px;font-family:'DM Sans',sans-serif;font-weight:600;cursor:pointer;text-decoration:none;margin-bottom:8px;transition:all 0.15s;width:100%;box-shadow:0 4px 16px rgba(0,120,40,0.4)}
+.sos-wa-btn:hover{background:linear-gradient(135deg,#22a03a,#1a7a30)}
+.sos-reset-btn{background:transparent;border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.5);padding:12px 20px;border-radius:12px;font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer;width:100%;transition:all 0.15s;margin-top:4px}
+.sos-reset-btn:hover{background:rgba(255,255,255,0.07);color:#fff}
 </style>
 </head>
 <body>
@@ -793,13 +816,12 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
     <div class="pview" id="pview-sos">
       <div class="sos-view">
         <div class="sos-header">
-          <div class="sos-header-icon">🆘</div>
           <div class="sos-header-title">Emergency Alert</div>
           <div class="sos-header-sub">If you have been arrested, are in danger, or need urgent legal assistance — press the button below to alert DKMA immediately.</div>
         </div>
 
         <!-- STATE: READY -->
-        <div id="sos-state-ready">
+        <div id="sos-state-ready" style="display:flex;flex-direction:column;align-items:center;width:100%">
           <div class="panic-portal-btn-wrap">
             <div class="panic-portal-ring"></div>
             <div class="panic-portal-ring"></div>
@@ -809,8 +831,8 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
               <span class="panic-portal-btn-lbl">SOS</span>
             </button>
           </div>
-          <p style="text-align:center;font-size:12px;color:var(--txt3);margin-bottom:28px">Tap the button to send an emergency alert to your legal team</p>
-          <div class="sos-form">
+          <p class="sos-ready-hint">Tap SOS only for genuine emergencies</p>
+          <div class="sos-form" style="width:100%">
             <div class="sos-form-card" id="sos-form-section" style="display:none">
               <div class="sos-form-title">What is happening?</div>
               <div class="sos-sit-grid">
@@ -823,32 +845,32 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
                 <div class="sos-form-title">Brief note (optional)</div>
                 <textarea class="sos-note" id="sos-note" placeholder="e.g. Arrested at Gigiri Police Station, need lawyer immediately…" maxlength="300" rows="3"></textarea>
               </div>
-              <div class="sos-loc-row" style="margin-top:4px">
+              <div class="sos-loc-row" style="margin-top:8px">
                 <div class="sos-loc-dot spin" id="sos-loc-dot"></div>
                 <div class="sos-loc-txt" id="sos-loc-txt">Getting your location…</div>
                 <span style="font-size:11px;color:var(--gold);cursor:pointer;text-decoration:underline;display:none" id="sos-loc-retry" onclick="portalGetLocation()">Retry</span>
               </div>
               <button class="sos-send-btn" id="sos-send-btn" style="margin-top:14px" onclick="portalSendAlert()">🆘 Send Alert to DKMA Now</button>
-              <div style="text-align:center;margin-top:10px;font-size:12px;color:var(--txt3);cursor:pointer" onclick="portalSosCancel()">← Cancel</div>
+              <div style="text-align:center;margin-top:10px;font-size:12px;color:rgba(255,255,255,0.35);cursor:pointer" onclick="portalSosCancel()">← Cancel</div>
             </div>
           </div>
         </div>
 
         <!-- STATE: SENDING -->
-        <div id="sos-state-sending" style="display:none;text-align:center;padding:40px 0">
-          <div style="width:48px;height:48px;border:3px solid var(--brd);border-top-color:#A30000;border-radius:50%;animation:spin2 0.8s linear infinite;margin:0 auto 16px"></div>
-          <div style="font-family:'Playfair Display',serif;font-size:18px;color:var(--txt);margin-bottom:6px">Sending Alert…</div>
-          <div style="font-size:12px;color:var(--txt3)">Your emergency alert is being sent to DKMA.</div>
+        <div id="sos-state-sending" style="display:none;text-align:center;padding:40px 0;width:100%">
+          <div style="width:56px;height:56px;border:3px solid rgba(255,255,255,0.1);border-top-color:#E74C3C;border-radius:50%;animation:spin2 0.8s linear infinite;margin:0 auto 18px"></div>
+          <div style="font-family:'Playfair Display',serif;font-size:20px;color:#fff;margin-bottom:6px">Sending Alert…</div>
+          <div style="font-size:12px;color:rgba(255,255,255,0.45)">Your emergency alert is being sent to DKMA. Please stay as calm as possible.</div>
         </div>
         <style>@keyframes spin2{to{transform:rotate(360deg)}}</style>
 
-        <!-- STATE: SENT -->
-        <div id="sos-state-active" style="display:none">
-          <div class="sos-sent-box" style="border-color:#f5c6c6;background:#fff8f8">
+        <!-- STATE: ACTIVE (unresolved) -->
+        <div id="sos-state-active" style="display:none;width:100%">
+          <div class="sos-sent-box">
             <div class="sos-sent-icon">🚨</div>
-            <div class="sos-sent-title" style="color:#A30000">Alert Active</div>
+            <div class="sos-sent-title" style="color:#ff6b6b">Alert Active</div>
             <div class="sos-sent-sub" id="sos-active-time">Your emergency alert is with the firm.</div>
-            <div style="font-size:12px;color:var(--txt3);margin-bottom:20px;padding:12px;background:#fff;border-radius:8px;border:1px solid #f5c6c6">
+            <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:20px;padding:12px;background:rgba(255,255,255,0.05);border-radius:8px;border:1px solid rgba(255,255,255,0.1);line-height:1.6">
               You cannot send another alert until the firm marks this one as resolved. If this is urgent, call or WhatsApp directly.
             </div>
             <a class="sos-call-btn" id="sos-active-call-btn" href="tel:%%LAWYER_PHONE%%">📞 Call Lawyer Now</a>
@@ -856,16 +878,17 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
           </div>
         </div>
 
-        <div id="sos-state-sent" style="display:none">
+        <!-- STATE: SENT -->
+        <div id="sos-state-sent" style="display:none;width:100%">
           <div class="sos-sent-box">
-            <div class="sos-sent-icon">✅</div>
-            <div class="sos-sent-title">Alert Sent to DKMA</div>
-            <div class="sos-sent-sub">Your location and details have been recorded. For the fastest response, call or WhatsApp the lawyer directly now.</div>
+            <div class="sos-sent-icon">🚨</div>
+            <div class="sos-sent-title" style="color:#ff6b6b">Alert Sent to DKMA</div>
+            <div class="sos-sent-sub">DKMA has been notified. Call or WhatsApp the lawyer for the fastest response.</div>
             <a class="sos-call-btn" id="sos-call-btn" href="#">📞 Call Lawyer Now</a>
             <a class="sos-wa-btn" id="sos-wa-btn" href="#" target="_blank">💬 WhatsApp Lawyer</a>
             <button class="sos-reset-btn" onclick="portalSosReset()">← Send Another Alert</button>
           </div>
-          <div style="text-align:center;margin-top:10px;font-size:11px;color:var(--txt3)" id="sos-ref-txt"></div>
+          <div style="text-align:center;margin-top:10px;font-size:11px;color:rgba(255,255,255,0.25)" id="sos-ref-txt"></div>
         </div>
 
       </div>
@@ -2556,8 +2579,8 @@ function renderClientAlerts(){
 
 // Note: loadClientAlerts is called from showPView('notifications') and
 // also called directly after portal data loads in the main init block.
-
 </script>
+
 
 <!-- PWA INSTALL BANNER -->
 <div id="pwa-install-banner">
@@ -2575,7 +2598,12 @@ function renderClientAlerts(){
 
 <script>
 // ── SERVICE WORKER REGISTRATION ───────────────────────────────────
-if('serviceWorker' in navigator){
+// Only register the SW when Supabase credentials have been injected (i.e. real
+// server deployment). If placeholders are still present the page will have
+// already shown a config-error screen, and trying to fetch sw.js would
+// return an HTML error page which triggers "Unexpected token '<'" in the SW parser.
+const _swCredentialsReady = !SUPABASE_URL.includes('%%') && !SUPABASE_KEY.includes('%%');
+if('serviceWorker' in navigator && _swCredentialsReady){
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('sw.js', {scope: './' })
       .then(reg => {
