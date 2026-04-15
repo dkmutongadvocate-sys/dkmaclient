@@ -1142,21 +1142,33 @@ async function setNewPassword(){
   if(pw!==pw2){errEl.textContent='Passwords do not match.';return;}
   const btn=document.getElementById('newpw-btn');
   btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Updating…';
+  // Clear the flag BEFORE updateUser so the onAuthStateChange SIGNED_IN event
+  // that fires during the update is not blocked and can call launchPortal() directly.
+  window._mustChangePassword=false;
   // Update password AND clear the must_change_password flag from metadata
   const{error}=await sb.auth.updateUser({
     password:pw,
     data:{must_change_password:false}
   });
-  btn.disabled=false;btn.textContent='Set New Password';
-  if(error){errEl.textContent=error.message;return;}
+  btn.disabled=false;btn.textContent='Set New Password & Continue';
+  if(error){
+    // If the update failed, restore the flag so the guard remains active
+    window._mustChangePassword=true;
+    errEl.textContent=error.message;
+    return;
+  }
   errEl.style.color='var(--green)';
   errEl.textContent='Password updated! Signing you in…';
-  window._mustChangePassword=false;
+  // Fallback: if onAuthStateChange already fired and launched the portal, this
+  // setTimeout is a no-op. If it hasn't fired yet (e.g. slow network), we launch manually.
   setTimeout(async()=>{
-    const{data:{session}}=await sb.auth.getSession();
-    if(session){currentUser=session.user;launchPortal();}
-    else{showMode('signin');}
-  },1500);
+    // Only launch if we're still on the auth screen (i.e. onAuthStateChange didn't do it)
+    if(document.getElementById('auth-screen').style.display!=='none'){
+      const{data:{user:freshUser}}=await sb.auth.getUser();
+      if(freshUser){currentUser=freshUser;launchPortal();}
+      else{showMode('signin');}
+    }
+  },1800);
 }
 
 async function launchPortal(){
