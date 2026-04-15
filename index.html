@@ -1186,7 +1186,7 @@ async function launchPortal(){
     await sb.auth.signOut();
     clientRecord=null;
     document.getElementById('portal-loading').style.display='none';
-    document.getElementById('auth-section').style.display='flex';
+    document.getElementById('auth-screen').style.display='flex';
     const errEl=document.getElementById('auth-error');
     if(errEl){errEl.textContent='Your portal access has been suspended. Please contact the firm.';errEl.style.display='block';}
     return;
