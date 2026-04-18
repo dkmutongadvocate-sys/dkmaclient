@@ -186,6 +186,19 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 .welcome-sub{font-size:12px;color:rgba(255,255,255,0.5);margin-top:3px}
 .welcome-firm{font-size:11px;color:var(--gold);margin-top:6px;letter-spacing:0.5px}
 
+/* ── MATTER DETAIL VIEW ──────────────────────────────────────── */
+.matter-detail-back{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--txt3);cursor:pointer;margin-bottom:18px;width:fit-content;padding:5px 0}
+.matter-detail-back:hover{color:var(--navy)}
+.matter-detail-hero{background:var(--navy);border-radius:12px;padding:22px 26px;margin-bottom:18px;color:#fff}
+.matter-detail-hero-title{font-family:'Playfair Display',serif;font-size:20px;font-weight:500;margin-bottom:6px}
+.matter-detail-hero-meta{font-size:11px;color:rgba(255,255,255,0.55);line-height:1.8}
+.matter-detail-tabs{display:flex;background:#fff;border-radius:10px;border:0.5px solid var(--brd);overflow:hidden;margin-bottom:18px}
+.matter-detail-tab{flex:1;padding:11px 16px;font-size:12px;font-weight:500;color:var(--txt3);cursor:pointer;border-right:1px solid var(--brd);transition:all 0.12s;text-align:center;user-select:none}
+.matter-detail-tab:last-child{border-right:none}
+.matter-detail-tab:hover{background:var(--cream);color:var(--txt)}
+.matter-detail-tab.active{background:var(--navy);color:#fff}
+.matter-detail-panel{display:none}.matter-detail-panel.active{display:block}
+
 /* ── EMPTY STATE ─────────────────────────────────────────────── */
 .empty{padding:40px 20px;text-align:center;color:var(--txt3);font-size:13px}
 .empty-icon{font-size:32px;margin-bottom:12px}
@@ -532,6 +545,44 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
         <p style="font-size:12px;color:var(--txt3);margin-top:4px">Overview of all your legal matters with our firm.</p>
       </div>
       <div class="matter-cards" id="matters-grid"></div>
+    </div>
+
+    <!-- ── MATTER DETAIL ─────────────────────────────────────── -->
+    <div class="pview" id="pview-matter-detail">
+      <div class="matter-detail-back" onclick="showPView('matters',null)">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Back to My Matters
+      </div>
+      <div class="matter-detail-hero" id="md-hero">
+        <div class="matter-detail-hero-title" id="md-title">—</div>
+        <div class="matter-detail-hero-meta" id="md-meta"></div>
+      </div>
+      <div class="matter-detail-tabs">
+        <div class="matter-detail-tab active" onclick="switchMatterDetailTab('updates',this)">📋 Updates</div>
+        <div class="matter-detail-tab" onclick="switchMatterDetailTab('documents',this)">📂 Documents</div>
+        <div class="matter-detail-tab" onclick="switchMatterDetailTab('events',this)">📅 Events</div>
+      </div>
+      <!-- Updates panel -->
+      <div class="matter-detail-panel active" id="mdp-updates">
+        <div class="pcard" id="md-updates-card">
+          <div style="padding:40px;text-align:center;color:var(--txt3)"><div class="spinner" style="border-color:rgba(0,0,0,0.1);border-top-color:var(--navy);width:20px;height:20px;display:inline-block;margin-bottom:12px"></div><br>Loading updates…</div>
+        </div>
+      </div>
+      <!-- Documents panel -->
+      <div class="matter-detail-panel" id="mdp-documents">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+          <button class="pbtn gold" onclick="showPView('upload',null)" id="md-upload-btn">📎 Upload Document</button>
+        </div>
+        <div id="md-docs-container">
+          <div class="pcard"><div style="padding:40px;text-align:center;color:var(--txt3)">Loading documents…</div></div>
+        </div>
+      </div>
+      <!-- Events panel -->
+      <div class="matter-detail-panel" id="mdp-events">
+        <div class="pcard" id="md-events-card">
+          <div style="padding:40px;text-align:center;color:var(--txt3)">Loading events…</div>
+        </div>
+      </div>
     </div>
 
     <!-- ── DOCUMENTS ────────────────────────────────────────── -->
@@ -1040,6 +1091,7 @@ function showPView(id,el,fromMobile){
   if(pc&&window.innerWidth<=640)pc.scrollTop=0;
   if(id==='overview')renderOverview();
   if(id==='matters')renderMatters();
+  if(id==='matter-detail'){/* loaded by openMatterDetail */}
   if(id==='documents')renderDocuments();
   if(id==='events')renderEvents();
   if(id==='invoices')renderInvoices();
@@ -1364,7 +1416,7 @@ function renderMatters(){
   if(!clientRecord){g.innerHTML=empty('⚖️','Account not linked','Contact the firm to link your portal account.');return;}
   if(!myMatters.length){g.innerHTML=empty('⚖️','No matters yet','Your legal matters will appear here once opened.');return;}
   g.innerHTML=myMatters.map(m=>`
-    <div class="matter-pcard">
+    <div class="matter-pcard" onclick="openMatterDetail('${m.id}')" style="cursor:pointer">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px">
         <div class="matter-pcard-title">${esc(m.title)}</div>
         ${spill(m.status)}
@@ -1375,16 +1427,202 @@ function renderMatters(){
         ${m.court?`<div>🏛️ ${esc(m.court)}</div>`:''}
         ${m.open_date?`<div>📅 Opened: ${fmtDate(m.open_date)}</div>`:''}
       </div>
-      ${m.next_date?`<div style="margin-top:10px;padding:8px 12px;background:var(--cream);border-radius:6px;font-size:11px;color:var(--txt2)">⏰ Next Date: <strong style="color:var(--red)">${fmtDate(m.next_date)}</strong></div>`:''}
-      ${m.notes?`<div style="margin-top:10px;font-size:11px;color:var(--txt3);line-height:1.5;border-top:1px solid var(--brd);padding-top:10px">${esc(m.notes.slice(0,120))}${m.notes.length>120?'…':''}</div>`:''}
+      ${m.next_date?`<div style="margin-top:10px;padding:8px 12px;background:rgba(255,255,255,0.7);border-radius:6px;font-size:11px;color:var(--txt2)">⏰ Next Date: <strong style="color:var(--red)">${fmtDate(m.next_date)}</strong></div>`:''}
       <div class="matter-pcard-footer" style="margin-top:12px">
-        <button class="pbtn" style="font-size:11px;display:flex;align-items:center;gap:5px" onclick="openMatterUpdatesOverlay('${m.id}','${esc(m.title)}')">
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.4"/><path d="M8 5v3.5l2 2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
-          View Updates
+        <button class="pbtn" style="font-size:11px;display:flex;align-items:center;gap:5px;pointer-events:none">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          View Matter
         </button>
-        <span style="font-size:10px;color:var(--txt3)">${spill(m.status)}</span>
+        <span style="font-size:10px;color:var(--txt3)">${myEvents.filter(e=>e.matter_id===m.id&&parseDateLocal(e.event_date)>=new Date()).length} upcoming event${myEvents.filter(e=>e.matter_id===m.id&&parseDateLocal(e.event_date)>=new Date()).length!==1?'s':''}</span>
       </div>
     </div>`).join('');
+}
+
+// ── OPEN MATTER DETAIL ────────────────────────────────────────────
+let activeMatterDetailId = null;
+let activeMatterDetailTab = 'updates';
+
+function openMatterDetail(matterId){
+  const m = myMatters.find(x=>x.id===matterId);
+  if(!m) return;
+  activeMatterDetailId = matterId;
+  activeMatterDetailTab = 'updates';
+
+  // Populate hero
+  document.getElementById('md-title').textContent = m.title;
+  const metaParts = [];
+  if(m.file_number) metaParts.push('📁 File No: '+m.file_number);
+  if(m.type) metaParts.push('⚖️ '+m.type);
+  if(m.court) metaParts.push('🏛️ '+m.court);
+  if(m.status) metaParts.push(m.status.charAt(0).toUpperCase()+m.status.slice(1));
+  if(m.next_date) metaParts.push('⏰ Next: '+fmtDate(m.next_date));
+  document.getElementById('md-meta').innerHTML = metaParts.join(' &nbsp;·&nbsp; ');
+
+  // Set upload button matter context
+  const uploadBtn = document.getElementById('md-upload-btn');
+  if(uploadBtn) uploadBtn.onclick = ()=>{
+    showPView('upload',null);
+    setTimeout(()=>{
+      const sel = document.getElementById('up-matter');
+      if(sel) sel.value = matterId;
+    }, 100);
+  };
+
+  // Switch to matter detail view and reset tabs
+  document.querySelectorAll('.matter-detail-tab').forEach((t,i)=>t.classList.toggle('active',i===0));
+  document.querySelectorAll('.matter-detail-panel').forEach((p,i)=>p.classList.toggle('active',i===0));
+
+  showPView('matter-detail', null);
+
+  // Load updates immediately
+  loadMatterDetailUpdates(matterId);
+}
+
+function switchMatterDetailTab(tab, el){
+  activeMatterDetailTab = tab;
+  document.querySelectorAll('.matter-detail-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.matter-detail-panel').forEach(p=>p.classList.remove('active'));
+  if(el) el.classList.add('active');
+  document.getElementById('mdp-'+tab).classList.add('active');
+  if(tab==='updates') loadMatterDetailUpdates(activeMatterDetailId);
+  if(tab==='documents') loadMatterDetailDocs(activeMatterDetailId);
+  if(tab==='events') renderMatterDetailEvents(activeMatterDetailId);
+}
+
+// ── MATTER DETAIL: UPDATES ────────────────────────────────────────
+const PORTAL_UPDATE_TYPE_LABELS2={
+  'hearing':'Hearing','filing':'Court Filing','correspondence':'Correspondence',
+  'negotiation':'Negotiation','instruction':'Client Instruction','order':'Court Order',
+  'settlement':'Settlement','research':'Legal Research','general':'General Update',
+};
+async function loadMatterDetailUpdates(matterId){
+  const card = document.getElementById('md-updates-card');
+  if(!card) return;
+  card.innerHTML = `<div style="padding:40px;text-align:center;color:var(--txt3)">Loading updates…</div>`;
+  const {data,error} = await sb.from('matter_updates').select('update_date,update_type,details').eq('matter_id',matterId).order('update_date',{ascending:false});
+  if(error){ card.innerHTML=`<div style="padding:32px;text-align:center;font-size:13px;color:var(--txt3)">Unable to load updates.</div>`; return; }
+  const updates = data||[];
+  if(!updates.length){
+    card.innerHTML=`<div style="padding:40px;text-align:center">
+      <div style="font-size:32px;margin-bottom:12px">📋</div>
+      <div style="font-family:'Playfair Display',serif;font-size:16px;color:var(--txt2);margin-bottom:6px">No updates yet</div>
+      <div style="font-size:12px;color:var(--txt3);line-height:1.6">The firm will record updates here as your matter progresses.</div>
+    </div>`;
+    return;
+  }
+  const updbg={'hearing':'#FCEBEB','filing':'#E6F1FB','correspondence':'#EAF3DE','negotiation':'#EEEDFE','instruction':'#FAEEDA','order':'#FCEBEB','settlement':'#EAF3DE','research':'var(--cream2)','general':'var(--cream2)'};
+  const updcolor={'hearing':'#A32D2D','filing':'#185FA5','correspondence':'#2D6A4F','negotiation':'#3C3489','instruction':'#854F0B','order':'#A32D2D','settlement':'#2D6A4F','research':'var(--txt2)','general':'var(--txt2)'};
+  card.innerHTML = updates.map(u=>{
+    const dayNum=u.update_date?new Date(u.update_date+'T00:00').getDate():'—';
+    const monthStr=u.update_date?new Date(u.update_date+'T00:00').toLocaleString('en',{month:'short'}):'';
+    const dateStr=u.update_date?new Date(u.update_date+'T00:00').toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'}):'—';
+    const typeLabel=PORTAL_UPDATE_TYPE_LABELS2[u.update_type]||u.update_type||'Update';
+    return`<div style="display:flex;gap:14px;padding:16px 22px;border-bottom:1px solid var(--brd);align-items:flex-start">
+      <div style="width:40px;text-align:center;flex-shrink:0">
+        <div style="font-family:'Playfair Display',serif;font-size:20px;color:var(--navy);line-height:1">${dayNum}</div>
+        <div style="font-size:9px;color:var(--txt3);text-transform:uppercase;letter-spacing:0.5px">${monthStr}</div>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+          <span style="font-size:10px;padding:2px 9px;border-radius:10px;font-weight:500;background:${updbg[u.update_type]||'var(--cream2)'};color:${updcolor[u.update_type]||'var(--txt2)'}">${esc(typeLabel)}</span>
+          <span style="font-size:10px;color:var(--txt3)">${dateStr}</span>
+        </div>
+        <div style="font-size:13px;color:var(--txt);line-height:1.65">${esc(u.details)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── MATTER DETAIL: DOCUMENTS ──────────────────────────────────────
+async function loadMatterDetailDocs(matterId){
+  const container = document.getElementById('md-docs-container');
+  if(!container) return;
+  container.innerHTML = `<div class="pcard"><div style="padding:40px;text-align:center;color:var(--txt3)">Loading documents…</div></div>`;
+
+  // Firm-shared docs for this matter
+  const {data:firmData} = await sb.storage.from(FIRM_BUCKET).list(matterId,{limit:200,sortBy:{column:'created_at',order:'desc'}});
+  const firmDocs = (firmData||[]).filter(f=>f.name!=='.emptyFolderPlaceholder'&&f.name.startsWith('shared__'));
+
+  // Client uploads for this matter
+  const clientUploads = clientRecord ? myUploads.filter(f=>{
+    const parts=f.name.split('__');
+    return parts.length>=4 && parts[2]===matterId;
+  }) : [];
+
+  if(!firmDocs.length && !clientUploads.length){
+    container.innerHTML=`<div class="pcard">${empty('📂','No documents yet','Documents shared by the firm and your uploads for this matter will appear here.')}</div>`;
+    return;
+  }
+
+  let html='';
+
+  // Firm docs section
+  if(firmDocs.length){
+    html+=`<div class="pcard" style="margin-bottom:14px">
+      <div class="pcard-header">
+        <div><div class="pcard-title">📁 Shared by Firm</div><div class="pcard-sub">Documents the firm has shared with you for this matter</div></div>
+        <span style="font-size:11px;color:var(--txt3)">${firmDocs.length} file${firmDocs.length!==1?'s':''}</span>
+      </div>
+      ${firmDocs.map(f=>sharedDocRow({...f,matterId,matterTitle:''})).join('')}
+    </div>`;
+  }
+
+  // Client uploads section
+  if(clientUploads.length){
+    html+=`<div class="pcard" style="margin-bottom:14px">
+      <div class="pcard-header">
+        <div><div class="pcard-title">📤 My Uploads</div><div class="pcard-sub">Files you have sent to the firm for this matter</div></div>
+        <span style="font-size:11px;color:var(--txt3)">${clientUploads.length} file${clientUploads.length!==1?'s':''}</span>
+      </div>
+      ${clientUploads.map(f=>{
+        const parts=f.name.split('__');
+        let displayName=parts.length>=4?parts.slice(3).join('__'):f.name;
+        const tsM=displayName.match(/^\d+_(.+)$/);if(tsM)displayName=tsM[1];
+        const cat=parts[0]||'';
+        const{icon,cls}=docIcon(displayName);
+        const meta=f.metadata||{};
+        const dateStr=f.created_at?new Date(f.created_at).toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'}):'';
+        return`<div class="doc-list-row">
+          <div class="doc-list-icon ${cls}">${icon}</div>
+          <div class="doc-list-info">
+            <div class="doc-list-name" title="${esc(displayName)}">${esc(displayName)}</div>
+            <div class="doc-list-meta">${cat?categoryLabel(cat)+' · ':''}${fmtFileSize(meta.size)}${dateStr?' · '+dateStr:''}</div>
+          </div>
+          <div class="doc-list-actions">
+            <button class="pbtn view" onclick="viewClientUpload('${esc(f.name)}','${esc(displayName)}')">👁 View</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  container.innerHTML=html;
+}
+
+// ── MATTER DETAIL: EVENTS ─────────────────────────────────────────
+function renderMatterDetailEvents(matterId){
+  const card = document.getElementById('md-events-card');
+  if(!card) return;
+  const now = new Date();
+  const matterEvents = myEvents.filter(e=>e.matter_id===matterId);
+  const upcoming = matterEvents.filter(e=>parseDateLocal(e.event_date)>=now).sort((a,b)=>a.event_date.localeCompare(b.event_date));
+  const past = matterEvents.filter(e=>parseDateLocal(e.event_date)<now).sort((a,b)=>b.event_date.localeCompare(a.event_date));
+
+  if(!matterEvents.length){
+    card.innerHTML=empty('📅','No events for this matter','Events and hearings linked to this matter will appear here.');
+    return;
+  }
+
+  let html='';
+  if(upcoming.length){
+    html+=`<div style="padding:10px 20px 4px;font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:0.5px;font-weight:500;border-bottom:1px solid var(--brd)">Upcoming (${upcoming.length})</div>`;
+    html+=upcoming.map(e=>eventRow(e)).join('');
+  }
+  if(past.length){
+    html+=`<div style="padding:10px 20px 4px;font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:0.5px;font-weight:500;border-bottom:1px solid var(--brd);border-top:1px solid var(--brd);margin-top:6px">Past (${past.length})</div>`;
+    html+=past.map(e=>eventRow(e,true)).join('');
+  }
+  card.innerHTML=html;
 }
 
 // ── RENDER: DOCUMENTS ─────────────────────────────────────────────
@@ -1422,56 +1660,38 @@ function renderDocuments(){
       </div>`).join('');
   }
 
-  // ── Section 2: Client's own uploads — grouped by matter ──
+  // ── Section 2: Client's own uploads ──
   if(hasMyUploads){
-    // Decode matter id from each upload filename and group
-    const uploadsByMatter={};
-    myUploads.forEach(f=>{
-      const parts=f.name.split('__');
-      let matterId='general', displayName=f.name, cat='', desc='';
-      if(parts.length>=4){
-        cat=parts[0]; desc=parts[1]; matterId=parts[2]||'general';
-        displayName=parts.slice(3).join('__');
-      } else if(parts.length>=3){
-        cat=parts[0]; desc=parts[1];
-        displayName=parts.slice(2).join('__');
-      }
-      const tsMatch=displayName.match(/^\d+_(.+)$/);
-      if(tsMatch)displayName=tsMatch[1];
-      if(!uploadsByMatter[matterId])uploadsByMatter[matterId]={files:[]};
-      uploadsByMatter[matterId].files.push({...f,_displayName:displayName,_cat:cat,_desc:desc});
-    });
-
-    // Render one card per matter group
-    Object.entries(uploadsByMatter).forEach(([mid,grp])=>{
-      const matterObj=mid!=='general'?myMatters.find(m=>m.id===mid):null;
-      const groupTitle=matterObj?`📤 My Uploads — ${esc(matterObj.title)}`:'📤 My Uploaded Documents (General)';
-      const groupSub=matterObj?'Files you uploaded for this matter':'Files not linked to a specific matter';
-      html+=`<div class="pcard" style="margin-bottom:18px">
-        <div class="pcard-header">
-          <div>
-            <div class="pcard-title">${groupTitle}</div>
-            <div class="pcard-sub">${groupSub}</div>
-          </div>
-          <span style="font-size:11px;color:var(--txt3)">${grp.files.length} file${grp.files.length!==1?'s':''}</span>
+    html+=`<div class="pcard" style="margin-bottom:18px">
+      <div class="pcard-header">
+        <div>
+          <div class="pcard-title">📤 My Uploaded Documents</div>
+          <div class="pcard-sub">Files you have sent to the firm</div>
         </div>
-        ${grp.files.map(f=>{
-          const{icon,cls}=docIcon(f._displayName);
-          const meta=f.metadata||{};
-          const dateStr=f.created_at?new Date(f.created_at).toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'}):'';
-          return`<div class="doc-list-row">
-            <div class="doc-list-icon ${cls}">${icon}</div>
-            <div class="doc-list-info">
-              <div class="doc-list-name" title="${esc(f._displayName)}">${esc(f._displayName)}</div>
-              <div class="doc-list-meta">${f._cat?categoryLabel(f._cat)+' · ':''}${fmtFileSize(meta.size)}${dateStr?' · '+dateStr:''}</div>
-            </div>
-            <div class="doc-list-actions">
-              <button class="pbtn view" onclick="viewClientUpload('${esc(f.name)}','${esc(f._displayName)}')">👁 View</button>
-            </div>
-          </div>`;
-        }).join('')}
-      </div>`;
-    });
+        <span style="font-size:11px;color:var(--txt3)">${myUploads.length} file${myUploads.length!==1?'s':''}</span>
+      </div>
+      ${myUploads.map(f=>{
+        let displayName=f.name;
+        const parts=f.name.split('__');
+        if(parts.length>=3){displayName=parts.slice(2).join('__');}
+        const tsMatch=displayName.match(/^\d+_(.+)$/);
+        if(tsMatch)displayName=tsMatch[1];
+        const{icon,cls}=docIcon(displayName);
+        const meta=f.metadata||{};
+        const cat=parts.length>=2?parts[0]:'';
+        const dateStr=f.created_at?new Date(f.created_at).toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'}):'';
+        return`<div class="doc-list-row">
+          <div class="doc-list-icon ${cls}">${icon}</div>
+          <div class="doc-list-info">
+            <div class="doc-list-name" title="${esc(displayName)}">${esc(displayName)}</div>
+            <div class="doc-list-meta">${cat?categoryLabel(cat)+' · ':''}${fmtFileSize(meta.size)}${dateStr?' · '+dateStr:''}</div>
+          </div>
+          <div class="doc-list-actions">
+            <button class="pbtn view" onclick="viewClientUpload('${esc(f.name)}','${esc(displayName)}')">👁 View</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
   }
 
   c.innerHTML=html;
@@ -1721,24 +1941,19 @@ async function renderMyUploads(){
   if(!myUploads.length){c.innerHTML=empty('📤','No uploads yet','Files you upload will appear here.');return;}
   c.innerHTML=myUploads.map(f=>{
     let displayName=f.name;
-    // Format (new): {category}__{description}__{matterId}__{timestamp}_{filename}
-    // Format (legacy): {category}__{description}__{timestamp}_{filename}
+    // Format: {category}__{description}__{timestamp}_{filename}
     const parts=f.name.split('__');
-    let matterId='general';
-    if(parts.length>=4){matterId=parts[2]||'general';displayName=parts.slice(3).join('__');}
-    else if(parts.length>=3){displayName=parts.slice(2).join('__');}
+    if(parts.length>=3){displayName=parts.slice(2).join('__');}
     const tsMatch=displayName.match(/^\d+_(.+)$/);
     if(tsMatch)displayName=tsMatch[1];
     const{icon,cls}=docIcon(displayName);
     const meta=f.metadata||{};
     const dateStr=f.created_at?new Date(f.created_at).toLocaleDateString('en-KE',{day:'numeric',month:'short'}):'';
-    const matterObj=matterId&&matterId!=='general'?myMatters.find(m=>m.id===matterId):null;
-    const matterLabel=matterObj?`📁 ${esc(matterObj.title)}`:'General';
     return`<div class="doc-list-row" style="padding:10px 16px">
       <div class="doc-list-icon ${cls}" style="width:30px;height:30px;font-size:14px">${icon}</div>
       <div class="doc-list-info">
         <div class="doc-list-name" style="font-size:12px">${esc(displayName)}</div>
-        <div class="doc-list-meta">${fmtFileSize(meta.size)}${dateStr?' · '+dateStr:''} · ${matterLabel}</div>
+        <div class="doc-list-meta">${fmtFileSize(meta.size)}${dateStr?' · '+dateStr:''}</div>
       </div>
       <button class="pbtn view" style="font-size:10px;padding:3px 8px" onclick="viewClientUpload('${esc(f.name)}','${esc(displayName)}')">View</button>
     </div>`;
@@ -1761,8 +1976,7 @@ async function uploadClientDoc(){
   const description=(document.getElementById('up-description').value.trim()||'').replace(/[^a-zA-Z0-9.\-_ ]/g,'_').slice(0,40).replace(/\s+/g,'_');
   const matterId=document.getElementById('up-matter').value||'general';
   const safeName=file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_');
-  // Encode matterId in filename so it can be decoded in CMS & portal views
-  const storagePath=`${clientRecord.id}/${category}__${description}__${matterId}__${Date.now()}_${safeName}`;
+  const storagePath=`${clientRecord.id}/${category}__${description}__${Date.now()}_${safeName}`;
   const btn=document.getElementById('up-btn');
   const progressWrap=document.getElementById('up-progress-wrap');
   const bar=document.getElementById('up-progress-bar');
