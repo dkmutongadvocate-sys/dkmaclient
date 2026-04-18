@@ -1422,38 +1422,56 @@ function renderDocuments(){
       </div>`).join('');
   }
 
-  // ── Section 2: Client's own uploads ──
+  // ── Section 2: Client's own uploads — grouped by matter ──
   if(hasMyUploads){
-    html+=`<div class="pcard" style="margin-bottom:18px">
-      <div class="pcard-header">
-        <div>
-          <div class="pcard-title">📤 My Uploaded Documents</div>
-          <div class="pcard-sub">Files you have sent to the firm</div>
+    // Decode matter id from each upload filename and group
+    const uploadsByMatter={};
+    myUploads.forEach(f=>{
+      const parts=f.name.split('__');
+      let matterId='general', displayName=f.name, cat='', desc='';
+      if(parts.length>=4){
+        cat=parts[0]; desc=parts[1]; matterId=parts[2]||'general';
+        displayName=parts.slice(3).join('__');
+      } else if(parts.length>=3){
+        cat=parts[0]; desc=parts[1];
+        displayName=parts.slice(2).join('__');
+      }
+      const tsMatch=displayName.match(/^\d+_(.+)$/);
+      if(tsMatch)displayName=tsMatch[1];
+      if(!uploadsByMatter[matterId])uploadsByMatter[matterId]={files:[]};
+      uploadsByMatter[matterId].files.push({...f,_displayName:displayName,_cat:cat,_desc:desc});
+    });
+
+    // Render one card per matter group
+    Object.entries(uploadsByMatter).forEach(([mid,grp])=>{
+      const matterObj=mid!=='general'?myMatters.find(m=>m.id===mid):null;
+      const groupTitle=matterObj?`📤 My Uploads — ${esc(matterObj.title)}`:'📤 My Uploaded Documents (General)';
+      const groupSub=matterObj?'Files you uploaded for this matter':'Files not linked to a specific matter';
+      html+=`<div class="pcard" style="margin-bottom:18px">
+        <div class="pcard-header">
+          <div>
+            <div class="pcard-title">${groupTitle}</div>
+            <div class="pcard-sub">${groupSub}</div>
+          </div>
+          <span style="font-size:11px;color:var(--txt3)">${grp.files.length} file${grp.files.length!==1?'s':''}</span>
         </div>
-        <span style="font-size:11px;color:var(--txt3)">${myUploads.length} file${myUploads.length!==1?'s':''}</span>
-      </div>
-      ${myUploads.map(f=>{
-        let displayName=f.name;
-        const parts=f.name.split('__');
-        if(parts.length>=3){displayName=parts.slice(2).join('__');}
-        const tsMatch=displayName.match(/^\d+_(.+)$/);
-        if(tsMatch)displayName=tsMatch[1];
-        const{icon,cls}=docIcon(displayName);
-        const meta=f.metadata||{};
-        const cat=parts.length>=2?parts[0]:'';
-        const dateStr=f.created_at?new Date(f.created_at).toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'}):'';
-        return`<div class="doc-list-row">
-          <div class="doc-list-icon ${cls}">${icon}</div>
-          <div class="doc-list-info">
-            <div class="doc-list-name" title="${esc(displayName)}">${esc(displayName)}</div>
-            <div class="doc-list-meta">${cat?categoryLabel(cat)+' · ':''}${fmtFileSize(meta.size)}${dateStr?' · '+dateStr:''}</div>
-          </div>
-          <div class="doc-list-actions">
-            <button class="pbtn view" onclick="viewClientUpload('${esc(f.name)}','${esc(displayName)}')">👁 View</button>
-          </div>
-        </div>`;
-      }).join('')}
-    </div>`;
+        ${grp.files.map(f=>{
+          const{icon,cls}=docIcon(f._displayName);
+          const meta=f.metadata||{};
+          const dateStr=f.created_at?new Date(f.created_at).toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'}):'';
+          return`<div class="doc-list-row">
+            <div class="doc-list-icon ${cls}">${icon}</div>
+            <div class="doc-list-info">
+              <div class="doc-list-name" title="${esc(f._displayName)}">${esc(f._displayName)}</div>
+              <div class="doc-list-meta">${f._cat?categoryLabel(f._cat)+' · ':''}${fmtFileSize(meta.size)}${dateStr?' · '+dateStr:''}</div>
+            </div>
+            <div class="doc-list-actions">
+              <button class="pbtn view" onclick="viewClientUpload('${esc(f.name)}','${esc(f._displayName)}')">👁 View</button>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`;
+    });
   }
 
   c.innerHTML=html;
@@ -1703,19 +1721,24 @@ async function renderMyUploads(){
   if(!myUploads.length){c.innerHTML=empty('📤','No uploads yet','Files you upload will appear here.');return;}
   c.innerHTML=myUploads.map(f=>{
     let displayName=f.name;
-    // Format: {category}__{description}__{timestamp}_{filename}
+    // Format (new): {category}__{description}__{matterId}__{timestamp}_{filename}
+    // Format (legacy): {category}__{description}__{timestamp}_{filename}
     const parts=f.name.split('__');
-    if(parts.length>=3){displayName=parts.slice(2).join('__');}
+    let matterId='general';
+    if(parts.length>=4){matterId=parts[2]||'general';displayName=parts.slice(3).join('__');}
+    else if(parts.length>=3){displayName=parts.slice(2).join('__');}
     const tsMatch=displayName.match(/^\d+_(.+)$/);
     if(tsMatch)displayName=tsMatch[1];
     const{icon,cls}=docIcon(displayName);
     const meta=f.metadata||{};
     const dateStr=f.created_at?new Date(f.created_at).toLocaleDateString('en-KE',{day:'numeric',month:'short'}):'';
+    const matterObj=matterId&&matterId!=='general'?myMatters.find(m=>m.id===matterId):null;
+    const matterLabel=matterObj?`📁 ${esc(matterObj.title)}`:'General';
     return`<div class="doc-list-row" style="padding:10px 16px">
       <div class="doc-list-icon ${cls}" style="width:30px;height:30px;font-size:14px">${icon}</div>
       <div class="doc-list-info">
         <div class="doc-list-name" style="font-size:12px">${esc(displayName)}</div>
-        <div class="doc-list-meta">${fmtFileSize(meta.size)}${dateStr?' · '+dateStr:''}</div>
+        <div class="doc-list-meta">${fmtFileSize(meta.size)}${dateStr?' · '+dateStr:''} · ${matterLabel}</div>
       </div>
       <button class="pbtn view" style="font-size:10px;padding:3px 8px" onclick="viewClientUpload('${esc(f.name)}','${esc(displayName)}')">View</button>
     </div>`;
@@ -1738,7 +1761,8 @@ async function uploadClientDoc(){
   const description=(document.getElementById('up-description').value.trim()||'').replace(/[^a-zA-Z0-9.\-_ ]/g,'_').slice(0,40).replace(/\s+/g,'_');
   const matterId=document.getElementById('up-matter').value||'general';
   const safeName=file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_');
-  const storagePath=`${clientRecord.id}/${category}__${description}__${Date.now()}_${safeName}`;
+  // Encode matterId in filename so it can be decoded in CMS & portal views
+  const storagePath=`${clientRecord.id}/${category}__${description}__${matterId}__${Date.now()}_${safeName}`;
   const btn=document.getElementById('up-btn');
   const progressWrap=document.getElementById('up-progress-wrap');
   const bar=document.getElementById('up-progress-bar');
