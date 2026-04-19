@@ -1976,7 +1976,7 @@ async function uploadClientDoc(){
   const description=(document.getElementById('up-description').value.trim()||'').replace(/[^a-zA-Z0-9.\-_ ]/g,'_').slice(0,40).replace(/\s+/g,'_');
   const matterId=document.getElementById('up-matter').value||'general';
   const safeName=file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_');
-  const storagePath=`${clientRecord.id}/${category}__${description}__${Date.now()}_${safeName}`;
+  const storagePath=`${clientRecord.id}/${category}__${description}__${matterId}__${Date.now()}_${safeName}`;
   const btn=document.getElementById('up-btn');
   const progressWrap=document.getElementById('up-progress-wrap');
   const bar=document.getElementById('up-progress-bar');
