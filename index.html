@@ -957,7 +957,7 @@ function toPortalEmail(email){
   return email.replace('@','+portal@');
 }
 const FIRM_BUCKET='matter-documents';
-const CLIENT_BUCKET='client-uploads';
+// client-uploads bucket removed — client files now go into matter-documents under client__ prefix
 const LAWYER_PHONE='%%LAWYER_PHONE%%'; // e.g. +254712345678 — set in GitHub secrets
 
 // ── STATE ─────────────────────────────────────────────────────────
@@ -1315,9 +1315,30 @@ async function loadSharedDocs(){
 
 async function loadMyUploads(){
   if(!clientRecord){myUploads=[];return;}
-  const{data,error}=await sb.storage.from(CLIENT_BUCKET).list(clientRecord.id,{limit:200,sortBy:{column:'created_at',order:'desc'}});
-  myUploads=(!error&&data)?data.filter(f=>f.name!=='.emptyFolderPlaceholder'):[];
-  // Update combined doc count (firm shared + my uploads)
+  // Client uploads now live in matter-documents:
+  //   per-matter:  {matterId}/client__{...}
+  //   no matter:   client-general/{clientId}/client__{...}
+  const allFiles=[];
+  const matterIds=myMatters.map(m=>m.id);
+
+  const[genResult,...matterResults]=await Promise.all([
+    sb.storage.from(FIRM_BUCKET).list('client-general/'+clientRecord.id,{limit:200,sortBy:{column:'created_at',order:'desc'}}),
+    ...matterIds.map(mid=>sb.storage.from(FIRM_BUCKET).list(mid,{limit:200,sortBy:{column:'created_at',order:'desc'}}).then(r=>({mid,r})))
+  ]);
+
+  if(genResult.data) genResult.data.forEach(f=>{
+    if(f.name==='.emptyFolderPlaceholder'||!f.name.startsWith('client__'))return;
+    allFiles.push({...f,_matterId:'general',_folder:'client-general/'+clientRecord.id});
+  });
+  matterResults.forEach(({mid,r})=>{
+    if(!r||!r.data)return;
+    r.data.forEach(f=>{
+      if(f.name==='.emptyFolderPlaceholder'||!f.name.startsWith('client__'))return;
+      allFiles.push({...f,_matterId:mid,_folder:mid});
+    });
+  });
+
+  myUploads=allFiles;
   const statEl=document.getElementById('stat-docs');
   if(statEl)statEl.textContent=sharedDocs.length+myUploads.length;
 }
@@ -1940,22 +1961,27 @@ async function renderMyUploads(){
   if(!clientRecord){c.innerHTML=`<div style="padding:20px;font-size:12px;color:var(--txt3)">Account not linked.</div>`;return;}
   if(!myUploads.length){c.innerHTML=empty('📤','No uploads yet','Files you upload will appear here.');return;}
   c.innerHTML=myUploads.map(f=>{
+    // New format: client__{category}__{description}__{timestamp}_{filename}
     let displayName=f.name;
-    // Format: {category}__{description}__{timestamp}_{filename}
     const parts=f.name.split('__');
-    if(parts.length>=3){displayName=parts.slice(2).join('__');}
+    if(parts.length>=4){displayName=parts.slice(3).join('__');}  // skip 'client', cat, desc
+    else if(parts.length>=3){displayName=parts.slice(2).join('__');}
     const tsMatch=displayName.match(/^\d+_(.+)$/);
     if(tsMatch)displayName=tsMatch[1];
+    const cat=parts.length>=2?parts[1]:'';
+    const desc=parts.length>=3?parts[2].replace(/_/g,' '):'';
     const{icon,cls}=docIcon(displayName);
     const meta=f.metadata||{};
     const dateStr=f.created_at?new Date(f.created_at).toLocaleDateString('en-KE',{day:'numeric',month:'short'}):'';
+    const folder=f._folder||'';
+    const matterName=f._matterId&&f._matterId!=='general'?(myMatters.find(m=>m.id===f._matterId)||{title:'Unknown matter'}).title:'General';
     return`<div class="doc-list-row" style="padding:10px 16px">
       <div class="doc-list-icon ${cls}" style="width:30px;height:30px;font-size:14px">${icon}</div>
       <div class="doc-list-info">
         <div class="doc-list-name" style="font-size:12px">${esc(displayName)}</div>
-        <div class="doc-list-meta">${fmtFileSize(meta.size)}${dateStr?' · '+dateStr:''}</div>
+        <div class="doc-list-meta">${fmtFileSize(meta.size)}${dateStr?' · '+dateStr:''}${matterName?' · '+esc(matterName):''}</div>
       </div>
-      <button class="pbtn view" style="font-size:10px;padding:3px 8px" onclick="viewClientUpload('${esc(f.name)}','${esc(displayName)}')">View</button>
+      <button class="pbtn view" style="font-size:10px;padding:3px 8px" onclick="viewClientUpload('${esc(folder)}','${esc(f.name)}','${esc(displayName)}')">View</button>
     </div>`;
   }).join('');
 }
@@ -1976,7 +2002,10 @@ async function uploadClientDoc(){
   const description=(document.getElementById('up-description').value.trim()||'').replace(/[^a-zA-Z0-9.\-_ ]/g,'_').slice(0,40).replace(/\s+/g,'_');
   const matterId=document.getElementById('up-matter').value||'general';
   const safeName=file.name.replace(/[^a-zA-Z0-9.\-_]/g,'_');
-  const storagePath=`${clientRecord.id}/${category}__${description}__${matterId}__${Date.now()}_${safeName}`;
+  // Store in matter-documents: per-matter or client-general folder
+  // Prefix client__ so CMS can distinguish client-uploaded files from firm docs
+  const folder=matterId!=='general'?matterId:'client-general/'+clientRecord.id;
+  const storagePath=`${folder}/client__${category}__${description}__${Date.now()}_${safeName}`;
   const btn=document.getElementById('up-btn');
   const progressWrap=document.getElementById('up-progress-wrap');
   const bar=document.getElementById('up-progress-bar');
@@ -1985,7 +2014,7 @@ async function uploadClientDoc(){
   progressWrap.style.display='block';
   bar.style.width='20%';
   statusTxt.textContent='Uploading '+file.name+'…';
-  const{error}=await sb.storage.from(CLIENT_BUCKET).upload(storagePath,file,{upsert:false,contentType:file.type||'application/octet-stream'});
+  const{error}=await sb.storage.from(FIRM_BUCKET).upload(storagePath,file,{upsert:false,contentType:file.type||'application/octet-stream'});
   bar.style.width='100%';
   btn.disabled=false;btn.textContent='Upload Document';
   progressWrap.style.display='none';
@@ -2068,10 +2097,9 @@ async function downloadSharedDoc(matterId,storageName,displayName){
   const a=document.createElement('a');a.href=data.signedUrl;a.download=displayName;a.target='_blank';
   document.body.appendChild(a);a.click();document.body.removeChild(a);
 }
-async function viewClientUpload(storageName,displayName){
-  if(!clientRecord)return;
-  const path=`${clientRecord.id}/${storageName}`;
-  const{data,error}=await sb.storage.from(CLIENT_BUCKET).createSignedUrl(path,600);
+async function viewClientUpload(folder,storageName,displayName){
+  const path=`${folder}/${storageName}`;
+  const{data,error}=await sb.storage.from(FIRM_BUCKET).createSignedUrl(path,600);
   if(error){toast('Could not open document.',true);return;}
   openViewer(data.signedUrl,displayName);
 }
