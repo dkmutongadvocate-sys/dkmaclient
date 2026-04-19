@@ -1610,7 +1610,7 @@ async function loadMatterDetailDocs(matterId){
             <div class="doc-list-meta">${cat?categoryLabel(cat)+' · ':''}${fmtFileSize(meta.size)}${dateStr?' · '+dateStr:''}</div>
           </div>
           <div class="doc-list-actions">
-            <button class="pbtn view" onclick="viewClientUpload('${esc(f.name)}','${esc(displayName)}')">👁 View</button>
+            <button class="pbtn view" onclick="viewClientUpload('${esc(f._folder||matterId)}','${esc(f.name)}','${esc(displayName)}')">👁 View</button>
           </div>
         </div>`;
       }).join('')}
@@ -1647,75 +1647,125 @@ function renderMatterDetailEvents(matterId){
 }
 
 // ── RENDER: DOCUMENTS ─────────────────────────────────────────────
+// Tabs: General (all docs flat) | Matter Specific (grouped by matter)
+let _docsActiveTab='general';
+
 function renderDocuments(){
   const c=document.getElementById('documents-container');
   if(!clientRecord){c.innerHTML=empty('📂','Account not linked','Contact the firm to link your portal account.');return;}
 
-  const hasFirmDocs=sharedDocs.length>0;
-  const hasMyUploads=myUploads.length>0;
+  const totalFirm=sharedDocs.length;
+  const totalMine=myUploads.length;
+  const total=totalFirm+totalMine;
 
-  if(!hasFirmDocs&&!hasMyUploads){
+  if(!total){
     c.innerHTML=`<div class="pcard">${empty('📂','No documents yet','Documents shared by the firm and files you upload will both appear here.')}</div>`;return;
   }
 
-  let html='';
+  // Build tabs
+  const tabs=[
+    {id:'general',label:'All Documents',count:total},
+    {id:'matter',label:'By Matter',count:null},
+  ];
+  const tabHtml=`<div style="display:flex;gap:0;background:#fff;border-radius:10px;border:0.5px solid var(--brd);overflow:hidden;margin-bottom:18px">
+    ${tabs.map(t=>`<div onclick="switchDocsTab('${t.id}')" id="dtab-${t.id}" style="padding:10px 20px;font-size:12px;font-weight:500;cursor:pointer;border-right:1px solid var(--brd);white-space:nowrap;transition:all 0.12s;${_docsActiveTab===t.id?'background:var(--navy);color:#fff':'color:var(--txt3)'}">${t.label}${t.count!==null?` <span style="background:${_docsActiveTab===t.id?'rgba(255,255,255,0.2)':'var(--cream2)'};color:${_docsActiveTab===t.id?'#fff':'var(--txt2)'};font-size:10px;padding:1px 6px;border-radius:8px;margin-left:5px">${t.count}</span>`:''}</div>`).join('')}
+  </div>`;
 
-  // ── Section 1: Firm-shared documents, grouped by matter ──
-  if(hasFirmDocs){
+  let panelHtml='';
+
+  if(_docsActiveTab==='general'){
+    // All docs flat: firm first (with source badge), then client uploads
+    const allRows=[
+      ...sharedDocs.map(f=>docRowGeneral(f,'firm')),
+      ...myUploads.map(f=>docRowGeneral(f,'client')),
+    ];
+    panelHtml=allRows.length
+      ? `<div class="pcard">${allRows.join('')}</div>`
+      : `<div class="pcard">${empty('📂','No documents yet','')}</div>`;
+  } else {
+    // Group by matter — show both firm and client uploads per matter
     const byMatter={};
     sharedDocs.forEach(f=>{
-      const key=f.matterId;
-      if(!byMatter[key])byMatter[key]={title:f.matterTitle,files:[]};
-      byMatter[key].files.push(f);
+      const key=f.matterId||'general';
+      if(!byMatter[key])byMatter[key]={title:f.matterTitle||'General',firm:[],client:[]};
+      byMatter[key].firm.push(f);
     });
-    html+=Object.values(byMatter).map(grp=>`
-      <div class="pcard" style="margin-bottom:18px">
+    myUploads.forEach(f=>{
+      const mid=f._matterId||'general';
+      const matter=myMatters.find(m=>m.id===mid);
+      const key=mid;
+      if(!byMatter[key])byMatter[key]={title:matter?matter.title:'General / No Matter',firm:[],client:[]};
+      byMatter[key].client.push(f);
+    });
+    // Sort: named matters first, general last
+    const sorted=Object.entries(byMatter).sort(([a],[b])=>a==='general'?1:b==='general'?-1:0);
+    panelHtml=sorted.map(([key,grp])=>{
+      const total=grp.firm.length+grp.client.length;
+      const rows=[
+        ...grp.firm.map(f=>docRowGeneral(f,'firm')),
+        ...grp.client.map(f=>docRowGeneral(f,'client')),
+      ];
+      return`<div class="pcard" style="margin-bottom:14px">
         <div class="pcard-header">
           <div>
             <div class="pcard-title">📁 ${esc(grp.title)}</div>
-            <div class="pcard-sub">Shared by the firm</div>
+            <div class="pcard-sub">${grp.firm.length} from firm · ${grp.client.length} uploaded by you</div>
           </div>
-          <span style="font-size:11px;color:var(--txt3)">${grp.files.length} file${grp.files.length!==1?'s':''}</span>
+          <span style="font-size:11px;color:var(--txt3)">${total} file${total!==1?'s':''}</span>
         </div>
-        ${grp.files.map(f=>sharedDocRow(f)).join('')}
-      </div>`).join('');
+        ${rows.join('')}
+      </div>`;
+    }).join('');
   }
 
-  // ── Section 2: Client's own uploads ──
-  if(hasMyUploads){
-    html+=`<div class="pcard" style="margin-bottom:18px">
-      <div class="pcard-header">
-        <div>
-          <div class="pcard-title">📤 My Uploaded Documents</div>
-          <div class="pcard-sub">Files you have sent to the firm</div>
-        </div>
-        <span style="font-size:11px;color:var(--txt3)">${myUploads.length} file${myUploads.length!==1?'s':''}</span>
+  c.innerHTML=tabHtml+panelHtml;
+}
+
+function switchDocsTab(tab){
+  _docsActiveTab=tab;
+  renderDocuments();
+}
+
+// Unified doc row used in both tabs — shows source badge + correct view action
+function docRowGeneral(f, source){
+  let displayName=f.name, cat='', desc='', matterId=f.matterId||f._matterId||'', folder=f._folder||matterId;
+  const parts=f.name.split('__');
+
+  if(source==='firm'){
+    // Format: shared__{cat}__{desc}__{ts}_{name}
+    if(parts.length>=4){cat=parts[1];desc=parts[2];displayName=parts.slice(3).join('__');}
+    else if(parts.length===2){displayName=parts[1];}
+  } else {
+    // Format: client__{cat}__{desc}__{ts}_{name}
+    if(parts.length>=4){cat=parts[1];desc=parts[2];displayName=parts.slice(3).join('__');}
+  }
+  const tsM=displayName.match(/^\d+_(.+)$/);if(tsM)displayName=tsM[1];
+  const{icon,cls}=docIcon(displayName);
+  const meta=f.metadata||{};
+  const dateStr=f.created_at?new Date(f.created_at).toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'}):'';
+  const catLabel=cat?categoryLabel(cat):'';
+  const metaStr=[catLabel,fmtFileSize(meta.size),dateStr,desc?desc.replace(/_/g,' '):''].filter(Boolean).join(' · ');
+
+  const sourceBadge=source==='firm'
+    ? `<span style="background:#EAF3DE;color:#2D6A4F;font-size:9px;padding:1px 7px;border-radius:8px;font-weight:600;white-space:nowrap">📁 Firm</span>`
+    : `<span style="background:#E6F1FB;color:#185FA5;font-size:9px;padding:1px 7px;border-radius:8px;font-weight:600;white-space:nowrap">📤 You</span>`;
+
+  const viewBtn=source==='firm'
+    ? `<button class="pbtn view" style="white-space:nowrap" onclick="viewSharedDoc('${esc(matterId)}','${esc(f.name)}','${esc(displayName)}')">👁 View</button>
+       <button class="pbtn" style="white-space:nowrap" onclick="downloadSharedDoc('${esc(matterId)}','${esc(f.name)}','${esc(displayName)}')">⬇</button>`
+    : `<button class="pbtn view" style="white-space:nowrap" onclick="viewClientUpload('${esc(folder)}','${esc(f.name)}','${esc(displayName)}')">👁 View</button>`;
+
+  return`<div class="doc-list-row">
+    <div class="doc-list-icon ${cls}">${icon}</div>
+    <div class="doc-list-info">
+      <div class="doc-list-name" title="${esc(displayName)}">${esc(displayName)}</div>
+      <div class="doc-list-meta" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:3px">
+        ${sourceBadge}
+        <span>${metaStr}</span>
       </div>
-      ${myUploads.map(f=>{
-        let displayName=f.name;
-        const parts=f.name.split('__');
-        if(parts.length>=3){displayName=parts.slice(2).join('__');}
-        const tsMatch=displayName.match(/^\d+_(.+)$/);
-        if(tsMatch)displayName=tsMatch[1];
-        const{icon,cls}=docIcon(displayName);
-        const meta=f.metadata||{};
-        const cat=parts.length>=2?parts[0]:'';
-        const dateStr=f.created_at?new Date(f.created_at).toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'}):'';
-        return`<div class="doc-list-row">
-          <div class="doc-list-icon ${cls}">${icon}</div>
-          <div class="doc-list-info">
-            <div class="doc-list-name" title="${esc(displayName)}">${esc(displayName)}</div>
-            <div class="doc-list-meta">${cat?categoryLabel(cat)+' · ':''}${fmtFileSize(meta.size)}${dateStr?' · '+dateStr:''}</div>
-          </div>
-          <div class="doc-list-actions">
-            <button class="pbtn view" onclick="viewClientUpload('${esc(f.name)}','${esc(displayName)}')">👁 View</button>
-          </div>
-        </div>`;
-      }).join('')}
-    </div>`;
-  }
-
-  c.innerHTML=html;
+    </div>
+    <div class="doc-list-actions">${viewBtn}</div>
+  </div>`;
 }
 
 function sharedDocRow(f){
