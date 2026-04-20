@@ -1398,7 +1398,7 @@ function renderOverview(){
   // Stats
   const now=new Date();
   const in30=new Date(now.getTime()+30*24*60*60*1000);
-  const upcoming=myEvents.filter(e=>{const d=parseDateLocal(e.event_date);return d>=now&&d<=in30;});
+  const upcoming=myEvents.filter(e=>{const d=parseDateLocal(e.event_date);return e.portal_visible&&d>=now&&d<=in30;});
   document.getElementById('stat-matters').textContent=myMatters.filter(m=>m.status!=='closed').length;
   document.getElementById('stat-events').textContent=upcoming.length;
   document.getElementById('stat-invoices').textContent=myInvoices.length;
@@ -1409,7 +1409,7 @@ function renderOverview(){
   }else{
     // Try to load recent updates from DB
     const matterIds=myMatters.map(m=>m.id);
-    sb.from('matter_updates').select('matter_id,update_date,update_type,details').in('matter_id',matterIds).order('update_date',{ascending:false}).limit(8)
+    sb.from('matter_updates').select('matter_id,update_date,update_type,details').in('matter_id',matterIds).eq('portal_visible',true).order('update_date',{ascending:false}).limit(8)
       .then(({data,error})=>{
         if(error||!data||!data.length){
           // Fallback: show matter statuses
@@ -1557,7 +1557,7 @@ async function loadMatterDetailUpdates(matterId){
   const card = document.getElementById('md-updates-card');
   if(!card) return;
   card.innerHTML = `<div style="padding:40px;text-align:center;color:var(--txt3)">Loading updates…</div>`;
-  const {data,error} = await sb.from('matter_updates').select('update_date,update_type,details').eq('matter_id',matterId).order('update_date',{ascending:false});
+  const {data,error} = await sb.from('matter_updates').select('update_date,update_type,details').eq('matter_id',matterId).eq('portal_visible',true).order('update_date',{ascending:false});
   if(error){ card.innerHTML=`<div style="padding:32px;text-align:center;font-size:13px;color:var(--txt3)">Unable to load updates.</div>`; return; }
   const updates = data||[];
   if(!updates.length){
@@ -1964,7 +1964,7 @@ function renderPortalCalendar(){
   const me={};
   const monthStart=new Date(portalCalYear,portalCalMonth,1);
   const monthEnd=new Date(portalCalYear,portalCalMonth+1,0);
-  (myEvents||[]).forEach(e=>{
+  (myEvents||[]).filter(e=>e.portal_visible).forEach(e=>{
     const start=parseDateLocal(e.event_date);
     const end=e.event_end_date?parseDateLocal(e.event_end_date):start;
     const iterStart=start<monthStart?monthStart:start;
@@ -2057,8 +2057,8 @@ function renderEvents(){
   gazettedHolidays.forEach(h=>{if(!allHolidays.find(x=>x.date===h.date&&x.name===h.name))allHolidays.push({date:h.date,name:h.name,gazetted:true,ghType:h.type});});
   const upcomingHolidays=allHolidays.filter(h=>h.date>=todayStr).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,10);
   const pastHolidays=allHolidays.filter(h=>h.date<todayStr).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,4);
-  const upcomingEvents=myEvents.filter(e=>parseDateLocal(e.event_date)>=now);
-  const pastEvents=myEvents.filter(e=>parseDateLocal(e.event_date)<now);
+  const upcomingEvents=myEvents.filter(e=>e.portal_visible&&parseDateLocal(e.event_date)>=now);
+  const pastEvents=myEvents.filter(e=>e.portal_visible&&parseDateLocal(e.event_date)<now);
   const upcomingMixed=[
     ...upcomingEvents.map(e=>({date:e.event_date,type:'event',data:e})),
     ...upcomingHolidays.map(h=>({date:h.date,type:'holiday',data:h}))
@@ -3303,7 +3303,7 @@ async function openMatterUpdatesOverlay(matterId, matterTitle){
 
   // Load updates from DB
   const bodyEl=document.getElementById('matter-updates-body');
-  const{data,error}=await sb.from('matter_updates').select('update_date,update_type,details').eq('matter_id',matterId).order('update_date',{ascending:false});
+  const{data,error}=await sb.from('matter_updates').select('update_date,update_type,details').eq('matter_id',matterId).eq('portal_visible',true).order('update_date',{ascending:false});
   if(error){
     bodyEl.innerHTML=`<div style="padding:32px;text-align:center;color:var(--txt3);font-size:13px">Unable to load updates. Please try again later.</div>`;
     return;
