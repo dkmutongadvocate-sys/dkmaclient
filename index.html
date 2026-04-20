@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
 <title>DKMA — Client Portal</title>
 <meta name="theme-color" content="#0D1B2A"/>
 <meta name="mobile-web-app-capable" content="yes"/>
@@ -199,6 +199,32 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 .viewer-body iframe{width:100%;height:100%;border:none;display:block}
 .viewer-body img{max-width:100%;max-height:100%;object-fit:contain;display:block;margin:auto;padding:20px}
 .viewer-nopreview{padding:48px 20px;text-align:center;color:var(--txt3);font-size:13px;line-height:1.7}
+
+/* ── VIEWER: MOBILE PORTRAIT ─────────────────────────────────────── */
+@media(max-width:640px) and (orientation:portrait){
+  .viewer-overlay{padding:0}
+  .viewer-bar{border-radius:0;padding:10px 14px;padding-top:calc(10px + env(safe-area-inset-top));position:sticky;top:0;z-index:1}
+  .viewer-body{border-radius:0;height:calc(100dvh - 45px - env(safe-area-inset-top));max-width:100%}
+  .viewer-title{font-size:12px}
+}
+
+/* ── VIEWER: MOBILE LANDSCAPE ────────────────────────────────────── */
+@media(max-height:500px) and (orientation:landscape){
+  .viewer-overlay{padding:0;flex-direction:row;align-items:stretch}
+  .viewer-bar{
+    flex-direction:column;align-items:flex-start;justify-content:flex-start;
+    border-radius:0;border-right:1px solid var(--brd);border-bottom:none;
+    width:52px;min-width:52px;max-width:52px;padding:10px 8px;gap:8px;overflow:hidden;
+    padding-left:calc(8px + env(safe-area-inset-left));
+  }
+  .viewer-title{
+    writing-mode:vertical-rl;transform:rotate(180deg);
+    text-overflow:ellipsis;overflow:hidden;max-height:140px;font-size:11px;width:100%;
+  }
+  .viewer-body{border-radius:0;height:100dvh;width:100%;max-width:none;flex:1;padding-right:env(safe-area-inset-right)}
+  .viewer-bar>#viewer-dl-btn{writing-mode:horizontal-tb;font-size:9px;padding:3px 6px;margin-top:auto}
+  .viewer-nopreview{padding:16px}
+}
 
 /* ── WELCOME BANNER ──────────────────────────────────────────── */
 .welcome-banner{background:var(--navy);border-radius:12px;padding:24px 28px;margin-bottom:22px;display:flex;align-items:center;gap:18px}
@@ -420,6 +446,28 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
   .pstats{grid-template-columns:1fr}
   .portal-content{padding:8px}
   .auth-box{padding:24px 16px}
+}
+
+/* ── LANDSCAPE PHONE ─────────────────────────────────────────────── */
+@media(max-height:500px) and (orientation:landscape){
+  /* Compact topnav */
+  .topnav{height:44px;padding:0 12px}
+  .topnav-logo{font-size:13px}
+  .topnav-tab{padding:6px 10px;font-size:11px}
+  .portal-content{padding:8px 12px}
+
+  /* Stats — spread horizontally */
+  .pstats{grid-template-columns:repeat(4,1fr)}
+
+  /* Auth box — full screen on landscape */
+  .auth-box{position:fixed;inset:0;border-radius:0;overflow-y:auto;margin:0;padding:20px 24px;display:flex;flex-direction:column;justify-content:center}
+  #auth-screen{justify-content:center}
+
+  /* Messaging — taller on landscape */
+  .msg-layout{height:calc(100dvh - 48px)}
+
+  /* Modals */
+  .pwa-modal{padding:20px 24px;max-height:calc(100dvh - 24px);overflow-y:auto}
 }
 
 /* ── PWA INSTALL MODAL ───────────────────────────────────────────── */
@@ -2303,20 +2351,46 @@ function openViewer(url,displayName,dlFn){
   const ext=(displayName.split('.').pop()||'').toLowerCase();
   const body=document.getElementById('viewer-body');
   if(['jpg','jpeg','png','gif','webp'].includes(ext)){
-    body.innerHTML=`<img src="${url}" alt="${esc(displayName)}" style="max-width:100%;max-height:76vh;object-fit:contain;padding:20px"/>`;
+    body.innerHTML=`<img src="${url}" alt="${esc(displayName)}" style="max-width:100%;max-height:100%;object-fit:contain;padding:20px;display:block;margin:auto"/>`;
   } else if(ext==='pdf'){
-    body.innerHTML=`<iframe src="${url}" style="width:100%;height:76vh;border:none;display:block"></iframe>`;
+    body.innerHTML=`<iframe src="${url}" style="width:100%;height:100%;min-height:300px;border:none;display:block;flex:1"></iframe>`;
   } else {
     body.innerHTML=`<div class="viewer-nopreview"><div style="font-size:40px;margin-bottom:16px">📄</div><div style="font-weight:500;color:var(--txt);margin-bottom:10px">${esc(displayName)}</div><div>Preview not available for this file type.</div><div style="margin-top:16px"><button class="pbtn primary" onclick="document.getElementById('viewer-dl-btn').click()">⬇ Download to Open</button></div></div>`;
   }
   document.getElementById('viewer-overlay').classList.remove('hidden');
+  document.body.style.overflow='hidden';
+  requestAnimationFrame(()=>{
+    const vbody=document.getElementById('viewer-body');
+    const overlay=document.getElementById('viewer-overlay');
+    const bar=overlay?overlay.querySelector('.viewer-bar'):null;
+    if(!vbody||!bar) return;
+    const isLandscape=window.innerWidth>window.innerHeight;
+    vbody.style.height=isLandscape?'100dvh':`calc(${window.innerHeight}px - ${bar.offsetHeight}px)`;
+  });
 }
 function closeViewer(){
   document.getElementById('viewer-overlay').classList.add('hidden');
   document.getElementById('viewer-body').innerHTML='';
+  document.body.style.overflow='';
 }
 
-// ── MESSAGING ─────────────────────────────────────────────────────
+// ── ORIENTATION / RESIZE: keep viewer body height in sync (Android fix) ──
+(function(){
+  function syncViewerHeight(){
+    const body=document.getElementById('viewer-body');
+    if(!body) return;
+    const overlay=document.getElementById('viewer-overlay');
+    if(!overlay||overlay.classList.contains('hidden')) return;
+    const bar=overlay.querySelector('.viewer-bar');
+    const barH=bar?bar.offsetHeight:45;
+    const isLandscape=window.innerWidth>window.innerHeight;
+    body.style.height=isLandscape?'100dvh':`calc(${window.innerHeight}px - ${barH}px)`;
+  }
+  window.addEventListener('resize',syncViewerHeight);
+  screen.orientation&&screen.orientation.addEventListener('change',syncViewerHeight);
+})();
+
+
 async function loadMyMessages(){
   if(!clientRecord)return;
   const{data,error}=await sb.from('client_messages').select('*').eq('client_id',clientRecord.id).order('created_at',{ascending:true});
