@@ -117,6 +117,28 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 .et-deadline{background:#FAEEDA;color:#854F0B}
 .et-adr{background:#EEEDFE;color:#3C3489}
 
+/* ── CALENDAR GRID (matches CMS style) ──────────────────────── */
+.p-cal-day-names{display:grid;grid-template-columns:repeat(7,1fr);padding:12px 16px 4px;gap:4px}
+.p-cal-day-name{text-align:center;font-size:9px;color:var(--txt3);letter-spacing:0.5px;text-transform:uppercase;padding-bottom:4px}
+.p-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;padding:0 16px 16px}
+.p-cal-day{height:58px;border-radius:6px;padding:4px 6px;border:0.5px solid transparent;cursor:pointer;transition:all 0.12s;overflow:hidden}
+.p-cal-day:hover{border-color:var(--brd2);background:var(--cream)}
+.p-cal-day.today .p-cal-day-num{color:var(--gold);font-weight:600}
+.p-cal-day.holiday{background:rgba(45,106,79,0.06);border-color:rgba(45,106,79,0.2)}
+.p-cal-day.holiday .p-cal-day-num{color:#2D6A4F}
+.p-cal-day.holiday-islamic{background:rgba(24,95,165,0.06);border-color:rgba(24,95,165,0.2)}
+.p-cal-day.holiday-islamic .p-cal-day-num{color:#185FA5}
+.p-cal-day.holiday-gazetted{background:rgba(133,79,11,0.06);border-color:rgba(133,79,11,0.25)}
+.p-cal-day.holiday-gazetted .p-cal-day-num{color:#854F0B}
+.p-cal-day-num{font-size:11px;font-weight:500;color:var(--txt2)}
+.p-cal-holiday-label{font-size:8px;color:#2D6A4F;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px;line-height:1.2}
+.p-cal-day.holiday-islamic .p-cal-holiday-label{color:#185FA5}
+.p-cal-day.holiday-gazetted .p-cal-holiday-label{color:#854F0B}
+.p-cal-dot{width:5px;height:5px;border-radius:50%;margin:2px auto 0}
+.p-dot-gold{background:var(--gold)}.p-dot-navy{background:var(--navy)}.p-dot-red{background:#E2443A}
+.p-cal-event-mini{font-size:9px;color:var(--navy);background:rgba(13,27,42,0.07);border-radius:2px;padding:1px 4px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;display:block}
+@media(max-width:600px){.p-cal-day{height:44px}.p-cal-day-num{font-size:10px}.p-cal-event-mini{display:none}}
+
 /* ── DOCUMENT LIST ───────────────────────────────────────────── */
 .doc-list-row{display:flex;align-items:center;gap:14px;padding:11px 20px;border-bottom:1px solid var(--brd);transition:background 0.12s}
 .doc-list-row:last-child{border-bottom:none}
@@ -603,6 +625,21 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
         <h2 style="font-family:'Playfair Display',serif;font-size:22px;font-weight:500">Events &amp; Appointments</h2>
         <p style="font-size:12px;color:var(--txt3);margin-top:4px">Upcoming hearings, meetings, and deadlines linked to your matters.</p>
       </div>
+      <!-- Calendar grid card -->
+      <div class="pcard" style="margin-bottom:18px">
+        <div class="pcard-header">
+          <span class="pcard-title" id="p-cal-month-title">—</span>
+          <div style="display:flex;gap:6px">
+            <button class="pbtn" style="padding:4px 10px;font-size:11px" onclick="changePortalMonth(-1)">‹ Prev</button>
+            <button class="pbtn" style="padding:4px 10px;font-size:11px" onclick="changePortalMonth(1)">Next ›</button>
+          </div>
+        </div>
+        <div class="p-cal-day-names">
+          <div class="p-cal-day-name">Sun</div><div class="p-cal-day-name">Mon</div><div class="p-cal-day-name">Tue</div><div class="p-cal-day-name">Wed</div><div class="p-cal-day-name">Thu</div><div class="p-cal-day-name">Fri</div><div class="p-cal-day-name">Sat</div>
+        </div>
+        <div class="p-cal-grid" id="p-cal-grid"></div>
+      </div>
+      <!-- Event list card -->
       <div class="pcard" id="events-card"></div>
     </div>
 
@@ -1093,7 +1130,7 @@ function showPView(id,el,fromMobile){
   if(id==='matters')renderMatters();
   if(id==='matter-detail'){/* loaded by openMatterDetail */}
   if(id==='documents')renderDocuments();
-  if(id==='events')renderEvents();
+  if(id==='events'){renderPortalCalendar();renderEvents();}
   if(id==='invoices')renderInvoices();
   if(id==='upload'){renderMyUploads();populateUploadMatterSelect();}
   if(id==='profile')renderProfile();
@@ -1903,6 +1940,112 @@ function holidayRow(h){
 }
 
 
+// ── PORTAL CALENDAR ───────────────────────────────────────────────
+let portalCalYear=new Date().getFullYear(), portalCalMonth=new Date().getMonth();
+function changePortalMonth(dir){
+  portalCalMonth+=dir;
+  if(portalCalMonth>11){portalCalMonth=0;portalCalYear++;}
+  if(portalCalMonth<0){portalCalMonth=11;portalCalYear--;}
+  renderPortalCalendar();
+}
+function renderPortalCalendar(){
+  const months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const titleEl=document.getElementById('p-cal-month-title');
+  if(titleEl)titleEl.textContent=months[portalCalMonth]+' '+portalCalYear;
+  const g=document.getElementById('p-cal-grid');
+  if(!g)return;
+  g.innerHTML='';
+  const firstDay=new Date(portalCalYear,portalCalMonth,1).getDay();
+  for(let i=0;i<firstDay;i++){const b=document.createElement('div');g.appendChild(b);}
+  const dim=new Date(portalCalYear,portalCalMonth+1,0).getDate();
+  const today=new Date();
+
+  // Build event map keyed by day-of-month
+  const me={};
+  const monthStart=new Date(portalCalYear,portalCalMonth,1);
+  const monthEnd=new Date(portalCalYear,portalCalMonth+1,0);
+  (myEvents||[]).forEach(e=>{
+    const start=parseDateLocal(e.event_date);
+    const end=e.event_end_date?parseDateLocal(e.event_end_date):start;
+    const iterStart=start<monthStart?monthStart:start;
+    const iterEnd=end>monthEnd?monthEnd:end;
+    for(let cur=new Date(iterStart);cur<=iterEnd;cur.setDate(cur.getDate()+1)){
+      if(cur.getFullYear()===portalCalYear&&cur.getMonth()===portalCalMonth){
+        const day=cur.getDate();
+        if(!me[day])me[day]=[];
+        if(!me[day].find(x=>x.id===e.id))me[day].push(e);
+      }
+    }
+  });
+
+  // Build holiday map for this month
+  const allHolidays=[...getKenyanHolidays(portalCalYear)];
+  (gazettedHolidays||[]).forEach(h=>{
+    if(!allHolidays.find(x=>x.date===h.date&&x.name===h.name))
+      allHolidays.push({date:h.date,name:h.name,gazetted:true,ghType:h.type});
+  });
+  const holidayMap={};
+  allHolidays.forEach(h=>{
+    const hd=parseDateLocal(h.date);
+    if(hd.getFullYear()===portalCalYear&&hd.getMonth()===portalCalMonth){
+      const day=hd.getDate();
+      if(!holidayMap[day])holidayMap[day]=[];
+      holidayMap[day].push(h);
+    }
+  });
+
+  for(let d=1;d<=dim;d++){
+    const el=document.createElement('div');
+    const isT=today.getFullYear()===portalCalYear&&today.getMonth()===portalCalMonth&&today.getDate()===d;
+    const hols=holidayMap[d]||[];
+    const hasIslamic=hols.some(h=>h.islamic);
+    const allIslamic=hols.length>0&&hols.every(h=>h.islamic);
+    const hasGazetted=hols.some(h=>h.gazetted);
+    const onlyGazetted=hols.length>0&&hols.every(h=>h.gazetted);
+    let holClass='';
+    if(hols.length){
+      if(onlyGazetted) holClass=' holiday-gazetted';
+      else if(allIslamic) holClass=' holiday-islamic';
+      else if(hasIslamic) holClass=' holiday holiday-islamic';
+      else if(hasGazetted) holClass=' holiday holiday-gazetted';
+      else holClass=' holiday';
+    }
+    el.className='p-cal-day'+(isT?' today':'')+holClass;
+    const evs=me[d]||[];
+    const dc={'court':'p-dot-red','client':'p-dot-navy','deadline':'p-dot-gold','internal':'p-dot-navy','adr':'p-dot-navy'}[evs[0]?.type]||'p-dot-navy';
+    let inner=`<div class="p-cal-day-num">${d}</div>`;
+    if(hols.length){
+      const firstHol=hols[0];
+      const flag=firstHol.gazetted?'📋':firstHol.islamic?'☪️':'🇰🇪';
+      const firstName=firstHol.name.length>13?firstHol.name.slice(0,12)+'…':firstHol.name;
+      inner+=`<div class="p-cal-holiday-label" title="${esc(hols.map(h=>h.name+(h.estimated?' (est.)':'')).join(', '))}">${flag} ${esc(firstName)}</div>`;
+    }
+    if(evs.length) inner+=`<div class="p-cal-dot ${dc}"></div><div class="p-cal-event-mini">${esc(evs[0].title)}</div>`;
+    el.innerHTML=inner;
+    // On click: if there are events on this day, scroll the list to show them (or show a day pop-up)
+    if(evs.length||hols.length){
+      el.style.cursor='pointer';
+      el.addEventListener('click',()=>{
+        // Scroll the events-card into view and briefly highlight matching event rows
+        const card=document.getElementById('events-card');
+        if(card){
+          card.scrollIntoView({behavior:'smooth',block:'start'});
+          // Flash highlight rows that match this date
+          const dateStr=`${portalCalYear}-${String(portalCalMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+          card.querySelectorAll('.event-row').forEach(row=>{
+            if(row.dataset.date===dateStr){
+              row.style.transition='background 0.2s';
+              row.style.background='rgba(184,149,58,0.12)';
+              setTimeout(()=>row.style.background='',1500);
+            }
+          });
+        }
+      });
+    }
+    g.appendChild(el);
+  }
+}
+
 function renderEvents(){
   const c=document.getElementById('events-card');
   if(!clientRecord){c.innerHTML=empty('📅','Account not linked','Contact the firm to link your portal account.');return;}
@@ -1963,7 +2106,7 @@ function eventRow(e,faded=false){
   const tagMap={'court':'et-court','client':'et-client','deadline':'et-deadline','internal':'et-internal','adr':'et-adr'};
   const tagLabel={court:'Court',client:'Client Meeting',deadline:'Deadline',internal:'Internal',adr:'ADR / Arbitration'};
   const m=myMatters.find(x=>x.id===e.matter_id);
-  return`<div class="event-row" style="${faded?'opacity:0.55':''}">
+  return`<div class="event-row" data-date="${e.event_date||''}" style="${faded?'opacity:0.55':''}">
     <div class="event-date-box">
       <div class="event-day">${d.getDate()}</div>
       <div class="event-month">${d.toLocaleString('en',{month:'short'})}</div>
