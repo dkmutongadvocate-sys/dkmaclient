@@ -2334,7 +2334,7 @@ function updateMsgBadge(){
 
 // ── POLLING-BASED REALTIME (works on GitHub Pages / static hosts) ──
 let _portalPollInterval=null;
-let _portalSnap={messages:'',matters:0,invoices:0,events:0};
+let _portalSnap={messages:'',matters:'',invoices:0,events:'',matter_updates:'',alerts:0,docs:''};
 
 function _activePortalView(){
   const v=document.querySelector('.pview.active');
@@ -2345,6 +2345,7 @@ async function portalPollAll(){
   if(!clientRecord)return;
   try{
     const cid=clientRecord.id;
+    const v=_activePortalView();
 
     // ── Messages ──────────────────────────────────────────────────
     const{data:mxd}=await sb.from('client_messages').select('created_at').eq('client_id',cid).order('created_at',{ascending:false}).limit(1);
@@ -2357,14 +2358,14 @@ async function portalPollAll(){
       if(feed)renderMsgFeed();
     }
 
-    // ── Matters ───────────────────────────────────────────────────
-    const{count:mC}=await sb.from('matters').select('*',{count:'exact',head:true}).eq('client_id',cid);
-    if((mC||0)!==_portalSnap.matters){
-      _portalSnap.matters=mC||0;
+    // ── Matters — detect new/changed matters ──────────────────────
+    const{data:mLatest}=await sb.from('matters').select('updated_at').eq('client_id',cid).order('updated_at',{ascending:false}).limit(1);
+    const mT=mLatest&&mLatest[0]?mLatest[0].updated_at||'':'';
+    if(mT!==_portalSnap.matters){
+      _portalSnap.matters=mT;
       await loadMyMatters();await loadMyEvents();
-      const v=_activePortalView();
       if(v==='matters')renderMatters();
-      if(v==='events')renderEvents();
+      if(v==='events'){renderPortalCalendar();renderEvents();}
       if(v==='overview')renderOverview();
     }
 
@@ -2373,32 +2374,70 @@ async function portalPollAll(){
     if((iC||0)!==_portalSnap.invoices){
       _portalSnap.invoices=iC||0;
       await loadMyInvoices();
-      const v=_activePortalView();
       if(v==='invoices')renderInvoices();
       if(v==='overview')renderOverview();
     }
 
-    // ── Events (direct add) ───────────────────────────────────────
+    // ── Events — detect new events AND portal_visible changes ─────
     const mIds=myMatters.map(m=>m.id);
     if(mIds.length){
-      const{count:eC}=await sb.from('events').select('*',{count:'exact',head:true}).in('matter_id',mIds);
-      if((eC||0)!==_portalSnap.events){
-        _portalSnap.events=eC||0;
+      const{data:eLatest}=await sb.from('events').select('updated_at').in('matter_id',mIds).order('updated_at',{ascending:false}).limit(1);
+      const eT=eLatest&&eLatest[0]?eLatest[0].updated_at||'':'';
+      if(eT!==_portalSnap.events){
+        _portalSnap.events=eT;
         await loadMyEvents();
-        const v=_activePortalView();
-        if(v==='events')renderEvents();
+        if(v==='events'){renderPortalCalendar();renderEvents();}
         if(v==='overview')renderOverview();
       }
     }
-  }catch(e){}
+
+    // ── Matter updates — detect new/changed updates ───────────────
+    if(mIds.length){
+      const{data:muLatest}=await sb.from('matter_updates')
+        .select('updated_at,created_at').in('matter_id',mIds)
+        .order('created_at',{ascending:false}).limit(1);
+      const muT=muLatest&&muLatest[0]?muLatest[0].updated_at||muLatest[0].created_at||'':'';
+      if(muT!==_portalSnap.matter_updates){
+        _portalSnap.matter_updates=muT;
+        // Re-render any open updates panel
+        if(v==='matter-detail'){
+          const activeTab=document.querySelector('.matter-detail-tab.active');
+          if(activeTab&&activeTab.textContent.includes('Updates')){
+            // Reload updates for currently open matter
+            const matterId=document.getElementById('md-matter-id')?.value||null;
+            if(matterId)await openMatterDetailUpdates(matterId);
+          }
+        }
+        if(v==='overview')renderOverview();
+      }
+    }
+
+    // ── Alerts / notifications ─────────────────────────────────────
+    const{count:aCount}=await sb.from('alerts')
+      .select('*',{count:'exact',head:true})
+      .eq('alert_type','client').eq('target_client_id',cid);
+    if((aCount||0)!==_portalSnap.alerts){
+      _portalSnap.alerts=aCount||0;
+      if(v==='notifications')loadClientAlerts(true);
+      // Update unread badge
+      const badge=document.getElementById('notif-unread-badge');
+      if(badge&&aCount>0){badge.textContent=aCount;badge.style.display='inline';}
+    }
+
+  }catch(e){console.warn('[DKMA portal poll] Error:',e?.message||e);}
 }
 
 function setupPortalPolling(){
   if(!clientRecord)return;
-  _portalSnap.matters=myMatters.length;
+  const _seedEvt=myEvents.length?myEvents[myEvents.length-1]?.updated_at||myEvents[myEvents.length-1]?.created_at||'':'';
+  const _seedM=myMatters.length?myMatters[0]?.updated_at||myMatters[0]?.created_at||'':'';
+  _portalSnap.matters=_seedM;
   _portalSnap.invoices=myInvoices.length;
-  _portalSnap.events=myEvents.length;
+  _portalSnap.events=_seedEvt;
   _portalSnap.messages='';
+  _portalSnap.matter_updates='';
+  _portalSnap.alerts=0;
+  _portalSnap.docs='';
   if(_portalPollInterval)clearInterval(_portalPollInterval);
   _portalPollInterval=setInterval(portalPollAll,4000);
 }
