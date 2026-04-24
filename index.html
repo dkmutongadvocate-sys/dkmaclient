@@ -3869,8 +3869,9 @@ async function downloadPortalInvoiceDocx(invId){
   const matter=myMatters.find(x=>x.id===inv.matter_id);
   const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><style>
     *{box-sizing:border-box;margin:0;padding:0;}
-    body{font-family:Arial,sans-serif;font-size:12px;color:#1a1a1a;background:#fff;padding:32px;}
-    .header-img{width:100%;max-width:600px;display:block;margin-bottom:24px;}
+    body{font-family:Arial,sans-serif;font-size:12px;color:#1a1a1a;background:#fff;padding:0;}
+    .header-img{width:100%;display:block;margin-bottom:0;}
+    .content{padding:28px 32px;}
     .row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
     h1{font-size:28px;font-weight:bold;color:#0D1B2A;letter-spacing:1px;}
     .inv-no{font-size:16px;font-weight:bold;color:#B8953A;margin-top:4px;}
@@ -3893,9 +3894,10 @@ async function downloadPortalInvoiceDocx(invId){
     .payment{margin-top:32px;border-top:1px solid #ddd;padding-top:16px;}
     .payment h4{font-size:13px;font-weight:bold;color:#0D1B2A;margin-bottom:6px;}
     .payment p{font-size:12px;color:#5a5a5a;line-height:1.7;}
-    .footer-img{width:100%;max-width:600px;display:block;margin-top:30px;}
+    .footer-img{width:100%;display:block;margin-top:0;}
   </style></head><body>
   <img class="header-img" src="data:image/png;base64,${_PLH_HEADER}">
+  <div class="content">
   <div class="row">
     <div><h1>INVOICE</h1><div class="inv-no">${inv.invoice_no||''}</div></div>
     <div class="meta">
@@ -3929,6 +3931,7 @@ async function downloadPortalInvoiceDocx(invId){
     <h4>Payment Instructions</h4>
     <p>Please make payment to Dennis Kimani Mutonga, Advocate. Reference your invoice number when making payment.</p>
     <p>Contact: info@dkma.co.ke | +254 757 354 379</p>
+  </div>
   </div>
   <img class="footer-img" src="data:image/png;base64,${_PLH_FOOTER}">
   </body></html>`;
