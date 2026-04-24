@@ -97,6 +97,21 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 .sp-pending{background:#FAEEDA;color:#854F0B}
 .sp-closed{background:var(--cream2);color:var(--txt3)}
 .sp-paid{background:#EAF3DE;color:#2D6A4F}
+
+/* ── CLIENT GROUP ────────────────────────────────────────────── */
+.group-panel{background:#fff;border-radius:10px;border:0.5px solid var(--brd);overflow:hidden;margin-bottom:18px}
+.group-panel-header{padding:14px 20px;border-bottom:1px solid var(--brd);background:linear-gradient(135deg,#EEEDFE,#f4f3ff);display:flex;align-items:center;gap:12px}
+.group-panel-icon{width:38px;height:38px;border-radius:9px;background:#EEEDFE;border:1px solid #d4d2f7;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.group-panel-title{font-family:'Playfair Display',serif;font-size:15px;font-weight:500;color:var(--txt)}
+.group-panel-sub{font-size:11px;color:var(--txt3);margin-top:2px}
+.group-type-badge{font-size:9px;font-weight:600;padding:2px 8px;border-radius:8px;background:#EEEDFE;color:#3C3489;margin-left:auto;white-space:nowrap}
+.group-member-row{display:flex;align-items:center;gap:12px;padding:11px 20px;border-bottom:1px solid var(--brd);transition:background 0.12s}
+.group-member-row:last-child{border-bottom:none}
+.group-member-row.is-you{background:rgba(184,149,58,0.05)}
+.group-member-av{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;flex-shrink:0}
+.group-focal-badge{font-size:9px;font-weight:600;padding:2px 8px;border-radius:8px;background:#FFF8E7;color:#7A4800;margin-left:auto;white-space:nowrap}
+.group-you-badge{font-size:9px;font-weight:600;padding:2px 8px;border-radius:8px;background:#EAF3DE;color:#2D6A4F;margin-left:4px}
+.matter-group-tag{display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:600;padding:2px 8px;border-radius:8px;background:#EEEDFE;color:#3C3489;margin-top:6px}
 .sp-sent{background:#FAEEDA;color:#854F0B}
 .sp-overdue{background:#FCEBEB;color:#A32D2D}
 .sp-draft{background:var(--cream2);color:var(--txt3)}
@@ -606,6 +621,8 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
           <div id="overview-events"></div>
         </div>
       </div>
+      <!-- Group panel — shown dynamically if client belongs to a group -->
+      <div id="overview-group-panel" style="display:none"></div>
     </div>
 
     <!-- ── MATTERS ──────────────────────────────────────────── -->
@@ -1054,6 +1071,7 @@ let myInvoices=[];
 let sharedDocs=[];           // files from matter-documents bucket tagged with shared
 let myUploads=[];            // files from client-uploads bucket
 let myMessages=[];           // messages from client_messages table
+let myGroup=null;            // client_groups row if this client belongs to a group
 let gazettedHolidays=[];     // ad-hoc holidays from gazetted_holidays table
 let profileEditing=false;
 
@@ -1336,6 +1354,7 @@ async function launchPortal(){
     await loadMyMessages();
     await loadGazettedHolidays();
     await loadClientAlerts(false);
+    await loadMyGroup();
     setupMessagesRealtime();
   }
   document.getElementById('portal-loading').style.display='none';
@@ -1367,8 +1386,25 @@ function updateNavUser(){
 // ── DATA LOADERS ──────────────────────────────────────────────────
 async function loadMyMatters(){
   if(!clientRecord)return;
+  // Primary: matters where this client is the direct client
   const{data,error}=await sb.from('matters').select('*').eq('client_id',clientRecord.id).order('created_at',{ascending:false});
   if(!error)myMatters=data||[];
+  // Also load matters linked to this client's group (if any)
+  // We reload myGroup first to get group_id if not yet loaded
+  try{
+    const{data:gData}=await sb.from('client_groups')
+      .select('id,name,group_type,focal_point_id,member_ids')
+      .contains('member_ids',[clientRecord.id])
+      .maybeSingle();
+    if(gData){
+      const{data:gMatters}=await sb.from('matters').select('*').eq('group_id',gData.id).order('created_at',{ascending:false});
+      if(gMatters&&gMatters.length){
+        // Merge, avoiding duplicates
+        const existingIds=new Set(myMatters.map(m=>m.id));
+        gMatters.forEach(m=>{if(!existingIds.has(m.id))myMatters.push(m);});
+      }
+    }
+  }catch(e){/* group matters load failed silently */}
 }
 async function loadMyEvents(){
   if(!clientRecord||!myMatters.length)return;
@@ -1431,6 +1467,25 @@ async function loadMyUploads(){
 async function loadGazettedHolidays(){
   const{data,error}=await sb.from('gazetted_holidays').select('*').order('date',{ascending:true});
   if(!error)gazettedHolidays=data||[];
+}
+
+async function loadMyGroup(){
+  if(!clientRecord){myGroup=null;return;}
+  try{
+    // Find a group where this client is in member_ids array
+    const{data,error}=await sb.from('client_groups')
+      .select('*')
+      .contains('member_ids',[clientRecord.id])
+      .maybeSingle();
+    myGroup=(!error&&data)?data:null;
+    // If found, also load the other group members' client records
+    if(myGroup&&myGroup.member_ids?.length){
+      const{data:memberData}=await sb.from('clients')
+        .select('id,name,type,phone,email')
+        .in('id',myGroup.member_ids);
+      myGroup._members=memberData||[];
+    }
+  }catch(e){myGroup=null;}
 }
 
 // ── RENDER: OVERVIEW ─────────────────────────────────────────────
@@ -1514,6 +1569,49 @@ function renderOverview(){
   document.getElementById('stat-events').textContent=upcoming.length+upcomingHols.length;
   if(!mixed.length){evEl.innerHTML=empty('📅','No upcoming events','Events and public holidays will appear here.');}
   else evEl.innerHTML=mixed.map(item=>item.type==='holiday'?holidayRow(item.data):eventRow(item.data)).join('');
+
+  // Render group panel if client belongs to one
+  renderGroupPanel();
+}
+
+function renderGroupPanel(){
+  const el=document.getElementById('overview-group-panel');
+  if(!el)return;
+  if(!myGroup){el.style.display='none';return;}
+  el.style.display='block';
+  const typeLabels={class_action:'Class Action',joint_petitioners:'Joint Petitioners',co_defendants:'Co-Defendants',consortium:'Consortium / Partnership',family:'Family Group',other:'Group'};
+  const typeLabel=typeLabels[myGroup.group_type]||'Group';
+  const members=myGroup._members||[];
+  const isFocal=myGroup.focal_point_id===clientRecord.id;
+  const avColors=['background:#E6F1FB;color:#185FA5','background:#FBEAF0;color:#993556','background:#EAF3DE;color:#2D6A4F','background:#FAEEDA;color:#854F0B','background:#EEEDFE;color:#3C3489'];
+  const avColor=(name)=>avColors[(name||'').charCodeAt(0)%avColors.length];
+
+  el.innerHTML=`<div class="group-panel">
+    <div class="group-panel-header">
+      <div class="group-panel-icon">👥</div>
+      <div style="flex:1;min-width:0">
+        <div class="group-panel-title">${esc(myGroup.name)}</div>
+        <div class="group-panel-sub">${members.length} member${members.length!==1?'s':''} · ${isFocal?'You are the focal point contact':'Grouped matter'}</div>
+      </div>
+      <span class="group-type-badge">${typeLabel}</span>
+    </div>
+    <div style="padding:10px 20px 4px;font-size:11px;color:var(--txt3);border-bottom:1px solid var(--brd)">
+      This matter is shared with the group members listed below. The ⭐ focal point is the primary contact for the firm.
+    </div>
+    ${members.map(m=>{
+      const isMe=m.id===clientRecord.id;
+      const isFocalMember=m.id===myGroup.focal_point_id;
+      return`<div class="group-member-row${isMe?' is-you':''}">
+        <div class="group-member-av" style="${avColor(m.name)}">${initials(m.name)}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:${isMe?'600':'400'};color:var(--txt)">${esc(m.name)}${isMe?'':''}</div>
+          <div style="font-size:11px;color:var(--txt3);margin-top:1px">${esc(m.type||'Client')}</div>
+        </div>
+        ${isFocalMember?'<span class="group-focal-badge">⭐ Focal Point</span>':''}
+        ${isMe?'<span class="group-you-badge">You</span>':''}
+      </div>`;
+    }).join('')}
+  </div>`;
 }
 
 // ── RENDER: MATTERS ───────────────────────────────────────────────
@@ -1532,6 +1630,7 @@ function renderMatters(){
         ${m.type?`<div>⚖️ ${esc(m.type)}</div>`:''}
         ${m.court?`<div>🏛️ ${esc(m.court)}</div>`:''}
         ${m.open_date?`<div>📅 Opened: ${fmtDate(m.open_date)}</div>`:''}
+        ${myGroup&&m.group_id===myGroup.id?`<div><span class="matter-group-tag">👥 ${esc(myGroup.name)}</span></div>`:''}
       </div>
       ${m.next_date?`<div style="margin-top:10px;padding:8px 12px;background:rgba(255,255,255,0.7);border-radius:6px;font-size:11px;color:var(--txt2)">⏰ Next Date: <strong style="color:var(--red)">${fmtDate(m.next_date)}</strong></div>`:''}
       <div class="matter-pcard-footer" style="margin-top:12px">
@@ -1562,7 +1661,50 @@ function openMatterDetail(matterId){
   if(m.court) metaParts.push('🏛️ '+m.court);
   if(m.status) metaParts.push(m.status.charAt(0).toUpperCase()+m.status.slice(1));
   if(m.next_date) metaParts.push('⏰ Next: '+fmtDate(m.next_date));
+  // Add group tag if matter is linked to this client's group
+  if(myGroup && m.group_id===myGroup.id) metaParts.push('👥 '+myGroup.name);
   document.getElementById('md-meta').innerHTML = metaParts.join(' &nbsp;·&nbsp; ');
+
+  // If group matter, inject group members panel below hero
+  const existingGroupPanel = document.getElementById('md-group-panel');
+  if(existingGroupPanel) existingGroupPanel.remove();
+  if(myGroup && m.group_id===myGroup.id){
+    const typeLabels={class_action:'Class Action',joint_petitioners:'Joint Petitioners',co_defendants:'Co-Defendants',consortium:'Consortium',family:'Family Group',other:'Group'};
+    const members=myGroup._members||[];
+    const avColors=['background:#E6F1FB;color:#185FA5','background:#FBEAF0;color:#993556','background:#EAF3DE;color:#2D6A4F','background:#FAEEDA;color:#854F0B','background:#EEEDFE;color:#3C3489'];
+    const avColor=(name)=>avColors[(name||'').charCodeAt(0)%avColors.length];
+    const panel=document.createElement('div');
+    panel.id='md-group-panel';
+    panel.innerHTML=`<div class="group-panel" style="margin-top:16px">
+      <div class="group-panel-header">
+        <div class="group-panel-icon">👥</div>
+        <div style="flex:1;min-width:0">
+          <div class="group-panel-title">${esc(myGroup.name)}</div>
+          <div class="group-panel-sub">${typeLabels[myGroup.group_type]||'Group'} · ${members.length} member${members.length!==1?'s':''}</div>
+        </div>
+        <span class="group-type-badge">Shared Matter</span>
+      </div>
+      <div style="padding:8px 20px 4px;font-size:11px;color:var(--txt3);border-bottom:1px solid var(--brd)">
+        This matter is linked to your group. All group members are co-clients on this case.
+      </div>
+      ${members.map(mc=>{
+        const isMe=mc.id===clientRecord.id;
+        const isFocalMember=mc.id===myGroup.focal_point_id;
+        return`<div class="group-member-row${isMe?' is-you':''}">
+          <div class="group-member-av" style="${avColor(mc.name)}">${initials(mc.name)}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:${isMe?'600':'400'};color:var(--txt)">${esc(mc.name)}</div>
+            <div style="font-size:10px;color:var(--txt3)">${esc(mc.type||'Client')}</div>
+          </div>
+          ${isFocalMember?'<span class="group-focal-badge">⭐ Focal</span>':''}
+          ${isMe?'<span class="group-you-badge">You</span>':''}
+        </div>`;
+      }).join('')}
+    </div>`;
+    // Insert after the hero div
+    const heroEl=document.getElementById('md-hero');
+    if(heroEl&&heroEl.parentNode) heroEl.parentNode.insertBefore(panel,heroEl.nextSibling);
+  }
 
   // Set upload button matter context
   const uploadBtn = document.getElementById('md-upload-btn');
