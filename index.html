@@ -3854,104 +3854,118 @@ async function downloadPortalInvoiceDocx(invId){
   let lineItems=[];try{lineItems=inv.line_items?JSON.parse(inv.line_items):[];}catch(e){}
   if(!lineItems.length&&inv.amount){lineItems=[{description:inv.description||'Professional Services',qty:1,unit_price:Number(inv.amount),subtotal:Number(inv.amount)}];}
   const sub=lineItems.reduce((s,l)=>s+(Number(l.subtotal)||0),0);
-  const vat=Number(inv.vat_amount)||sub*0.16;
-  const total=Number(inv.amount)||sub+vat;
+  // Fee note: no VAT — total is the subtotal only
+  const total=sub;
   const fmtMny=n=>'KES '+Number(n).toLocaleString('en-KE',{minimumFractionDigits:2,maximumFractionDigits:2});
   const fmtDt=d=>d?new Date(d).toLocaleDateString('en-KE',{day:'2-digit',month:'long',year:'numeric'}):'\u2014';
-  const lineRowsHtml=lineItems.map(l=>`
+
+  function amountInWords(n){
+    const ones=['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+    const tens=['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+    function tw(num){
+      if(num===0)return'';
+      if(num<20)return ones[num]+' ';
+      if(num<100)return tens[Math.floor(num/10)]+' '+(num%10?ones[num%10]+' ':'');
+      if(num<1000)return ones[Math.floor(num/100)]+' Hundred '+(num%100?tw(num%100):'');
+      if(num<1000000)return tw(Math.floor(num/1000))+'Thousand '+(num%1000?tw(num%1000):'');
+      return tw(Math.floor(num/1000000))+'Million '+(num%1000000?tw(num%1000000):'');
+    }
+    const intPart=Math.floor(n);
+    const cents=Math.round((n-intPart)*100);
+    let w=(tw(intPart).trim()||'Zero')+' Kenya Shillings';
+    if(cents)w+=' And '+tw(cents).trim()+' Cents';
+    return w.toUpperCase()+' ONLY';
+  }
+
+  const lineRowsHtml=lineItems.map((l,i)=>`
     <tr>
-      <td style="padding:8px 10px;border:1px solid #ddd;">${l.description||'\u2014'}</td>
-      <td style="padding:8px 10px;border:1px solid #ddd;text-align:center;">${l.qty||1}</td>
-      <td style="padding:8px 10px;border:1px solid #ddd;text-align:right;">${fmtMny(l.unit_price||0)}</td>
-      <td style="padding:8px 10px;border:1px solid #ddd;text-align:right;">${fmtMny(l.subtotal||0)}</td>
+      <td style="padding:8px 12px;border:1px solid #888;text-align:center;">${i+1}</td>
+      <td style="padding:8px 12px;border:1px solid #888;">${l.description||'\u2014'}</td>
+      <td style="padding:8px 12px;border:1px solid #888;text-align:right;">${fmtMny(l.subtotal||l.unit_price||0)}</td>
     </tr>`).join('');
-  const clientName=clientRecord?clientRecord.name||'\u2014':'\u2014';
-  const matter=myMatters.find(x=>x.id===inv.matter_id);
-  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><style>
-    *{box-sizing:border-box;margin:0;padding:0;}
-    body{font-family:Arial,sans-serif;font-size:12px;color:#1a1a1a;background:#fff;padding:0;}
-    .header-img{width:100%;display:block;margin-bottom:0;}
-    .content{padding:28px 32px;}
-    .row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
-    h1{font-size:28px;font-weight:bold;color:#0D1B2A;letter-spacing:1px;}
-    .inv-no{font-size:16px;font-weight:bold;color:#B8953A;margin-top:4px;}
-    .meta{text-align:right;font-size:12px;}
-    .meta strong{color:#0D1B2A;}
-    .divider{border-top:3px solid #0D1B2A;margin:16px 0;}
-    .bill-to-label{font-size:11px;color:#8a8a8a;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;}
-    .bill-name{font-size:16px;font-weight:bold;color:#0D1B2A;}
-    .bill-detail{font-size:12px;color:#5a5a5a;line-height:1.7;}
-    .note{font-size:12px;color:#5a5a5a;font-style:italic;margin-top:10px;}
-    .section-label{font-size:11px;color:#8a8a8a;letter-spacing:1px;text-transform:uppercase;margin:24px 0 8px;}
-    table{width:100%;border-collapse:collapse;font-size:12px;}
-    th{padding:8px 10px;background:#F0EDE8;color:#0D1B2A;font-weight:bold;border:1px solid #ccc;text-align:left;}
-    th.right{text-align:right;}th.center{text-align:center;}
-    .totals{margin-top:16px;display:flex;justify-content:flex-end;}
-    .totals-box{width:260px;font-size:12px;}
-    .totals-row{display:flex;justify-content:space-between;padding:6px 10px;border:1px solid #ddd;}
-    .totals-total{display:flex;justify-content:space-between;padding:8px 10px;border:2px solid #0D1B2A;background:#F0EDE8;font-weight:bold;}
-    .totals-total .amt{color:#B8953A;}
-    .payment{margin-top:32px;border-top:1px solid #ddd;padding-top:16px;}
-    .payment h4{font-size:13px;font-weight:bold;color:#0D1B2A;margin-bottom:6px;}
-    .payment p{font-size:12px;color:#5a5a5a;line-height:1.7;}
-    .footer-img{width:100%;display:block;margin-top:0;}
-  </style></head><body>
-  <img class="header-img" src="data:image/png;base64,${_PLH_HEADER}">
-  <div class="content">
-  <div class="row">
-    <div><h1>INVOICE</h1><div class="inv-no">${inv.invoice_no||''}</div></div>
-    <div class="meta">
-      <div>Invoice Date: <strong>${fmtDt(inv.invoice_date)}</strong></div>
-      <div>Due Date: <strong style="color:${inv.status==='overdue'?'#AA3333':'#1a1a1a'}">${fmtDt(inv.due_date)}</strong></div>
-      <div>Status: <strong style="color:${inv.status==='paid'?'#2D6A4F':inv.status==='overdue'?'#AA3333':'#0D1B2A'}">${(inv.status||'draft').toUpperCase()}</strong></div>
-    </div>
-  </div>
-  <div class="divider"></div>
-  <div class="bill-to-label">BILL TO</div>
-  <div class="bill-name">${clientName}</div>
-  <div class="bill-detail">
-    ${matter?'<div>Re: '+matter.title+'</div>':''}
-    ${clientRecord&&clientRecord.email?'<div>'+clientRecord.email+'</div>':''}
-    ${clientRecord&&clientRecord.phone?'<div>'+clientRecord.phone+'</div>':''}
-  </div>
-  ${inv.description?'<div class="note">'+inv.description+'</div>':''}
-  <div class="section-label">SERVICES RENDERED</div>
+
+  const _iframeDoc=`<!DOCTYPE html><html><head><meta charset="UTF-8">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html{width:993px;background:#fff;font-family:'Sitka Text',serif;font-size:13px;color:#1a1a1a;display:flex;flex-direction:column;min-height:1404px;}
+  body{width:993px;flex:1;display:flex;flex-direction:column;min-height:1404px;}
+  .hdr{width:993px;display:block;flex-shrink:0;}
+  .body{padding:22px 44px 20px;background:#fff;flex:1;}
+  .date-line{font-size:13px;color:#0D1B2A;font-weight:bold;margin-bottom:14px;}
+  .dear{font-size:13px;margin-bottom:6px;}
+  .cname{color:#0D1B2A;font-weight:bold;}
+  .re{font-size:13px;font-weight:bold;text-decoration:underline;margin-bottom:14px;}
+  .para{font-size:13px;margin-bottom:10px;line-height:1.65;}
+  ol.pmt{margin:0 0 16px 22px;font-size:13px;line-height:1.7;}
+  ol.pmt li{margin-bottom:4px;}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:16px;}
+  th{padding:9px 12px;background:#0D1B2A;color:#fff;font-weight:bold;border:1px solid #0D1B2A;}
+  th.left{text-align:left;}th.center{text-align:center;}
+  .total-row td{font-weight:bold;background:#f0ede8;border:1px solid #888;padding:8px 12px;}
+  .words-row td{font-weight:bold;border:1px solid #888;padding:9px 12px;text-align:center;text-transform:uppercase;}
+  .closing{font-size:13px;line-height:2;margin-top:6px;}
+  .sign{font-size:13px;font-weight:bold;color:#0D1B2A;text-decoration:underline;line-height:1.7;margin-top:6px;}
+  .ftr{width:993px;display:block;flex-shrink:0;margin-top:0;}
+</style></head><body>
+<img class="hdr" src="data:image/png;base64,${_PLH_HEADER}">
+<div class="body">
+  <div class="date-line">${fmtDt(inv.invoice_date)}</div>
+  <div class="dear">Dear Messrs. <span class="cname">${clientName}</span></div>
+  <div class="re">RE: FEE NOTE FOR SERVICES RENDERED</div>
+  <div class="para">The above refers.</div>
+  <div class="para">Kindly receive this fee note for the services rendered by us as itemised below. Please effect any and all payments through either of the following methods:</div>
+  <ol type="a" class="pmt">
+    <li>LIPA NA M-PESA MODE: TILL NUMBER: <strong>5979947</strong> NAME: <strong>DENNIS KIMANI MUTONGA ADVOCATE</strong></li>
+    <li>BANK TRANSFER <strong>KENYA COMMERCIAL BANK (KCB)</strong> BRANCH: <strong>TOM MBOYA</strong> SWIFT CODE: <strong>KCBLKENX</strong> ACCOUNT NUMBER: <strong>1287960448</strong> NAME: <strong>DENNIS KIMANI MUTONGA, ADVOCATE</strong></li>
+  </ol>
   <table>
     <thead><tr>
-      <th>Description</th><th class="center">Qty</th><th class="right">Unit Price</th><th class="right">Amount</th>
+      <th class="center" style="width:50px;">NO.</th>
+      <th class="left">ITEM</th>
+      <th class="center" style="width:160px;">COST</th>
     </tr></thead>
-    <tbody>${lineRowsHtml}</tbody>
+    <tbody>
+      ${lineRowsHtml}
+      <tr class="total-row">
+        <td colspan="2" style="text-align:center;">TOTAL</td>
+        <td style="text-align:center;">${fmtMny(total)}</td>
+      </tr>
+      <tr class="words-row"><td colspan="3">${amountInWords(total)}</td></tr>
+    </tbody>
   </table>
-  <div class="totals"><div class="totals-box">
-    <div class="totals-row"><span>Subtotal</span><span>${fmtMny(sub)}</span></div>
-    <div class="totals-row"><span>VAT (16%)</span><span>${fmtMny(vat)}</span></div>
-    <div class="totals-total"><span>TOTAL</span><span class="amt">${fmtMny(total)}</span></div>
-  </div></div>
-  <div class="payment">
-    <h4>Payment Instructions</h4>
-    <p>Please make payment to Dennis Kimani Mutonga, Advocate. Reference your invoice number when making payment.</p>
-    <p>Contact: info@dkma.co.ke | +254 757 354 379</p>
-  </div>
-  </div>
-  <img class="footer-img" src="data:image/png;base64,${_PLH_FOOTER}">
-  </body></html>`;
-
-  const _pdfContainer=document.createElement('div');
-  _pdfContainer.style.cssText='position:fixed;left:-9999px;top:0;width:1050px;background:#fff;';
-  const _bodyMatch=html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
-  _pdfContainer.innerHTML=_bodyMatch?_bodyMatch[1]:html;
-  document.body.appendChild(_pdfContainer);
+  <div class="closing">Thank you for your continued cooperation.</div>
+  <div class="closing">Yours Faithfully,</div>
+  <div class="sign">DENNIS KIMANI MUTONGA<br>ADVOCATE</div>
+</div>
+<img class="ftr" src="data:image/png;base64,${_PLH_FOOTER}">
+</body></html>`;
 
   const _showToast=(msg,isErr)=>{let t=document.getElementById('_inv_toast');if(!t){t=document.createElement('div');t.id='_inv_toast';document.body.appendChild(t);}t.textContent=msg;t.style.cssText='position:fixed;bottom:24px;right:24px;background:'+(isErr?'#c0392b':'#0D1B2A')+';color:#fff;padding:10px 18px;border-radius:8px;z-index:99999;font-size:13px;';clearTimeout(t._timer);t._timer=setTimeout(()=>{if(t.parentNode)t.parentNode.removeChild(t);},3500);};
-  _showToast('Generating PDF…');
+  _showToast('Generating PDF\u2026');
 
   const _loadLib=(src)=>new Promise((res,rej)=>{if(document.querySelector('script[src="'+src+'"]')){res();return;}const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s);});
   try{
     await _loadLib('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
     await _loadLib('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
-    const _canvas=await html2canvas(_pdfContainer,{scale:2,useCORS:true,allowTaint:true,backgroundColor:'#fff',logging:false});
-    document.body.removeChild(_pdfContainer);
-    const _imgData=_canvas.toDataURL('image/jpeg',0.95);
+
+    const _iframe=document.createElement('iframe');
+    _iframe.style.cssText='position:fixed;left:-9999px;top:0;width:993px;height:1px;border:none;visibility:hidden;';
+    document.body.appendChild(_iframe);
+    await new Promise(res=>{_iframe.onload=res;_iframe.srcdoc=_iframeDoc;});
+    await new Promise(res=>setTimeout(res,800));
+
+    const _iBody=_iframe.contentDocument.body;
+    const _iDoc=_iframe.contentDocument.documentElement;
+    const _fullH=Math.max(_iBody.scrollHeight,_iDoc.scrollHeight);
+    _iframe.style.height=_fullH+'px';
+    _iframe.contentDocument.documentElement.style.height=_fullH+'px';
+    _iframe.contentDocument.body.style.height=_fullH+'px';
+    await new Promise(res=>setTimeout(res,100));
+
+    const _canvas=await html2canvas(_iBody,{scale:2,useCORS:true,allowTaint:true,backgroundColor:'#fff',logging:false,width:993,windowWidth:993});
+    document.body.removeChild(_iframe);
+
+    const _imgData=_canvas.toDataURL('image/jpeg',0.97);
     const {jsPDF}=window.jspdf;
     const _pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
     const _pdfW=_pdf.internal.pageSize.getWidth();
@@ -3961,10 +3975,9 @@ async function downloadPortalInvoiceDocx(invId){
     _pdf.addImage(_imgData,'JPEG',0,_position,_pdfW,_imgH);
     _heightLeft-=_pdfH;
     while(_heightLeft>0){_position=_heightLeft-_imgH;_pdf.addPage();_pdf.addImage(_imgData,'JPEG',0,_position,_pdfW,_imgH);_heightLeft-=_pdfH;}
-    _pdf.save((inv.invoice_no||'Invoice')+'.pdf');
-    _showToast('Invoice PDF downloaded!');
+    _pdf.save((inv.invoice_no||'FeeNote')+'.pdf');
+    _showToast('Fee note PDF downloaded!');
   }catch(_pdfErr){
-    if(document.body.contains(_pdfContainer))document.body.removeChild(_pdfContainer);
     console.error('PDF error:',_pdfErr);
     _showToast('Error generating PDF: '+_pdfErr.message,true);
   }
