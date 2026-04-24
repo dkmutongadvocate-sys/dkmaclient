@@ -2430,7 +2430,7 @@ function renderInvoices(){
         +'<div class="inv-cell bold">'+fmtMoney(i.amount)+'</div>'
         +'<div class="inv-cell">'+spill(i.status)+'</div>'
         +'<div class="inv-cell muted">'+fmtDate(i.due_date)+'</div>'
-        +'<div class="inv-cell"><button class="pbtn view" style="font-size:10px;padding:3px 8px" onclick="downloadPortalInvoiceDocx(\''+i.id+'\')">⬇ DOCX</button></div>'
+        +'<div class="inv-cell"><button class="pbtn view" style="font-size:10px;padding:3px 8px" onclick="downloadPortalInvoiceDocx(\''+i.id+'\')">⬇ PDF</button></div>'
         +'</div>';
     }).join('')+'</div>';
   } else {
@@ -2443,7 +2443,7 @@ function renderInvoices(){
         +'<div style="font-size:22px;font-weight:700;color:var(--navy)">'+fmtMoney(i.amount)+'</div>'
         +'<div style="font-size:11px;color:var(--txt3)">'+(i.description?esc(i.description.slice(0,50)):'—')+'</div>'
         +'<div style="font-size:11px;color:var(--txt3)">Due: '+fmtDate(i.due_date)+'</div>'
-        +'<button class="pbtn view" style="margin-top:4px;font-size:11px;padding:6px" onclick="downloadPortalInvoiceDocx(\''+i.id+'\')">⬇ Download Invoice</button>'
+        +'<button class="pbtn view" style="margin-top:4px;font-size:11px;padding:6px" onclick="downloadPortalInvoiceDocx(\''+i.id+'\')">⬇ Download PDF</button>'
         +'</div>';
     }).join('')+'</div>';
   }
@@ -3851,50 +3851,120 @@ const _PLH_FOOTER='iVBORw0KGgoAAAANSUhEUgAAA+EAAACpCAIAAADLOKstAADCOklEQVR4nOz9d
 function _pb64(b64){const bin=atob(b64);const arr=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);return arr;}
 async function downloadPortalInvoiceDocx(invId){
   const inv=myInvoices.find(x=>x.id===invId);if(!inv){return;}
-  if(!window.docx){alert('DOCX library not loaded. Please try again.');return;}
-  const {Document,Packer,Paragraph,TextRun,Table,TableRow,TableCell,ImageRun,AlignmentType,WidthType,BorderStyle,ShadingType,VerticalAlign}=window.docx;
   let lineItems=[];try{lineItems=inv.line_items?JSON.parse(inv.line_items):[];}catch(e){}
   if(!lineItems.length&&inv.amount){lineItems=[{description:inv.description||'Professional Services',qty:1,unit_price:Number(inv.amount),subtotal:Number(inv.amount)}];}
   const sub=lineItems.reduce((s,l)=>s+(Number(l.subtotal)||0),0);
   const vat=Number(inv.vat_amount)||sub*0.16;
   const total=Number(inv.amount)||sub+vat;
   const fmtMny=n=>'KES '+Number(n).toLocaleString('en-KE',{minimumFractionDigits:2,maximumFractionDigits:2});
-  const fmtDt=d=>d?new Date(d).toLocaleDateString('en-KE',{day:'2-digit',month:'long',year:'numeric'}):'—';
-  const noB={top:{style:BorderStyle.NONE,size:0,color:'FFFFFF'},bottom:{style:BorderStyle.NONE,size:0,color:'FFFFFF'},left:{style:BorderStyle.NONE,size:0,color:'FFFFFF'},right:{style:BorderStyle.NONE,size:0,color:'FFFFFF'}};
-  const thinB={style:BorderStyle.SINGLE,size:1,color:'D9D4CB'};
-  const brd={top:thinB,bottom:thinB,left:thinB,right:thinB};
-  const headB={top:thinB,bottom:{style:BorderStyle.SINGLE,size:4,color:'0D1B2A'},left:thinB,right:thinB};
-  const navy='0D1B2A';const gold='B8953A';
-  const cell=(txt,w,opts={})=>new TableCell({width:{size:w,type:WidthType.DXA},borders:opts.borders||noB,shading:opts.shading||undefined,margins:{top:80,bottom:80,left:120,right:120},verticalAlign:VerticalAlign.CENTER,children:[new Paragraph({alignment:opts.align||AlignmentType.LEFT,children:[new TextRun({text:String(txt),font:'Arial',size:opts.size||22,bold:!!opts.bold,color:opts.color||'1a1a1a'})]})]});
-  const CW=10061;
-  const colW=[Math.round(CW*0.5),Math.round(CW*0.1),Math.round(CW*0.2),Math.round(CW*0.2)];
-  const lineRows=[
-    new TableRow({tableHeader:true,children:[cell('Description',colW[0],{borders:headB,shading:{fill:'F0EDE8',type:ShadingType.CLEAR},bold:true,color:navy}),cell('Qty',colW[1],{borders:headB,shading:{fill:'F0EDE8',type:ShadingType.CLEAR},bold:true,color:navy,align:AlignmentType.CENTER}),cell('Unit Price',colW[2],{borders:headB,shading:{fill:'F0EDE8',type:ShadingType.CLEAR},bold:true,color:navy,align:AlignmentType.RIGHT}),cell('Amount',colW[3],{borders:headB,shading:{fill:'F0EDE8',type:ShadingType.CLEAR},bold:true,color:navy,align:AlignmentType.RIGHT})]}),
-    ...lineItems.map(l=>new TableRow({children:[cell(l.description||'—',colW[0],{borders:brd}),cell(String(l.qty||1),colW[1],{borders:brd,align:AlignmentType.CENTER}),cell(fmtMny(l.unit_price||0),colW[2],{borders:brd,align:AlignmentType.RIGHT}),cell(fmtMny(l.subtotal||0),colW[3],{borders:brd,align:AlignmentType.RIGHT})]}))
-  ];
-  const totW=Math.round(CW*0.4);const totLab=Math.round(totW*0.55);const totVal=totW-totLab;
-  const children=[
-    new Paragraph({spacing:{before:200,after:100},children:[new TextRun('')]}),
-    new Table({width:{size:CW,type:WidthType.DXA},columnWidths:[Math.round(CW/2),Math.round(CW/2)],rows:[new TableRow({children:[new TableCell({width:{size:Math.round(CW/2),type:WidthType.DXA},borders:noB,margins:{top:0,bottom:0,left:0,right:0},children:[new Paragraph({children:[new TextRun({text:'INVOICE',font:'Arial',size:44,bold:true,color:navy})]}),new Paragraph({spacing:{before:80},children:[new TextRun({text:inv.invoice_no||'',font:'Arial',size:24,color:gold,bold:true})]})]}),new TableCell({width:{size:Math.round(CW/2),type:WidthType.DXA},borders:noB,margins:{top:0,bottom:0,left:0,right:0},children:[new Paragraph({alignment:AlignmentType.RIGHT,spacing:{before:40},children:[new TextRun({text:'Invoice Date: ',font:'Arial',size:22,color:'5a5a5a'}),new TextRun({text:fmtDt(inv.invoice_date),font:'Arial',size:22,bold:true})]}),new Paragraph({alignment:AlignmentType.RIGHT,spacing:{before:40},children:[new TextRun({text:'Due Date: ',font:'Arial',size:22,color:'5a5a5a'}),new TextRun({text:fmtDt(inv.due_date),font:'Arial',size:22,bold:true})]}),new Paragraph({alignment:AlignmentType.RIGHT,spacing:{before:40},children:[new TextRun({text:'Status: ',font:'Arial',size:22,color:'5a5a5a'}),new TextRun({text:(inv.status||'draft').toUpperCase(),font:'Arial',size:22,bold:true,color:inv.status==='paid'?'2D6A4F':inv.status==='overdue'?'AA3333':navy})]})]})]})]}),
-    new Paragraph({spacing:{before:240,after:0},border:{bottom:{style:BorderStyle.SINGLE,size:6,color:navy}},children:[new TextRun('')]}),
-    new Paragraph({spacing:{before:240,after:160},children:[new TextRun({text:'BILL TO',font:'Arial',size:18,bold:true,color:'8a8a8a'})]}),
-    new Paragraph({spacing:{before:0,after:60},children:[new TextRun({text:clientRecord?clientRecord.name||'—':'—',font:'Arial',size:24,bold:true,color:navy})]}),
-    new Paragraph({spacing:{before:240,after:80},children:[new TextRun({text:'SERVICES RENDERED',font:'Arial',size:18,bold:true,color:'8a8a8a'})]}),
-    new Table({width:{size:CW,type:WidthType.DXA},columnWidths:colW,rows:lineRows}),
-    new Paragraph({spacing:{before:120,after:0},children:[new TextRun('')]}),
-    new Table({width:{size:totW,type:WidthType.DXA},columnWidths:[totLab,totVal],indent:{size:CW-totW,type:WidthType.DXA},rows:[new TableRow({children:[cell('Subtotal',totLab,{borders:brd,color:'5a5a5a'}),cell(fmtMny(sub),totVal,{borders:brd,align:AlignmentType.RIGHT})]}),new TableRow({children:[cell('VAT (16%)',totLab,{borders:brd,color:'5a5a5a'}),cell(fmtMny(vat),totVal,{borders:brd,align:AlignmentType.RIGHT})]}),new TableRow({children:[cell('TOTAL',totLab,{borders:{top:{style:BorderStyle.SINGLE,size:4,color:navy},bottom:thinB,left:thinB,right:thinB},bold:true,color:navy,shading:{fill:'F0EDE8',type:ShadingType.CLEAR}}),cell(fmtMny(total),totVal,{borders:{top:{style:BorderStyle.SINGLE,size:4,color:navy},bottom:thinB,left:thinB,right:thinB},bold:true,color:gold,align:AlignmentType.RIGHT,shading:{fill:'F0EDE8',type:ShadingType.CLEAR}})]})]}),
-    new Paragraph({spacing:{before:360,after:0},border:{bottom:{style:BorderStyle.SINGLE,size:2,color:'D9D4CB'}},children:[new TextRun('')]}),
-    new Paragraph({spacing:{before:160,after:60},children:[new TextRun({text:'Payment Instructions',font:'Arial',size:22,bold:true,color:navy})]}),
-    new Paragraph({spacing:{before:40,after:40},children:[new TextRun({text:'Please make payment to Dennis Kimani Mutonga, Advocate. Reference your invoice number.',font:'Arial',size:20,color:'5a5a5a'})]}),
-    new Paragraph({spacing:{before:40,after:40},children:[new TextRun({text:'Contact: info@dkma.co.ke | +254 757 354 379',font:'Arial',size:20,color:'5a5a5a'})]}),
-  ];
-  const doc=new Document({sections:[{properties:{page:{size:{width:11906,height:16838},margin:{top:2700,right:711,bottom:2200,left:1134}}},headers:{default:{children:[new Paragraph({spacing:{before:0,after:0},children:[new ImageRun({data:_pb64(_PLH_HEADER),transformation:{width:583,height:88},type:'png'})]})]}},footers:{default:{children:[new Paragraph({spacing:{before:0,after:0},children:[new ImageRun({data:_pb64(_PLH_FOOTER),transformation:{width:583,height:54},type:'png'})]})]}},children}]});
+  const fmtDt=d=>d?new Date(d).toLocaleDateString('en-KE',{day:'2-digit',month:'long',year:'numeric'}):'\u2014';
+  const lineRowsHtml=lineItems.map(l=>`
+    <tr>
+      <td style="padding:8px 10px;border:1px solid #ddd;">${l.description||'\u2014'}</td>
+      <td style="padding:8px 10px;border:1px solid #ddd;text-align:center;">${l.qty||1}</td>
+      <td style="padding:8px 10px;border:1px solid #ddd;text-align:right;">${fmtMny(l.unit_price||0)}</td>
+      <td style="padding:8px 10px;border:1px solid #ddd;text-align:right;">${fmtMny(l.subtotal||0)}</td>
+    </tr>`).join('');
+  const clientName=clientRecord?clientRecord.name||'\u2014':'\u2014';
+  const matter=myMatters.find(x=>x.id===inv.matter_id);
+  const html=`<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:Arial,sans-serif;font-size:12px;color:#1a1a1a;background:#fff;padding:32px;}
+    .header-img{width:100%;max-width:600px;display:block;margin-bottom:24px;}
+    .row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
+    h1{font-size:28px;font-weight:bold;color:#0D1B2A;letter-spacing:1px;}
+    .inv-no{font-size:16px;font-weight:bold;color:#B8953A;margin-top:4px;}
+    .meta{text-align:right;font-size:12px;}
+    .meta strong{color:#0D1B2A;}
+    .divider{border-top:3px solid #0D1B2A;margin:16px 0;}
+    .bill-to-label{font-size:11px;color:#8a8a8a;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;}
+    .bill-name{font-size:16px;font-weight:bold;color:#0D1B2A;}
+    .bill-detail{font-size:12px;color:#5a5a5a;line-height:1.7;}
+    .note{font-size:12px;color:#5a5a5a;font-style:italic;margin-top:10px;}
+    .section-label{font-size:11px;color:#8a8a8a;letter-spacing:1px;text-transform:uppercase;margin:24px 0 8px;}
+    table{width:100%;border-collapse:collapse;font-size:12px;}
+    th{padding:8px 10px;background:#F0EDE8;color:#0D1B2A;font-weight:bold;border:1px solid #ccc;text-align:left;}
+    th.right{text-align:right;}th.center{text-align:center;}
+    .totals{margin-top:16px;display:flex;justify-content:flex-end;}
+    .totals-box{width:260px;font-size:12px;}
+    .totals-row{display:flex;justify-content:space-between;padding:6px 10px;border:1px solid #ddd;}
+    .totals-total{display:flex;justify-content:space-between;padding:8px 10px;border:2px solid #0D1B2A;background:#F0EDE8;font-weight:bold;}
+    .totals-total .amt{color:#B8953A;}
+    .payment{margin-top:32px;border-top:1px solid #ddd;padding-top:16px;}
+    .payment h4{font-size:13px;font-weight:bold;color:#0D1B2A;margin-bottom:6px;}
+    .payment p{font-size:12px;color:#5a5a5a;line-height:1.7;}
+    .footer-img{width:100%;max-width:600px;display:block;margin-top:30px;}
+  </style></head><body>
+  <img class="header-img" src="data:image/png;base64,${_PLH_HEADER}">
+  <div class="row">
+    <div><h1>INVOICE</h1><div class="inv-no">${inv.invoice_no||''}</div></div>
+    <div class="meta">
+      <div>Invoice Date: <strong>${fmtDt(inv.invoice_date)}</strong></div>
+      <div>Due Date: <strong style="color:${inv.status==='overdue'?'#AA3333':'#1a1a1a'}">${fmtDt(inv.due_date)}</strong></div>
+      <div>Status: <strong style="color:${inv.status==='paid'?'#2D6A4F':inv.status==='overdue'?'#AA3333':'#0D1B2A'}">${(inv.status||'draft').toUpperCase()}</strong></div>
+    </div>
+  </div>
+  <div class="divider"></div>
+  <div class="bill-to-label">BILL TO</div>
+  <div class="bill-name">${clientName}</div>
+  <div class="bill-detail">
+    ${matter?'<div>Re: '+matter.title+'</div>':''}
+    ${clientRecord&&clientRecord.email?'<div>'+clientRecord.email+'</div>':''}
+    ${clientRecord&&clientRecord.phone?'<div>'+clientRecord.phone+'</div>':''}
+  </div>
+  ${inv.description?'<div class="note">'+inv.description+'</div>':''}
+  <div class="section-label">SERVICES RENDERED</div>
+  <table>
+    <thead><tr>
+      <th>Description</th><th class="center">Qty</th><th class="right">Unit Price</th><th class="right">Amount</th>
+    </tr></thead>
+    <tbody>${lineRowsHtml}</tbody>
+  </table>
+  <div class="totals"><div class="totals-box">
+    <div class="totals-row"><span>Subtotal</span><span>${fmtMny(sub)}</span></div>
+    <div class="totals-row"><span>VAT (16%)</span><span>${fmtMny(vat)}</span></div>
+    <div class="totals-total"><span>TOTAL</span><span class="amt">${fmtMny(total)}</span></div>
+  </div></div>
+  <div class="payment">
+    <h4>Payment Instructions</h4>
+    <p>Please make payment to Dennis Kimani Mutonga, Advocate. Reference your invoice number when making payment.</p>
+    <p>Contact: info@dkma.co.ke | +254 757 354 379</p>
+  </div>
+  <img class="footer-img" src="data:image/png;base64,${_PLH_FOOTER}">
+  </body></html>`;
+
+  const _pdfContainer=document.createElement('div');
+  _pdfContainer.style.cssText='position:fixed;left:-9999px;top:0;width:800px;background:#fff;';
+  const _bodyMatch=html.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+  _pdfContainer.innerHTML=_bodyMatch?_bodyMatch[1]:html;
+  document.body.appendChild(_pdfContainer);
+
+  const _showToast=(msg,isErr)=>{let t=document.getElementById('_inv_toast');if(!t){t=document.createElement('div');t.id='_inv_toast';document.body.appendChild(t);}t.textContent=msg;t.style.cssText='position:fixed;bottom:24px;right:24px;background:'+(isErr?'#c0392b':'#0D1B2A')+';color:#fff;padding:10px 18px;border-radius:8px;z-index:99999;font-size:13px;';clearTimeout(t._timer);t._timer=setTimeout(()=>{if(t.parentNode)t.parentNode.removeChild(t);},3500);};
+  _showToast('Generating PDF…');
+
+  const _loadLib=(src)=>new Promise((res,rej)=>{if(document.querySelector('script[src="'+src+'"]')){res();return;}const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s);});
   try{
-    const buf=await window.docx.Packer.toBlob(doc);
-    const url=URL.createObjectURL(buf);
-    const a=document.createElement('a');a.href=url;a.download=(inv.invoice_no||'Invoice')+'.docx';
-    document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
-  }catch(err){alert('Error generating invoice: '+err.message);}
+    await _loadLib('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    await _loadLib('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    const _canvas=await html2canvas(_pdfContainer,{scale:2,useCORS:true,allowTaint:true,backgroundColor:'#fff',logging:false});
+    document.body.removeChild(_pdfContainer);
+    const _imgData=_canvas.toDataURL('image/jpeg',0.95);
+    const {jsPDF}=window.jspdf;
+    const _pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    const _pdfW=_pdf.internal.pageSize.getWidth();
+    const _pdfH=_pdf.internal.pageSize.getHeight();
+    const _imgH=(_canvas.height*_pdfW)/_canvas.width;
+    let _heightLeft=_imgH,_position=0;
+    _pdf.addImage(_imgData,'JPEG',0,_position,_pdfW,_imgH);
+    _heightLeft-=_pdfH;
+    while(_heightLeft>0){_position=_heightLeft-_imgH;_pdf.addPage();_pdf.addImage(_imgData,'JPEG',0,_position,_pdfW,_imgH);_heightLeft-=_pdfH;}
+    _pdf.save((inv.invoice_no||'Invoice')+'.pdf');
+    _showToast('Invoice PDF downloaded!');
+  }catch(_pdfErr){
+    if(document.body.contains(_pdfContainer))document.body.removeChild(_pdfContainer);
+    console.error('PDF error:',_pdfErr);
+    _showToast('Error generating PDF: '+_pdfErr.message,true);
+  }
 }
 
 </script>
