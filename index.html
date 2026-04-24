@@ -100,6 +100,10 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 
 /* ── CLIENT GROUP ────────────────────────────────────────────── */
 .group-panel{background:#fff;border-radius:10px;border:0.5px solid var(--brd);overflow:hidden;margin-bottom:18px}
+.portal-group-tab{flex:1;padding:10px 14px;font-size:12px;font-weight:500;color:var(--txt3);cursor:pointer;text-align:center;user-select:none;transition:all 0.12s;border-right:1px solid var(--brd)}
+.portal-group-tab:last-child{border-right:none}
+.portal-group-tab:hover{background:var(--cream);color:var(--txt)}
+.portal-group-tab.active{background:var(--navy);color:#fff}
 .group-panel-header{padding:14px 20px;border-bottom:1px solid var(--brd);background:linear-gradient(135deg,#EEEDFE,#f4f3ff);display:flex;align-items:center;gap:12px}
 .group-panel-icon{width:38px;height:38px;border-radius:9px;background:#EEEDFE;border:1px solid #d4d2f7;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
 .group-panel-title{font-family:'Playfair Display',serif;font-size:15px;font-weight:500;color:var(--txt)}
@@ -575,6 +579,7 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
       <div class="topnav-tab" onclick="showPView('messages',this)" id="msg-tab">Messages <span id="msg-unread-badge" style="display:none;background:#E2443A;color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;margin-left:3px;vertical-align:middle">0</span></div>
       <div class="topnav-tab" onclick="showPView('notifications',this)" id="notif-tab">Notifications <span id="notif-unread-badge" style="display:none;background:#E2443A;color:#fff;font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;margin-left:3px;vertical-align:middle">0</span></div>
       <div class="topnav-tab" onclick="showPView('parties',this)">Other Parties</div>
+      <div class="topnav-tab" onclick="showPView('groups',this)" id="groups-tab">My Groups <span id="groups-badge" style="display:none;background:rgba(184,149,58,0.3);color:#7A4800;font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;margin-left:3px;vertical-align:middle">0</span></div>
     </div>
     <div class="topnav-right">
       <button class="topnav-sos-btn" id="topnav-sos-btn" onclick="showPView('sos',this)" title="Emergency SOS" style="display:none">🆘 SOS</button>
@@ -782,6 +787,17 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
         </div>
       </div>
       <div id="parties-container"></div>
+    </div>
+
+    <!-- ── GROUPS ──────────────────────────────────────────── -->
+    <div class="pview" id="pview-groups">
+      <div style="margin-bottom:20px;display:flex;align-items:flex-end;justify-content:space-between">
+        <div>
+          <h2 style="font-family:'Playfair Display',serif;font-size:22px;font-weight:500">My Groups</h2>
+          <p style="font-size:12px;color:var(--txt3);margin-top:4px">Groups you belong to — shared matters, updates, and documents are visible here.</p>
+        </div>
+      </div>
+      <div id="portal-groups-container"><div style="padding:40px;text-align:center;color:var(--txt3);font-size:13px">Loading…</div></div>
     </div>
 
     <!-- ── PROFILE ──────────────────────────────────────────── -->
@@ -1009,6 +1025,10 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
       <svg viewBox="0 0 16 16" fill="none"><circle cx="5" cy="5" r="2.5" stroke="currentColor" stroke-width="1.4"/><circle cx="11" cy="5" r="2.5" stroke="currentColor" stroke-width="1.4"/><path d="M1 14c0-2.761 1.791-5 4-5M15 14c0-2.761-1.791-5-4-5M8 9c1.5 0 3 1.2 3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
       Other Parties
     </div>
+    <div class="portal-drawer-item" id="pdi-groups" onclick="showPView('groups',null,true);closePortalDrawer()">
+      <svg viewBox="0 0 16 16" fill="none"><rect x="1.5" y="5" width="13" height="9" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M5 5V4a3 3 0 016 0v1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+      My Groups <span id="pdi-groups-badge" style="display:none;background:rgba(184,149,58,0.3);color:#7A4800;font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;margin-left:3px">0</span>
+    </div>
     <div class="portal-drawer-item" id="pdi-sos" onclick="showPView('sos',null,true);closePortalDrawer()" style="color:#A30000;font-weight:600;display:none">
       <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.4"/><path d="M8 5v3.5M8 10.5v.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
      
@@ -1205,6 +1225,7 @@ function showPView(id,el,fromMobile){
   if(id==='sos'){checkActiveAlert();}
   if(id==='sos-history'){loadSosHistory();}
   if(id==='notifications'){loadClientAlerts(true);}
+  if(id==='groups'){renderPortalGroups();}
 }
 
 // ── PORTAL DRAWER open/close ──────────────────────────────────────
@@ -1472,20 +1493,32 @@ async function loadGazettedHolidays(){
 async function loadMyGroup(){
   if(!clientRecord){myGroup=null;return;}
   try{
-    // Find a group where this client is in member_ids array
+    // Load ALL groups this client belongs to (they can be in multiple)
     const{data,error}=await sb.from('client_groups')
       .select('*')
-      .contains('member_ids',[clientRecord.id])
-      .maybeSingle();
-    myGroup=(!error&&data)?data:null;
-    // If found, also load the other group members' client records
-    if(myGroup&&myGroup.member_ids?.length){
-      const{data:memberData}=await sb.from('clients')
-        .select('id,name,type,phone,email')
-        .in('id',myGroup.member_ids);
-      myGroup._members=memberData||[];
+      .contains('member_ids',[clientRecord.id]);
+    const groups=(!error&&data)?data:[];
+    myGroup=groups[0]||null; // keep backward-compat single ref
+    // Hydrate members for each group
+    for(const g of groups){
+      if(g.member_ids?.length){
+        const{data:memberData}=await sb.from('clients')
+          .select('id,name,type,phone,email')
+          .in('id',g.member_ids);
+        g._members=memberData||[];
+      } else { g._members=[]; }
     }
-  }catch(e){myGroup=null;}
+    // Store all groups on myGroup array helper
+    myGroup=groups.length?groups[0]:null;
+    window._myAllGroups=groups;
+    // Update badge
+    const badge=document.getElementById('groups-badge');
+    const pdiBadge=document.getElementById('pdi-groups-badge');
+    if(groups.length){
+      if(badge){badge.textContent=groups.length;badge.style.display='inline';}
+      if(pdiBadge){pdiBadge.textContent=groups.length;pdiBadge.style.display='inline';}
+    }
+  }catch(e){myGroup=null;window._myAllGroups=[];}
 }
 
 // ── RENDER: OVERVIEW ─────────────────────────────────────────────
@@ -3590,6 +3623,124 @@ async function openMatterUpdatesOverlay(matterId, matterTitle){
       </div>
     </div>`;
   }).join('');
+}
+
+// ── PORTAL GROUPS VIEW ────────────────────────────────────────────
+async function renderPortalGroups(){
+  const el=document.getElementById('portal-groups-container');
+  if(!el)return;
+  const groups=window._myAllGroups||[];
+  if(!groups.length){
+    el.innerHTML=`<div class="group-panel"><div style="padding:40px;text-align:center;color:var(--txt3);font-size:13px"><div style="font-size:32px;margin-bottom:12px">👥</div><div style="font-family:'Playfair Display',serif;font-size:15px;color:var(--txt2);margin-bottom:6px">No groups yet</div><div>The firm will add you to a group when relevant.</div></div></div>`;
+    return;
+  }
+  // Render each group as a panel with tabs
+  el.innerHTML=groups.map(g=>{
+    const members=g._members||[];
+    const isFocal=g.focal_point_id===clientRecord?.id;
+    return `<div class="group-panel" style="margin-bottom:22px">
+      <div class="group-panel-header">
+        <div class="group-panel-icon">👥</div>
+        <div><div class="group-panel-title">${esc(g.name)}</div><div class="group-panel-sub">${members.length} member${members.length!==1?'s':''}</div></div>
+        <span class="group-type-badge">${esc(g.group_type||'Group')}</span>
+        ${isFocal?'<span style="font-size:9px;font-weight:600;padding:2px 8px;border-radius:8px;background:#FFF8E7;color:#7A4800;margin-left:6px">⭐ Focal Point</span>':''}
+      </div>
+      <div style="display:flex;border-bottom:1px solid var(--brd)">
+        <div class="portal-group-tab active" onclick="switchPortalGroupTab('${g.id}','members',this)" data-gid="${g.id}">Members</div>
+        <div class="portal-group-tab" onclick="switchPortalGroupTab('${g.id}','updates',this)" data-gid="${g.id}">Updates</div>
+        <div class="portal-group-tab" onclick="switchPortalGroupTab('${g.id}','documents',this)" data-gid="${g.id}">Documents</div>
+      </div>
+      <div id="pgtab-members-${g.id}">
+        ${members.map(m=>{
+          const isYou=m.id===clientRecord?.id;
+          const isFP=m.id===g.focal_point_id;
+          const initials=(m.name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+          return `<div class="group-member-row${isYou?' is-you':''}">
+            <div class="group-member-av" style="background:${isYou?'var(--gold)':'var(--navy)'};color:${isYou?'var(--navy)':'#fff'}">${initials}</div>
+            <div style="flex:1"><div style="font-size:13px;font-weight:500;color:var(--txt)">${esc(m.name)}${isYou?' <span style=\'font-size:10px;color:var(--txt3)\'>(You)</span>':''}</div><div style="font-size:11px;color:var(--txt3)">${esc(m.type||'')}</div></div>
+            ${isFP?'<span class="group-focal-badge">⭐ Focal Point</span>':''}
+          </div>`;
+        }).join('')}
+      </div>
+      <div id="pgtab-updates-${g.id}" style="display:none">
+        <div id="pg-updates-feed-${g.id}" style="padding:16px 20px"><div style="text-align:center;color:var(--txt3);font-size:12px">Loading…</div></div>
+      </div>
+      <div id="pgtab-documents-${g.id}" style="display:none">
+        <div id="pg-docs-list-${g.id}" style="padding:16px 20px"><div style="text-align:center;color:var(--txt3);font-size:12px">Loading…</div></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function switchPortalGroupTab(gId,tab,el){
+  // Deactivate sibling tabs
+  el.closest('div[style*="border-bottom"]').querySelectorAll('.portal-group-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  // Hide all panels for this group
+  ['members','updates','documents'].forEach(t=>{
+    const p=document.getElementById(`pgtab-${t}-${gId}`);
+    if(p)p.style.display='none';
+  });
+  const panel=document.getElementById(`pgtab-${tab}-${gId}`);
+  if(panel)panel.style.display='block';
+  if(tab==='updates')loadPortalGroupUpdates(gId);
+  if(tab==='documents')loadPortalGroupDocuments(gId);
+}
+
+async function loadPortalGroupUpdates(gId){
+  const el=document.getElementById(`pg-updates-feed-${gId}`);
+  if(!el)return;
+  try{
+    const{data,error}=await sb.from('group_updates').select('*').eq('group_id',gId).order('created_at',{ascending:false});
+    if(error)throw error;
+    const updates=data||[];
+    if(!updates.length){el.innerHTML=`<div style="text-align:center;color:var(--txt3);font-size:12px;padding:20px 0">No updates yet.</div>`;return;}
+    el.innerHTML=updates.map(u=>{
+      const d=new Date(u.created_at);
+      const dateStr=d.toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'});
+      return `<div style="border-bottom:1px solid var(--brd);padding:12px 0;last-child{border:none}">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="font-size:11px;font-weight:600;color:var(--txt2)">${esc(u.author_name||'Firm')}</span>
+          <span style="font-size:10px;color:var(--txt3)">${dateStr}</span>
+        </div>
+        <div style="font-size:13px;color:var(--txt);line-height:1.65">${esc(u.content)}</div>
+      </div>`;
+    }).join('');
+  }catch(e){
+    el.innerHTML=`<div style="color:var(--txt3);font-size:12px;padding:16px 0">Updates not available — the group_updates table may not be set up yet.</div>`;
+  }
+}
+
+async function loadPortalGroupDocuments(gId){
+  const el=document.getElementById(`pg-docs-list-${gId}`);
+  if(!el)return;
+  try{
+    const{data,error}=await sb.from('group_documents').select('*').eq('group_id',gId).order('created_at',{ascending:false});
+    if(error)throw error;
+    const docs=data||[];
+    if(!docs.length){el.innerHTML=`<div style="text-align:center;color:var(--txt3);font-size:12px;padding:20px 0">No shared documents yet.</div>`;return;}
+    el.innerHTML=docs.map(d=>{
+      const date=new Date(d.created_at).toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'});
+      const sizeStr=d.file_size?formatBytes(d.file_size):'';
+      return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--brd)">
+        <div style="font-size:24px">📄</div>
+        <div style="flex:1"><div style="font-size:13px;font-weight:500;color:var(--txt)">${esc(d.display_name||d.file_name)}</div><div style="font-size:11px;color:var(--txt3)">${sizeStr?sizeStr+' · ':''}${date}</div></div>
+        ${d.storage_path?`<button onclick="downloadGroupDoc('${d.storage_path}','${esc(d.display_name||d.file_name)}')" style="background:var(--navy);color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer">⬇ Download</button>`:''}
+      </div>`;
+    }).join('');
+  }catch(e){
+    el.innerHTML=`<div style="color:var(--txt3);font-size:12px;padding:16px 0">Documents not available — the group_documents table may not be set up yet.</div>`;
+  }
+}
+
+async function downloadGroupDoc(storagePath,fileName){
+  try{
+    const{data,error}=await sb.storage.from(FIRM_BUCKET).download(storagePath);
+    if(error)throw error;
+    const url=URL.createObjectURL(data);
+    const a=document.createElement('a');a.href=url;a.download=fileName;a.click();
+    setTimeout(()=>URL.revokeObjectURL(url),5000);
+  }catch(e){alert('Download failed: '+e.message);}
 }
 </script>
 
