@@ -15,7 +15,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.min.js" crossorigin="anonymous"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -1254,6 +1253,15 @@ function toast(msg,isError=false){
   t.textContent=msg;t.className='toast'+(isError?' error':'');
   void t.offsetWidth;t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'),3500);
+}
+function portalToast(msg,isError=false){
+  if(typeof toast==='function'){toast(msg,isError);return;}
+  let t=document.getElementById('toast');
+  if(!t){t=document.createElement('div');t.id='toast';document.body.appendChild(t);}
+  t.textContent=msg;
+  t.style.cssText='position:fixed;bottom:24px;right:24px;background:'+(isError?'#c0392b':'#0D1B2A')+';color:#fff;padding:10px 18px;border-radius:8px;z-index:99999;font-size:13px;';
+  clearTimeout(t._timer);
+  t._timer=setTimeout(()=>{if(t.parentNode)t.parentNode.removeChild(t);},3500);
 }
 function empty(icon,title,sub=''){
   return`<div class="empty"><div class="empty-icon">${icon}</div><div class="empty-title">${title}</div>${sub?`<div>${sub}</div>`:''}  </div>`;
@@ -2816,8 +2824,8 @@ async function portalPollAll(){
     }
 
     // ── Matters — detect new/changed matters ──────────────────────
-    const{data:mLatest}=await sb.from('matters').select('updated_at').eq('client_id',cid).order('updated_at',{ascending:false}).limit(1);
-    const mT=mLatest&&mLatest[0]?mLatest[0].updated_at||'':'';
+    const{count:mC}=await sb.from('matters').select('*',{count:'exact',head:true}).eq('client_id',cid);
+    const mT=String(mC||0);
     if(mT!==_portalSnap.matters){
       _portalSnap.matters=mT;
       await loadMyMatters();await loadMyEvents();
@@ -4136,8 +4144,7 @@ async function downloadPortalInvoiceDocx(invId){
 </div>
 </body></html>`;
 
-  const _showToast=(msg,isErr)=>{let t=document.getElementById('_inv_toast');if(!t){t=document.createElement('div');t.id='_inv_toast';document.body.appendChild(t);}t.textContent=msg;t.style.cssText='position:fixed;bottom:24px;right:24px;background:'+(isErr?'#c0392b':'#0D1B2A')+';color:#fff;padding:10px 18px;border-radius:8px;z-index:99999;font-size:13px;';clearTimeout(t._timer);t._timer=setTimeout(()=>{if(t.parentNode)t.parentNode.removeChild(t);},3500);};
-  _showToast('Generating PDF\u2026');
+  portalToast('Generating PDF\u2026');
 
   const _loadLib=(src)=>new Promise((res,rej)=>{if(document.querySelector('script[src="'+src+'"]')){res();return;}const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=rej;document.head.appendChild(s);});
   try{
@@ -4172,10 +4179,10 @@ async function downloadPortalInvoiceDocx(invId){
     _heightLeft-=_pdfH;
     while(_heightLeft>0){_position=_heightLeft-_imgH;_pdf.addPage();_pdf.addImage(_imgData,'JPEG',0,_position,_pdfW,_imgH);_heightLeft-=_pdfH;}
     _pdf.save((inv.invoice_no||'FeeNote')+'.pdf');
-    _showToast('Fee note PDF downloaded!');
+    portalToast('Fee note PDF downloaded!');
   }catch(_pdfErr){
     console.error('PDF error:',_pdfErr);
-    _showToast('Error generating PDF: '+_pdfErr.message,true);
+    portalToast('Error generating PDF: '+_pdfErr.message,true);
   }
 }
 
@@ -4204,7 +4211,7 @@ async function downloadPortalReceiptPdf(invId, paymentIdOrEvent = null, e = null
   const _openPrintFallback = (html) => {
     const printWin = window.open('', '_blank', 'noopener,noreferrer');
     if (!printWin) {
-      _showToast('Popup blocked. Allow popups to open the receipt.', true);
+      portalToast('Popup blocked. Allow popups to open the receipt.', true);
       return false;
     }
     printWin.document.open();
@@ -4218,11 +4225,11 @@ async function downloadPortalReceiptPdf(invId, paymentIdOrEvent = null, e = null
         console.warn('Print fallback failed:', _printErr);
       }
     }, 250);
-    _showToast('Opened a printable receipt because PDF download was unavailable.');
+    portalToast('Opened a printable receipt because PDF download was unavailable.');
     return true;
   };
 
-  _showToast('Generating receipt…');
+  portalToast('Generating receipt…');
 
   const { data: inv, error: invErr } = await sb
     .from('invoices')
@@ -4230,7 +4237,7 @@ async function downloadPortalReceiptPdf(invId, paymentIdOrEvent = null, e = null
     .eq('id', invId)
     .single();
   if (invErr || !inv) {
-    _showToast('Could not load invoice.', true);
+    portalToast('Could not load invoice.', true);
     return;
   }
 
@@ -4240,17 +4247,17 @@ async function downloadPortalReceiptPdf(invId, paymentIdOrEvent = null, e = null
     .eq('invoice_id', invId)
     .order('payment_date', { ascending: true });
   if (payErr) {
-    _showToast('Could not load receipt details: ' + payErr.message, true);
+    portalToast('Could not load receipt details: ' + payErr.message, true);
     return;
   }
   if (!payments || !payments.length) {
-    _showToast('No payment record found for this invoice.', true);
+    portalToast('No payment record found for this invoice.', true);
     return;
   }
 
   const payment = paymentId ? payments.find(p => String(p.id) === String(paymentId)) : payments[payments.length - 1];
   if (!payment) {
-    _showToast('Payment record not found.', true);
+    portalToast('Payment record not found.', true);
     return;
   }
 
@@ -4429,11 +4436,11 @@ async function downloadPortalReceiptPdf(invId, paymentIdOrEvent = null, e = null
       heightLeft -= pdfH;
     }
     pdf.save(((inv.invoice_no || 'Invoice') + '-Receipt').replace(/[\\/:*?"<>|]+/g, '-') + '.pdf');
-    _showToast('Receipt downloaded.');
+    portalToast('Receipt downloaded.');
   } catch (err) {
     console.error('Receipt PDF error:', err);
     if (!_openPrintFallback(receiptHtml)) {
-      _showToast('Error generating receipt: ' + err.message, true);
+      portalToast('Error generating receipt: ' + err.message, true);
     }
   } finally {
     frame.remove();
