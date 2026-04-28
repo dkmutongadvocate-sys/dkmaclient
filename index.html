@@ -1077,10 +1077,54 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 
 <script>
 // ── SUPABASE ──────────────────────────────────────────────────────
-const SUPABASE_URL='%%SUPABASE_URL%%';
-const SUPABASE_KEY='%%SUPABASE_ANON_KEY%%';
+const RAW_SUPABASE_URL='%%SUPABASE_URL%%';
+const RAW_SUPABASE_KEY='%%SUPABASE_ANON_KEY%%';
+const RAW_LAWYER_PHONE='%%LAWYER_PHONE%%';
+
+function _resolveInjectedValue(rawValue, opts={}){
+  const sources=opts.sources||[];
+  if(rawValue && !String(rawValue).includes('%%')) return String(rawValue);
+  for(const value of sources){
+    if(value && !String(value).includes('%%')) return String(value);
+  }
+  return String(rawValue||'');
+}
+
+function _safeLocalStorageGet(key){
+  try{return localStorage.getItem(key);}catch(_e){return null;}
+}
+
+const _envConfig=(window.__DKMA_ENV__||window.DKMA_ENV||window.__APP_CONFIG__||window.APP_CONFIG||{});
+const SUPABASE_URL=_resolveInjectedValue(RAW_SUPABASE_URL,{
+  sources:[
+    _envConfig.SUPABASE_URL,
+    window.__SUPABASE_URL__,
+    document.documentElement?.dataset?.supabaseUrl,
+    _safeLocalStorageGet('SUPABASE_URL')
+  ]
+});
+const SUPABASE_KEY=_resolveInjectedValue(RAW_SUPABASE_KEY,{
+  sources:[
+    _envConfig.SUPABASE_ANON_KEY,
+    _envConfig.SUPABASE_KEY,
+    window.__SUPABASE_ANON_KEY__,
+    window.__SUPABASE_KEY__,
+    document.documentElement?.dataset?.supabaseAnonKey,
+    _safeLocalStorageGet('SUPABASE_ANON_KEY'),
+    _safeLocalStorageGet('SUPABASE_KEY')
+  ]
+});
+const LAWYER_PHONE=_resolveInjectedValue(RAW_LAWYER_PHONE,{
+  sources:[
+    _envConfig.LAWYER_PHONE,
+    window.__LAWYER_PHONE__,
+    document.documentElement?.dataset?.lawyerPhone,
+    _safeLocalStorageGet('LAWYER_PHONE')
+  ]
+});
+
 if(SUPABASE_URL.includes('%%')||SUPABASE_KEY.includes('%%')){
-  document.body.innerHTML='<div style="font-family:sans-serif;padding:40px;text-align:center;color:#a33"><h2>Configuration Error</h2><p style="margin-top:12px;font-size:14px">Supabase credentials were not injected.<br>Ensure GitHub Actions secrets are set and the workflow has run.</p></div>';
+  document.body.innerHTML='<div style="font-family:sans-serif;padding:40px;text-align:center;color:#a33"><h2>Configuration Error</h2><p style="margin-top:12px;font-size:14px">Supabase credentials were not injected.<br>You can provide them through the build placeholders, <code>window.__DKMA_ENV__</code>, HTML data attributes, or matching <code>localStorage</code> keys.</p></div>';
   throw new Error('Supabase credentials not injected — placeholders still present.');
 }
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{storageKey:'dkma-portal-session'}});
@@ -1095,7 +1139,6 @@ function toPortalEmail(email){
 }
 const FIRM_BUCKET='matter-documents';
 // client-uploads bucket removed — client files now go into matter-documents under client__ prefix
-const LAWYER_PHONE='%%LAWYER_PHONE%%'; // e.g. +254712345678 — set in GitHub secrets
 
 // ── STATE ─────────────────────────────────────────────────────────
 let currentUser=null;
