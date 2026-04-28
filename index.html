@@ -2443,7 +2443,7 @@ function renderInvoices(){
         +'<div class="inv-cell bold">'+fmtMoney(i.amount)+'</div>'
         +'<div class="inv-cell">'+spill(i.status)+'</div>'
         +'<div class="inv-cell muted">'+fmtDate(i.due_date)+'</div>'
-        +'<div class="inv-cell"><button class="pbtn view" style="font-size:10px;padding:3px 8px" onclick="downloadPortalInvoiceDocx(\''+i.id+'\')">⬇ PDF</button></div>'
+        +'<div class="inv-cell" style="display:flex;gap:4px;flex-wrap:wrap"><button class="pbtn view" style="font-size:10px;padding:3px 8px" onclick="downloadPortalInvoiceDocx(\''+i.id+'\')">⬇ PDF</button>'+(i.status==='paid'||i.status==='partially_paid'?'<button class="pbtn" style="font-size:10px;padding:3px 8px;color:var(--green);border-color:var(--green)" onclick="downloadPortalReceiptPdf(\''+i.id+'\',event)">🧾 Receipt</button>':'')+'</div>'
         +'</div>';
     }).join('')+'</div>';
   } else {
@@ -2456,7 +2456,7 @@ function renderInvoices(){
         +'<div style="font-size:22px;font-weight:700;color:var(--navy)">'+fmtMoney(i.amount)+'</div>'
         +'<div style="font-size:11px;color:var(--txt3)">'+(i.description?esc(i.description.slice(0,50)):'—')+'</div>'
         +'<div style="font-size:11px;color:var(--txt3)">Due: '+fmtDate(i.due_date)+'</div>'
-        +'<button class="pbtn view" style="margin-top:4px;font-size:11px;padding:6px" onclick="downloadPortalInvoiceDocx(\''+i.id+'\')">⬇ Download PDF</button>'
+        +'<button class="pbtn view" style="margin-top:4px;font-size:11px;padding:6px" onclick="downloadPortalInvoiceDocx(\''+i.id+'\')">⬇ Download PDF</button>'+(i.status==='paid'||i.status==='partially_paid'?'<button class="pbtn" style="font-size:11px;padding:6px;color:var(--green);border-color:var(--green)" onclick="downloadPortalReceiptPdf(\''+i.id+'\',event)">🧾 Receipt</button>':'')
         +'</div>';
     }).join('')+'</div>';
   }
@@ -4059,6 +4059,170 @@ async function downloadPortalInvoiceDocx(invId){
   }catch(_pdfErr){
     console.error('PDF error:',_pdfErr);
     _showToast('Error generating PDF: '+_pdfErr.message,true);
+  }
+}
+
+// ─── RECEIPT PDF GENERATOR ───────────────────────────────────────────────────
+async function downloadPortalReceiptPdf(invId, e) {
+  if (e) { e.stopPropagation(); }
+
+  const _loadLib = (src) => new Promise((res, rej) => {
+    if (document.querySelector('script[src="' + src + '"]')) { res(); return; }
+    const s = document.createElement('script');
+    s.src = src; s.onload = res; s.onerror = rej;
+    document.head.appendChild(s);
+  });
+
+  _showToast('Generating receipt…');
+
+  try {
+    await _loadLib('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+    await _loadLib('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  } catch (_e) {
+    _showToast('Receipt tools could not load. Check connection.', true); return;
+  }
+
+  // Fetch invoice
+  const { data: inv, error: invErr } = await supabase
+    .from('invoices')
+    .select('*, matters(title), clients(name,email,phone)')
+    .eq('id', invId)
+    .single();
+  if (invErr || !inv) { _showToast('Could not load invoice.', true); return; }
+
+  // Fetch most recent payment
+  const { data: pRows } = await supabase
+    .from('payments')
+    .select('*')
+    .eq('invoice_id', invId)
+    .order('payment_date', { ascending: false })
+    .limit(1);
+  const payment = pRows?.[0] || null;
+  if (!payment) { _showToast('No payment record found for this invoice.', true); return; }
+
+  const fmtDt = (d) => d ? new Date(d).toLocaleDateString('en-KE', { day: '2-digit', month: 'long', year: 'numeric' }) : '—';
+  const fmtMny = (n) => 'KES ' + Number(n || 0).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const _esc = (s) => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+  const client = inv.clients || {};
+  const matter = inv.matters || {};
+  const amountPaid = Number(payment.amount || 0);
+  const total = Number(inv.total_amount || inv.amount || 0);
+  const balance = Math.max(0, total - amountPaid);
+  const receiptNo = ('RCPT-' + String(inv.invoice_no || 'INV').replace(/[^A-Za-z0-9]+/g,'-').replace(/^-+|-+$/g,'') + '-' + String(payment.id||'').replace(/[^A-Za-z0-9]/g,'').slice(0,8)).toUpperCase();
+
+  const receiptHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Arial,sans-serif;color:#1a1a1a;background:#fff;padding:48px;font-size:13px}
+  .hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;border-bottom:2px solid #0D1B2A;margin-bottom:28px}
+  .firm-name{font-size:22px;font-weight:700;color:#0D1B2A;font-family:Georgia,serif}
+  .firm-sub{font-size:10px;color:#8a8a8a;text-transform:uppercase;letter-spacing:1px;margin-top:5px}
+  .r-title{font-size:28px;font-weight:700;color:#0D1B2A;font-family:Georgia,serif;text-align:right}
+  .r-no{font-size:13px;color:#B8953A;font-weight:700;text-align:right;margin-top:6px}
+  .lbl{font-size:10px;color:#8a8a8a;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:7px;font-weight:700}
+  .client-name{font-size:17px;font-weight:700;color:#0D1B2A}
+  .sub-txt{font-size:12px;color:#5a5a5a;margin-top:3px}
+  .amt-box{background:#0D1B2A;border-radius:10px;padding:20px 28px;display:flex;justify-content:space-between;align-items:center;margin:26px 0}
+  .amt-lbl{font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:rgba(255,255,255,0.65)}
+  .amt-method{font-size:12px;color:rgba(255,255,255,0.5);margin-top:5px}
+  .amt-val{font-size:26px;font-weight:700;color:#B8953A;font-family:Georgia,serif}
+  table.det{width:100%;border-collapse:collapse}
+  table.det td{padding:9px 14px;font-size:13px;border-bottom:1px solid #ede9e2}
+  table.det td:first-child{color:#5a5a5a;width:46%}
+  table.det td:last-child{font-weight:600;text-align:right}
+  .stamp-wrap{text-align:center;margin-top:32px}
+  .stamp{display:inline-block;border:2px solid #2D6A4F;border-radius:6px;color:#2D6A4F;font-weight:700;font-size:12px;padding:6px 18px;text-transform:uppercase;letter-spacing:1px}
+  .ftr{margin-top:36px;padding-top:18px;border-top:1px solid #ede9e2;font-size:11px;color:#8a8a8a;text-align:center;line-height:1.9}
+</style>
+</head><body>
+<div class="hdr">
+  <div>
+    <div class="firm-name">DKMA Advocates</div>
+    <div class="firm-sub">Advocates &amp; Commissioners for Oaths</div>
+  </div>
+  <div>
+    <div class="r-title">OFFICIAL RECEIPT</div>
+    <div class="r-no">${_esc(receiptNo)}</div>
+  </div>
+</div>
+
+<div style="margin-bottom:24px">
+  <div class="lbl">Received From</div>
+  <div class="client-name">${_esc(client.name||'—')}</div>
+  ${client.email?`<div class="sub-txt">${_esc(client.email)}</div>`:''}
+  ${matter.title?`<div class="sub-txt">Re: ${_esc(matter.title)}</div>`:''}
+</div>
+
+<div class="amt-box">
+  <div>
+    <div class="amt-lbl">Amount Received</div>
+    <div class="amt-method">${_esc(payment.payment_method||'Payment')} &nbsp;·&nbsp; ${fmtDt(payment.payment_date)}</div>
+  </div>
+  <div class="amt-val">${fmtMny(amountPaid)}</div>
+</div>
+
+<div style="margin-bottom:24px">
+  <div class="lbl">Payment Details</div>
+  <table class="det">
+    <tr><td>Receipt No.</td><td>${_esc(receiptNo)}</td></tr>
+    <tr><td>Invoice No.</td><td>${_esc(inv.invoice_no||'—')}</td></tr>
+    <tr><td>Receipt Date</td><td>${fmtDt(payment.payment_date)}</td></tr>
+    <tr><td>Payment Method</td><td>${_esc(payment.payment_method||'—')}</td></tr>
+    ${payment.transaction_ref?`<tr><td>Transaction Ref.</td><td>${_esc(payment.transaction_ref)}</td></tr>`:''}
+    <tr><td>Invoice Total</td><td>${fmtMny(total)}</td></tr>
+    <tr><td>Amount Paid</td><td>${fmtMny(amountPaid)}</td></tr>
+    <tr><td>Balance</td><td style="color:${balance>0?'#A33':'#2D6A4F'}">${fmtMny(balance)}</td></tr>
+  </table>
+</div>
+
+<div class="stamp-wrap"><div class="stamp">✓ Payment Confirmed</div></div>
+
+<div class="ftr">
+  This is an official receipt issued by DKMA Advocates.<br>
+  Please retain this document for your records.<br>
+  ${new Date().toLocaleDateString('en-KE',{day:'2-digit',month:'long',year:'numeric'})}
+</div>
+</body></html>`;
+
+  const frame = document.createElement('iframe');
+  frame.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;height:1px;border:none;visibility:hidden;';
+  document.body.appendChild(frame);
+  frame.contentDocument.open();
+  frame.contentDocument.write(receiptHtml);
+  frame.contentDocument.close();
+  await new Promise(r => setTimeout(r, 700));
+
+  const fBody = frame.contentDocument.body;
+  const fRoot = frame.contentDocument.documentElement;
+  const fullH = Math.max(fBody.scrollHeight, fRoot.scrollHeight);
+  frame.style.height = fullH + 'px';
+  fRoot.style.height = fullH + 'px';
+  fBody.style.height = fullH + 'px';
+  await new Promise(r => setTimeout(r, 100));
+
+  try {
+    const canvas = await html2canvas(frame.contentDocument.body, {
+      scale: 2, useCORS: true, allowTaint: true,
+      backgroundColor: '#fff', logging: false, width: 794, windowWidth: 794
+    });
+    document.body.removeChild(frame);
+    const imgData = canvas.toDataURL('image/jpeg', 0.97);
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pdfW = pdf.internal.pageSize.getWidth();
+    const pdfH = pdf.internal.pageSize.getHeight();
+    const imgH = (canvas.height * pdfW) / canvas.width;
+    let hLeft = imgH, pos = 0;
+    pdf.addImage(imgData, 'JPEG', 0, pos, pdfW, imgH);
+    hLeft -= pdfH;
+    while (hLeft > 0) { pos = hLeft - imgH; pdf.addPage(); pdf.addImage(imgData, 'JPEG', 0, pos, pdfW, imgH); hLeft -= pdfH; }
+    pdf.save(receiptNo + '.pdf');
+    _showToast('Receipt downloaded.');
+  } catch (err) {
+    if (frame.parentNode) document.body.removeChild(frame);
+    console.error('Receipt PDF error:', err);
+    _showToast('Error generating receipt: ' + err.message, true);
   }
 }
 
