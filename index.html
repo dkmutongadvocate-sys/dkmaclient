@@ -4242,7 +4242,7 @@ async function downloadPortalReceiptPdf(invId, paymentIdOrEvent = null, e = null
   }
 
   const { data: payments, error: payErr } = await sb
-    .from('payments')
+    .from('invoice_payments')
     .select('*')
     .eq('invoice_id', invId)
     .order('payment_date', { ascending: true });
@@ -4451,4 +4451,3 @@ async function downloadPortalReceiptPdf(invId, paymentIdOrEvent = null, e = null
 
 </body>
 </html>
-
