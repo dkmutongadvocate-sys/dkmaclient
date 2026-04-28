@@ -4063,13 +4063,21 @@ async function downloadPortalInvoiceDocx(invId){
 }
 
 // ─── RECEIPT PDF GENERATOR ───────────────────────────────────────────────────
-async function downloadPortalReceiptPdf(invId, e) {
-  if (e) { e.stopPropagation(); }
+async function downloadPortalReceiptPdf(invId, paymentId = null, e) {
+  if (e) e.stopPropagation();
 
   const _loadLib = (src) => new Promise((res, rej) => {
-    if (document.querySelector('script[src="' + src + '"]')) { res(); return; }
+    const existing = document.querySelector('script[src="' + src + '"]');
+    if (existing) {
+      if (existing.dataset.loaded === '1') { res(); return; }
+      existing.addEventListener('load', res, { once:true });
+      existing.addEventListener('error', rej, { once:true });
+      return;
+    }
     const s = document.createElement('script');
-    s.src = src; s.onload = res; s.onerror = rej;
+    s.src = src;
+    s.onload = () => { s.dataset.loaded = '1'; res(); };
+    s.onerror = rej;
     document.head.appendChild(s);
   });
 
@@ -4079,150 +4087,208 @@ async function downloadPortalReceiptPdf(invId, e) {
     await _loadLib('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
     await _loadLib('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
   } catch (_e) {
-    _showToast('Receipt tools could not load. Check connection.', true); return;
+    _showToast('Receipt tools could not load. Check connection.', true);
+    return;
   }
 
-  // Fetch invoice
   const { data: inv, error: invErr } = await supabase
     .from('invoices')
     .select('*, matters(title), clients(name,email,phone)')
     .eq('id', invId)
     .single();
-  if (invErr || !inv) { _showToast('Could not load invoice.', true); return; }
+  if (invErr || !inv) {
+    _showToast('Could not load invoice.', true);
+    return;
+  }
 
-  // Fetch most recent payment
-  const { data: pRows } = await supabase
+  const { data: payments, error: payErr } = await supabase
     .from('payments')
     .select('*')
     .eq('invoice_id', invId)
-    .order('payment_date', { ascending: false })
-    .limit(1);
-  const payment = pRows?.[0] || null;
-  if (!payment) { _showToast('No payment record found for this invoice.', true); return; }
+    .order('payment_date', { ascending: true });
+  if (payErr) {
+    _showToast('Could not load receipt details: ' + payErr.message, true);
+    return;
+  }
+  if (!payments || !payments.length) {
+    _showToast('No payment record found for this invoice.', true);
+    return;
+  }
 
-  const fmtDt = (d) => d ? new Date(d).toLocaleDateString('en-KE', { day: '2-digit', month: 'long', year: 'numeric' }) : '—';
-  const fmtMny = (n) => 'KES ' + Number(n || 0).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const payment = paymentId ? payments.find(p => p.id === paymentId) : payments[payments.length - 1];
+  if (!payment) {
+    _showToast('Payment record not found.', true);
+    return;
+  }
+
+  const fmtDt = (d) => d ? new Date(d).toLocaleDateString('en-KE', { day:'2-digit', month:'long', year:'numeric' }) : '—';
+  const fmtMny = (n) => 'KES ' + Number(n || 0).toLocaleString('en-KE', { minimumFractionDigits:2, maximumFractionDigits:2 });
   const _esc = (s) => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  function amountInWords(n) {
+    const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+    const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+    function tw(num) {
+      if (num === 0) return '';
+      if (num < 20) return ones[num] + ' ';
+      if (num < 100) return tens[Math.floor(num / 10)] + ' ' + (num % 10 ? ones[num % 10] + ' ' : '');
+      if (num < 1000) return ones[Math.floor(num / 100)] + ' Hundred ' + (num % 100 ? tw(num % 100) : '');
+      if (num < 1000000) return tw(Math.floor(num / 1000)) + 'Thousand ' + (num % 1000 ? tw(num % 1000) : '');
+      return tw(Math.floor(num / 1000000)) + 'Million ' + (num % 1000000 ? tw(num % 1000000) : '');
+    }
+    const whole = Math.floor(Number(n) || 0);
+    const cents = Math.round(((Number(n) || 0) - whole) * 100);
+    let words = (tw(whole).trim() || 'Zero') + ' Kenya Shillings';
+    if (cents) words += ' And ' + tw(cents).trim() + ' Cents';
+    return words.toUpperCase() + ' ONLY';
+  }
 
   const client = inv.clients || {};
   const matter = inv.matters || {};
+  const totalPaid = payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
   const amountPaid = Number(payment.amount || 0);
   const total = Number(inv.total_amount || inv.amount || 0);
-  const balance = Math.max(0, total - amountPaid);
-  const receiptNo = ('RCPT-' + String(inv.invoice_no || 'INV').replace(/[^A-Za-z0-9]+/g,'-').replace(/^-+|-+$/g,'') + '-' + String(payment.id||'').replace(/[^A-Za-z0-9]/g,'').slice(0,8)).toUpperCase();
+  const balance = Math.max(0, total - totalPaid);
+  const receiptNo = ('RCPT-' + String(inv.invoice_no || 'INV').replace(/[^A-Za-z0-9]+/g,'-').replace(/^-+|-+$/g,'') + '-' + String(payment.id || '').replace(/[^A-Za-z0-9]/g,'').slice(0,8)).toUpperCase();
+  const paymentMethod = payment.payment_method || payment.method || '—';
+  const reference = payment.transaction_ref || payment.reference || '';
+  const notes = payment.notes || 'Payment received with thanks.';
+
+  const _fc = (typeof firmContact !== 'undefined' && firmContact) || {};
+  const _invFirmName = _fc.contact_firm_name || 'D.K. MUTONGA & CO. ADVOCATES';
+  const _invFirmPhone = _fc.contact_phone || '';
+  const _invFirmEmail = _fc.contact_email || '';
+  const _invFirmPhysical = _fc.contact_physical || '';
+  const _invFirmWebsite = _fc.contact_website || '';
+  const _invFirmReg = _fc.contact_reg || '';
+  const _invFirmPostal = _fc.contact_postal || '';
+  const _contactLine = [_invFirmPhone, _invFirmEmail, _invFirmWebsite].filter(Boolean).join(' | ');
+  const _hdrContactDetails = [
+    _invFirmPhone ? `<span>&#128222; ${_esc(_invFirmPhone)}</span>` : '',
+    _invFirmEmail ? `<span>&#9993; ${_esc(_invFirmEmail)}</span>` : '',
+    _invFirmWebsite ? `<span>&#127760; ${_esc(_invFirmWebsite)}</span>` : ''
+  ].filter(Boolean).join(' &nbsp;|&nbsp; ');
+  const _hdrAddress = [_invFirmPhysical, _invFirmPostal].filter(Boolean).map(_esc).join(' | ');
 
   const receiptHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8">
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:Arial,sans-serif;color:#1a1a1a;background:#fff;padding:48px;font-size:13px}
-  .hdr{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:20px;border-bottom:2px solid #0D1B2A;margin-bottom:28px}
-  .firm-name{font-size:22px;font-weight:700;color:#0D1B2A;font-family:Georgia,serif}
-  .firm-sub{font-size:10px;color:#8a8a8a;text-transform:uppercase;letter-spacing:1px;margin-top:5px}
-  .r-title{font-size:28px;font-weight:700;color:#0D1B2A;font-family:Georgia,serif;text-align:right}
-  .r-no{font-size:13px;color:#B8953A;font-weight:700;text-align:right;margin-top:6px}
-  .lbl{font-size:10px;color:#8a8a8a;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:7px;font-weight:700}
-  .client-name{font-size:17px;font-weight:700;color:#0D1B2A}
-  .sub-txt{font-size:12px;color:#5a5a5a;margin-top:3px}
-  .amt-box{background:#0D1B2A;border-radius:10px;padding:20px 28px;display:flex;justify-content:space-between;align-items:center;margin:26px 0}
-  .amt-lbl{font-size:11px;text-transform:uppercase;letter-spacing:0.5px;color:rgba(255,255,255,0.65)}
-  .amt-method{font-size:12px;color:rgba(255,255,255,0.5);margin-top:5px}
-  .amt-val{font-size:26px;font-weight:700;color:#B8953A;font-family:Georgia,serif}
-  table.det{width:100%;border-collapse:collapse}
-  table.det td{padding:9px 14px;font-size:13px;border-bottom:1px solid #ede9e2}
-  table.det td:first-child{color:#5a5a5a;width:46%}
-  table.det td:last-child{font-weight:600;text-align:right}
-  .stamp-wrap{text-align:center;margin-top:32px}
-  .stamp{display:inline-block;border:2px solid #2D6A4F;border-radius:6px;color:#2D6A4F;font-weight:700;font-size:12px;padding:6px 18px;text-transform:uppercase;letter-spacing:1px}
-  .ftr{margin-top:36px;padding-top:18px;border-top:1px solid #ede9e2;font-size:11px;color:#8a8a8a;text-align:center;line-height:1.9}
-</style>
-</head><body>
-<div class="hdr">
-  <div>
-    <div class="firm-name">DKMA Advocates</div>
-    <div class="firm-sub">Advocates &amp; Commissioners for Oaths</div>
+  html{width:993px;background:#fff;font-family:'Sitka Text',serif;font-size:13px;color:#1a1a1a;display:flex;flex-direction:column;min-height:1404px}
+  body{width:993px;flex:1;display:flex;flex-direction:column;min-height:1404px}
+  .dyn-hdr{width:993px;display:flex;flex-direction:column;flex-shrink:0;background:#fff}
+  .dyn-hdr-top{background:#0D1B2A;display:flex;align-items:center;justify-content:space-between;padding:22px 32px 22px 28px}
+  .dyn-hdr-firm{flex:1}
+  .dyn-hdr-firm-name{font-family:'Playfair Display',Georgia,serif;font-size:20px;color:#fff;font-weight:600;letter-spacing:.5px;line-height:1.25}
+  .dyn-hdr-firm-sub{font-size:11px;color:rgba(255,255,255,.55);letter-spacing:1.8px;text-transform:uppercase;margin-top:4px}
+  .dyn-hdr-contact{text-align:right;font-size:10.5px;color:rgba(255,255,255,.75);line-height:2}
+  .dyn-hdr-gold-bar{height:5px;background:linear-gradient(90deg,#B8953A 0%,#D4AF5A 50%,#B8953A 100%)}
+  .dyn-hdr-addr-bar{background:#F8F5F0;border-bottom:1px solid #D9D4CB;padding:7px 32px;font-size:10.5px;color:#5a5a5a;display:flex;justify-content:space-between;align-items:center}
+  .dyn-ftr{width:993px;display:flex;flex-direction:column;flex-shrink:0;margin-top:auto}
+  .dyn-ftr-gold-bar{height:4px;background:linear-gradient(90deg,#B8953A 0%,#D4AF5A 50%,#B8953A 100%)}
+  .dyn-ftr-bottom{background:#0D1B2A;display:flex;align-items:center;justify-content:space-between;padding:14px 32px;font-size:10.5px;color:rgba(255,255,255,.65)}
+  .dyn-ftr-name{font-family:'Playfair Display',Georgia,serif;font-size:12px;color:#B8953A;font-weight:600}
+  .body{padding:22px 44px 20px;background:#fff;flex:1}
+  .date-line{font-size:13px;color:#0D1B2A;font-weight:bold;margin-bottom:14px}
+  .dear{font-size:13px;margin-bottom:6px}
+  .cname{color:#0D1B2A;font-weight:bold}
+  .re{font-size:13px;font-weight:bold;text-decoration:underline;margin-bottom:14px}
+  .para{font-size:13px;margin-bottom:10px;line-height:1.65}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin:10px 0 16px}
+  th{padding:9px 12px;background:#0D1B2A;color:#fff;font-weight:bold;border:1px solid #0D1B2A;text-align:left}
+  td{padding:9px 12px;border:1px solid #9D9D9D;vertical-align:top}
+  td.right{text-align:right}
+  .total-row td{font-weight:bold;background:#f0ede8;border:1px solid #888;padding:8px 12px}
+  .words-row td{font-weight:bold;border:1px solid #888;padding:9px 12px;text-align:center;text-transform:uppercase}
+  .closing{font-size:13px;line-height:2;margin-top:6px}
+  .sign{font-size:13px;font-weight:bold;color:#0D1B2A;text-decoration:underline;line-height:1.7;margin-top:6px}
+  .contact-line{font-size:11px;color:#5a5a5a;margin-top:4px}
+</style></head><body>
+<div class="dyn-hdr">
+  <div class="dyn-hdr-top">
+    <div class="dyn-hdr-firm">
+      <div class="dyn-hdr-firm-name">${_esc(_invFirmName)}</div>
+      <div class="dyn-hdr-firm-sub">Advocates & Legal Consultants</div>
+    </div>
+    <div class="dyn-hdr-contact">${_hdrContactDetails || '&nbsp;'}</div>
   </div>
-  <div>
-    <div class="r-title">OFFICIAL RECEIPT</div>
-    <div class="r-no">${_esc(receiptNo)}</div>
-  </div>
+  <div class="dyn-hdr-gold-bar"></div>
+  <div class="dyn-hdr-addr-bar"><span>${_hdrAddress || '&nbsp;'}</span><span>${_invFirmReg ? `Reg. No: ${_esc(_invFirmReg)}` : '&nbsp;'}</span></div>
 </div>
-
-<div style="margin-bottom:24px">
-  <div class="lbl">Received From</div>
-  <div class="client-name">${_esc(client.name||'—')}</div>
-  ${client.email?`<div class="sub-txt">${_esc(client.email)}</div>`:''}
-  ${matter.title?`<div class="sub-txt">Re: ${_esc(matter.title)}</div>`:''}
-</div>
-
-<div class="amt-box">
-  <div>
-    <div class="amt-lbl">Amount Received</div>
-    <div class="amt-method">${_esc(payment.payment_method||'Payment')} &nbsp;·&nbsp; ${fmtDt(payment.payment_date)}</div>
-  </div>
-  <div class="amt-val">${fmtMny(amountPaid)}</div>
-</div>
-
-<div style="margin-bottom:24px">
-  <div class="lbl">Payment Details</div>
-  <table class="det">
+<div class="body">
+  <div class="date-line">Date: ${fmtDt(payment.payment_date)}</div>
+  <div class="dear">Received from:</div>
+  <div class="dear cname">${_esc(client.name || '—')}</div>
+  <div class="para">${matter.title ? `Matter: <strong>${_esc(matter.title)}</strong><br>` : ''}${client.email ? `${_esc(client.email)}<br>` : ''}${client.phone ? `${_esc(client.phone)}` : ''}</div>
+  <div class="re">RE: OFFICIAL RECEIPT - ${_esc(inv.invoice_no || '—')}</div>
+  <div class="para">We acknowledge with thanks receipt of your payment in respect of the above invoice. The details of the payment are as follows:</div>
+  <table>
+    <tr><th style="width:38%">Particulars</th><th>Details</th></tr>
     <tr><td>Receipt No.</td><td>${_esc(receiptNo)}</td></tr>
-    <tr><td>Invoice No.</td><td>${_esc(inv.invoice_no||'—')}</td></tr>
+    <tr><td>Invoice No.</td><td>${_esc(inv.invoice_no || '—')}</td></tr>
     <tr><td>Receipt Date</td><td>${fmtDt(payment.payment_date)}</td></tr>
-    <tr><td>Payment Method</td><td>${_esc(payment.payment_method||'—')}</td></tr>
-    ${payment.transaction_ref?`<tr><td>Transaction Ref.</td><td>${_esc(payment.transaction_ref)}</td></tr>`:''}
-    <tr><td>Invoice Total</td><td>${fmtMny(total)}</td></tr>
-    <tr><td>Amount Paid</td><td>${fmtMny(amountPaid)}</td></tr>
-    <tr><td>Balance</td><td style="color:${balance>0?'#A33':'#2D6A4F'}">${fmtMny(balance)}</td></tr>
+    <tr><td>Payment Method</td><td>${_esc(paymentMethod)}</td></tr>
+    <tr><td>Reference</td><td>${_esc(reference || '—')}</td></tr>
+    <tr><td>Description</td><td>${_esc(inv.description || matter.title || 'Professional services rendered')}</td></tr>
+    <tr><td>Notes</td><td>${_esc(notes)}</td></tr>
+    <tr class="total-row"><td>Invoice Total</td><td class="right">${fmtMny(total)}</td></tr>
+    <tr class="total-row"><td>Amount Received</td><td class="right">${fmtMny(amountPaid)}</td></tr>
+    <tr class="total-row"><td>Total Paid To Date</td><td class="right">${fmtMny(totalPaid)}</td></tr>
+    <tr class="total-row"><td>Outstanding Balance</td><td class="right">${fmtMny(balance)}</td></tr>
+    <tr class="words-row"><td colspan="2">${amountInWords(amountPaid)}</td></tr>
   </table>
+  <div class="para">${balance > 0 ? `A balance of <strong>${fmtMny(balance)}</strong> remains outstanding on this matter.` : 'This payment clears the invoice in full.'}</div>
+  <div class="closing">Yours faithfully,</div>
+  <div class="sign">${_esc(_invFirmName)}</div>
+  ${_contactLine ? `<div class="contact-line">${_esc(_contactLine)}</div>` : ''}
 </div>
-
-<div class="stamp-wrap"><div class="stamp">✓ Payment Confirmed</div></div>
-
-<div class="ftr">
-  This is an official receipt issued by DKMA Advocates.<br>
-  Please retain this document for your records.<br>
-  ${new Date().toLocaleDateString('en-KE',{day:'2-digit',month:'long',year:'numeric'})}
+<div class="dyn-ftr">
+  <div class="dyn-ftr-gold-bar"></div>
+  <div class="dyn-ftr-bottom">
+    <div class="dyn-ftr-name">${_esc(_invFirmName)}</div>
+    <div>${fmtDt(new Date())}</div>
+  </div>
 </div>
 </body></html>`;
 
   const frame = document.createElement('iframe');
-  frame.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;height:1px;border:none;visibility:hidden;';
+  frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:993px;height:1404px;border:none;opacity:0;pointer-events:none;';
   document.body.appendChild(frame);
   frame.contentDocument.open();
   frame.contentDocument.write(receiptHtml);
   frame.contentDocument.close();
-  await new Promise(r => setTimeout(r, 700));
-
-  const fBody = frame.contentDocument.body;
-  const fRoot = frame.contentDocument.documentElement;
-  const fullH = Math.max(fBody.scrollHeight, fRoot.scrollHeight);
-  frame.style.height = fullH + 'px';
-  fRoot.style.height = fullH + 'px';
-  fBody.style.height = fullH + 'px';
-  await new Promise(r => setTimeout(r, 100));
 
   try {
-    const canvas = await html2canvas(frame.contentDocument.body, {
-      scale: 2, useCORS: true, allowTaint: true,
-      backgroundColor: '#fff', logging: false, width: 794, windowWidth: 794
+    await new Promise(resolve => setTimeout(resolve, 180));
+    const root = frame.contentDocument.body;
+    const canvas = await window.html2canvas(root, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      width: 993,
+      height: root.scrollHeight
     });
-    document.body.removeChild(frame);
     const imgData = canvas.toDataURL('image/jpeg', 0.97);
     const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pdf = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
     const pdfW = pdf.internal.pageSize.getWidth();
     const pdfH = pdf.internal.pageSize.getHeight();
     const imgH = (canvas.height * pdfW) / canvas.width;
-    let hLeft = imgH, pos = 0;
-    pdf.addImage(imgData, 'JPEG', 0, pos, pdfW, imgH);
-    hLeft -= pdfH;
-    while (hLeft > 0) { pos = hLeft - imgH; pdf.addPage(); pdf.addImage(imgData, 'JPEG', 0, pos, pdfW, imgH); hLeft -= pdfH; }
-    pdf.save(receiptNo + '.pdf');
+    let heightLeft = imgH;
+    let position = 0;
+    pdf.addImage(imgData, 'JPEG', 0, position, pdfW, imgH);
+    heightLeft -= pdfH;
+    while (heightLeft > 0) {
+      position = heightLeft - imgH;
+      pdf.addPage();
+      pdf.addImage(imgData, 'JPEG', 0, position, pdfW, imgH);
+      heightLeft -= pdfH;
+    }
+    pdf.save(((inv.invoice_no || 'Invoice') + '-Receipt').replace(/[\\/:*?"<>|]+/g, '-') + '.pdf');
     _showToast('Receipt downloaded.');
   } catch (err) {
-    if (frame.parentNode) document.body.removeChild(frame);
     console.error('Receipt PDF error:', err);
     _showToast('Error generating receipt: ' + err.message, true);
+  } finally {
+    frame.remove();
   }
 }
 
