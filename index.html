@@ -3988,12 +3988,25 @@ async function downloadPortalInvoiceDocx(invId){
   const inv=myInvoices.find(x=>x.id===invId);if(!inv){return;}
   let lineItems=[];
   try{lineItems=inv.line_items?JSON.parse(inv.line_items):[];}catch(e){}
-  if(!lineItems.length&&inv.amount){lineItems=[{description:inv.description||'Professional Services',qty:1,unit_price:Number(inv.amount),subtotal:Number(inv.amount)}];}
-  const sub=lineItems.reduce((s,l)=>s+(Number(l.subtotal)||0),0);
-  // Fee note: no VAT — total is the subtotal only
-  const total=sub;
+  if(!lineItems.length){lineItems=[{description:inv.description||'Professional Services',qty:1,unit_price:Number(inv.subtotal??inv.amount)||0,subtotal:Number(inv.subtotal??inv.amount)||0}];}
+  const derivedSubtotal=lineItems.reduce((s,l)=>s+(Number(l.subtotal)||0),0);
+  const sub=Number(inv.subtotal??derivedSubtotal)||0;
+  const storedVatRate=Number(inv.vat_rate)||0;
+  const vatRate=storedVatRate>0?storedVatRate:0.16;
+  const vat=Number(inv.vat_amount??(((Boolean(inv.has_vat)||Number(inv.vat_amount)>0)&&Number(inv.amount)>sub)?Number(inv.amount)-sub:0))||0;
+  const showVat=Boolean(inv.has_vat)||vat>0;
+  const total=Number(inv.amount||inv.total_amount||(sub+vat))||(sub+vat);
   const fmtMny=n=>'KES '+Number(n).toLocaleString('en-KE',{minimumFractionDigits:2,maximumFractionDigits:2});
   const fmtDt=d=>d?new Date(d).toLocaleDateString('en-KE',{day:'2-digit',month:'long',year:'numeric'}):'—';
+  const summaryRowsHtml=showVat?`
+      <tr class="total-row">
+        <td colspan="2" style="text-align:center;">SUBTOTAL</td>
+        <td style="text-align:center;">${fmtMny(sub)}</td>
+      </tr>
+      <tr class="total-row">
+        <td colspan="2" style="text-align:center;">VAT (${Math.round(vatRate*100)}%)</td>
+        <td style="text-align:center;">${fmtMny(vat)}</td>
+      </tr>`:'';
 
   // Client name from clientRecord (portal has clientRecord, CMS had separate clients array)
   const clientName=clientRecord?.name||'Client';
@@ -4118,6 +4131,7 @@ async function downloadPortalInvoiceDocx(invId){
     </tr></thead>
     <tbody>
       ${lineRowsHtml}
+      ${summaryRowsHtml}
       <tr class="total-row">
         <td colspan="2" style="text-align:center;">TOTAL</td>
         <td style="text-align:center;">${fmtMny(total)}</td>
@@ -4286,7 +4300,11 @@ async function downloadPortalReceiptPdf(invId, paymentIdOrEvent = null, e = null
   const matter = inv.matters || {};
   const totalPaid = payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
   const amountPaid = Number(payment.amount || 0);
-  const total = Number(inv.total_amount || inv.amount || 0);
+  const subtotal = Number(inv.subtotal ?? ((Number(inv.total_amount || inv.amount || 0)) - (Number(inv.vat_amount) || 0))) || 0;
+  const vat = Number(inv.vat_amount || 0) || 0;
+  const showVat = Boolean(inv.has_vat) || vat > 0;
+  const vatRate = Number(inv.vat_rate) > 0 ? Number(inv.vat_rate) : 0.16;
+  const total = Number(inv.total_amount || inv.amount || (subtotal + vat)) || (subtotal + vat);
   const balance = Math.max(0, total - totalPaid);
   const receiptNo = ('RCPT-' + String(inv.invoice_no || 'INV').replace(/[^A-Za-z0-9]+/g,'-').replace(/^-+|-+$/g,'') + '-' + String(payment.id || '').replace(/[^A-Za-z0-9]/g,'').slice(0,8)).toUpperCase();
   const paymentMethod = payment.payment_method || payment.method || '—';
@@ -4308,6 +4326,9 @@ async function downloadPortalReceiptPdf(invId, paymentIdOrEvent = null, e = null
     _invFirmWebsite ? `<span>&#127760; ${_esc(_invFirmWebsite)}</span>` : ''
   ].filter(Boolean).join(' &nbsp;|&nbsp; ');
   const _hdrAddress = [_invFirmPhysical, _invFirmPostal].filter(Boolean).map(_esc).join(' | ');
+  const receiptTaxRows = showVat ? `
+    <tr class="total-row"><td>Subtotal</td><td class="right">${fmtMny(subtotal)}</td></tr>
+    <tr class="total-row"><td>VAT (${Math.round(vatRate * 100)}%)</td><td class="right">${fmtMny(vat)}</td></tr>` : '';
 
   const receiptHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8">
 <style>
@@ -4369,6 +4390,7 @@ async function downloadPortalReceiptPdf(invId, paymentIdOrEvent = null, e = null
     <tr><td>Reference</td><td>${_esc(reference || '—')}</td></tr>
     <tr><td>Description</td><td>${_esc(inv.description || matter.title || 'Professional services rendered')}</td></tr>
     <tr><td>Notes</td><td>${_esc(notes)}</td></tr>
+    ${receiptTaxRows}
     <tr class="total-row"><td>Invoice Total</td><td class="right">${fmtMny(total)}</td></tr>
     <tr class="total-row"><td>Amount Received</td><td class="right">${fmtMny(amountPaid)}</td></tr>
     <tr class="total-row"><td>Total Paid To Date</td><td class="right">${fmtMny(totalPaid)}</td></tr>
