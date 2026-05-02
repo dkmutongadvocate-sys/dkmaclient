@@ -1228,6 +1228,7 @@ let gazettedHolidays=[];     // ad-hoc holidays from gazetted_holidays table
 let profileEditing=false;
 let firmContact={};          // firm settings from firm_settings table
 const SIGNATURE_REQUESTS_PREFIX='client__signature_request__';
+const SIGNATURE_RESPONSE_PREFIX='client__signature_response__';
 const SIGNATURE_ARTIFACTS_PREFIX='client__signature_artifact__';
 
 // ── HELPERS ───────────────────────────────────────────────────────
@@ -1289,7 +1290,7 @@ function getSignatureRequest(requestId){
   return (mySignatureRequests||[]).find(r=>r.id===requestId)||null;
 }
 function isSignatureSystemFile(name){
-  return !!name&&(name.startsWith(SIGNATURE_REQUESTS_PREFIX)||name.startsWith(SIGNATURE_ARTIFACTS_PREFIX));
+  return !!name&&(name.startsWith(SIGNATURE_REQUESTS_PREFIX)||name.startsWith(SIGNATURE_RESPONSE_PREFIX)||name.startsWith(SIGNATURE_ARTIFACTS_PREFIX));
 }
 function defaultSignatureFields(){
   return[
@@ -1726,23 +1727,42 @@ async function writeSignatureJson(path,payload){
   const {error}=await sb.storage.from(FIRM_BUCKET).upload(path,blob,{upsert:true,contentType:'application/json'});
   if(error)throw error;
 }
+function signatureResponsePath(req){
+  return `client-general/${clientRecord.id}/${SIGNATURE_RESPONSE_PREFIX}${req.matter_id}__${req.id}.json`;
+}
+async function writeSignatureResponse(req,payload){
+  const path=req._response_path||signatureResponsePath(req);
+  await writeSignatureJson(path,payload);
+  req._response_path=path;
+  return path;
+}
 async function loadMySignatureRequests(){
   if(!clientRecord){mySignatureRequests=[];return;}
   const folder=`client-general/${clientRecord.id}`;
   const {data,error}=await sb.storage.from(FIRM_BUCKET).list(folder,{limit:200,sortBy:{column:'created_at',order:'desc'}});
   if(error){mySignatureRequests=[];return;}
-  const rows=(await Promise.all((data||[])
-    .filter(f=>f.name&&f.name.startsWith(SIGNATURE_REQUESTS_PREFIX)&&f.name.endsWith('.json'))
+  const requestRows=[];
+  const responseByRequestId={};
+  await Promise.all((data||[])
+    .filter(f=>f.name&&f.name.endsWith('.json')&&(f.name.startsWith(SIGNATURE_REQUESTS_PREFIX)||f.name.startsWith(SIGNATURE_RESPONSE_PREFIX)))
     .map(async f=>{
       try{
         const rec=await readSignatureJson(`${folder}/${f.name}`);
-        rec._storage_path=`${folder}/${f.name}`;
-        return rec;
+        if(f.name.startsWith(SIGNATURE_REQUESTS_PREFIX)){
+          rec._storage_path=`${folder}/${f.name}`;
+          requestRows.push(rec);
+        }else if(f.name.startsWith(SIGNATURE_RESPONSE_PREFIX)&&rec?.request_id){
+          rec._response_path=`${folder}/${f.name}`;
+          responseByRequestId[rec.request_id]=rec;
+        }
       }catch(e){
-        console.warn('[DKMA Portal] signature request',f.name,e.message);
-        return null;
+        console.warn('[DKMA Portal] signature record',f.name,e.message);
       }
-    }))).filter(Boolean).sort((a,b)=>signatureSortValue(b)-signatureSortValue(a));
+    }));
+  const rows=requestRows.map(rec=>{
+    const response=responseByRequestId[rec.id];
+    return response?{...rec,...response,_storage_path:rec._storage_path,_response_path:response._response_path}:rec;
+  }).sort((a,b)=>signatureSortValue(b)-signatureSortValue(a));
   mySignatureRequests=rows;
 }
 
@@ -1864,7 +1884,6 @@ function wireSignatureCanvas(canvas,onChange){
     const p=point(e);
     ctx.lineTo(p.x,p.y);
     ctx.stroke();
-    if(typeof onChange==='function')onChange(signatureCanvasData(canvas));
     e.preventDefault();
   }
   function end(e){
@@ -1910,10 +1929,60 @@ async function renderSignatureDocPreview(req,mountEl,typedName='',signatureDataU
         <div id="sigdoc-preview-layer" style="position:absolute;inset:0;pointer-events:none"></div>
       </div>`;
     const base=mountEl.querySelector('#sigdoc-preview-base');
+    async function ensurePdfJs(){
+      if(window.pdfjsLib)return window.pdfjsLib;
+      await new Promise((resolve,reject)=>{
+        const s=document.createElement('script');
+        s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js';
+        s.onload=resolve;
+        s.onerror=()=>reject(new Error('Could not load PDF preview library'));
+        document.head.appendChild(s);
+      });
+      if(window.pdfjsLib?.GlobalWorkerOptions){
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+      }
+      return window.pdfjsLib;
+    }
+    async function renderInlineHtml(urlToLoad){
+      const resp=await fetch(urlToLoad);
+      if(!resp.ok)throw new Error('Preview fetch failed');
+      const source=await resp.text();
+      const parsed=new DOMParser().parseFromString(source,'text/html');
+      const styles=[...parsed.querySelectorAll('style')].map(el=>el.outerHTML).join('');
+      const links=[...parsed.querySelectorAll('link[rel="stylesheet"]')].map(el=>el.outerHTML).join('');
+      base.innerHTML=`${styles}${links}<div style="position:relative;padding:24px;background:#fff">${parsed.body.innerHTML}</div>`;
+    }
+    async function renderPdf(urlToLoad){
+      const pdfjs=await ensurePdfJs();
+      const pdf=await pdfjs.getDocument(urlToLoad).promise;
+      base.innerHTML='';
+      const stack=document.createElement('div');
+      stack.style.cssText='position:relative;display:flex;flex-direction:column;gap:14px;padding:12px 0;background:#f8f6ef';
+      base.appendChild(stack);
+      const widthGuess=Math.min(Math.max((mountEl.clientWidth||760)-54,320),860);
+      for(let pageNum=1;pageNum<=pdf.numPages;pageNum++){
+        const page=await pdf.getPage(pageNum);
+        const baseViewport=page.getViewport({scale:1});
+        const scale=Math.max(0.35,widthGuess/baseViewport.width);
+        const viewport=page.getViewport({scale});
+        const canvas=document.createElement('canvas');
+        canvas.width=Math.ceil(viewport.width);
+        canvas.height=Math.ceil(viewport.height);
+        canvas.style.cssText='display:block;width:100%;height:auto;background:#fff;border:1px solid var(--brd);border-radius:8px';
+        const pageWrap=document.createElement('div');
+        pageWrap.style.cssText=`position:relative;width:${viewport.width}px;max-width:100%;margin:0 auto`;
+        pageWrap.appendChild(canvas);
+        stack.appendChild(pageWrap);
+        await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise;
+      }
+      return stack;
+    }
     if(['png','jpg','jpeg','gif','webp'].includes(ext)){
       base.innerHTML=`<img src="${url}" alt="${escapeAttr(req.document_name||'Document')}" style="display:block;width:100%;height:auto">`;
-    }else if(['pdf','html'].includes(ext)){
-      base.innerHTML=`<iframe src="${url}" style="display:block;width:100%;min-height:720px;border:none;background:#fff"></iframe>`;
+    }else if(ext==='html'||ext==='htm'){
+      await renderInlineHtml(url);
+    }else if(ext==='pdf'){
+      await renderPdf(url);
     }else{
       base.innerHTML=`<div style="padding:48px 24px;text-align:center;color:var(--txt3)">Preview is not available for this file type, but the saved placeholders will still be used.</div>`;
     }
@@ -2064,7 +2133,20 @@ async function submitSignatureRequest(requestId,overlay){
       certificate_path:certificatePath,
       user_agent:navigator.userAgent||''
     });
-    await writeSignatureJson(req._storage_path,req);
+    await writeSignatureResponse(req,{
+      request_id:req.id,
+      matter_id:req.matter_id,
+      client_id:req.client_id||clientRecord.id,
+      status:req.status,
+      signed_at:req.signed_at,
+      updated_at:req.updated_at,
+      opened_at:req.opened_at,
+      signed_name:req.signed_name,
+      signed_by_user_id:req.signed_by_user_id,
+      signature_path:req.signature_path,
+      certificate_path:req.certificate_path,
+      user_agent:req.user_agent
+    });
     mySignatureRequests=mySignatureRequests.map(r=>r.id===req.id?req:r).sort((a,b)=>signatureSortValue(b)-signatureSortValue(a));
     portalToast('Document signed successfully.');
     closeSignatureOverlay();
@@ -2153,7 +2235,14 @@ function openSignatureOverlay(requestId){
       req.status='opened';
       req.opened_at=req.opened_at||new Date().toISOString();
       req.updated_at=new Date().toISOString();
-      writeSignatureJson(req._storage_path,req).catch(()=>{});
+      writeSignatureResponse(req,{
+        request_id:req.id,
+        matter_id:req.matter_id,
+        client_id:req.client_id||clientRecord.id,
+        status:req.status,
+        opened_at:req.opened_at,
+        updated_at:req.updated_at
+      }).catch(()=>{});
       mySignatureRequests=mySignatureRequests.map(r=>r.id===req.id?req:r).sort((a,b)=>signatureSortValue(b)-signatureSortValue(a));
       refreshSignatureViews();
     }
