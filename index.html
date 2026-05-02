@@ -3,15 +3,15 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
-<title>DKMA — Client Portal</title>
+<title>DKMA - Client Portal</title>
 <meta name="theme-color" content="#0D1B2A"/>
 <meta name="mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="DKMA Portal"/>
-<meta name="description" content="Secure client portal — DKMA Advocates"/>
+<meta name="description" content="Secure client portal - DKMA Advocates"/>
 <link rel="manifest" href="manifest-portal.json"/>
-<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='80' fill='%230D1B2A'/><text y='320' x='256' font-size='280' text-anchor='middle' font-family='Georgia,serif' fill='%23B8953A'>⚖</text></svg>"/>
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='80' fill='%230D1B2A'/><text y='320' x='256' font-size='220' text-anchor='middle' font-family='Georgia,serif' fill='%23B8953A'>DK</text></svg>"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"></script>
@@ -25,7 +25,6 @@
 body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--txt);min-height:100vh}
 h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 
-/* ── AUTH ─────────────────────────────────────────────────────── */
 #auth-screen{display:none;position:fixed;inset:0;background:var(--navy);z-index:9000;align-items:center;justify-content:center;flex-direction:column}
 .auth-box{background:#fff;border-radius:14px;padding:40px;width:100%;max-width:400px;margin:20px}
 .auth-logo{text-align:center;margin-bottom:28px}
@@ -43,10 +42,8 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 .auth-switch a{color:var(--navy);cursor:pointer;text-decoration:underline}
 .auth-notice{text-align:center;font-size:11px;color:rgba(255,255,255,0.5);margin-top:20px;max-width:340px;line-height:1.6}
 
-/* ── SHELL ────────────────────────────────────────────────────── */
 #portal-shell{display:none;min-height:100vh;min-height:100dvh;flex-direction:column}
 
-/* ── TOPNAV ───────────────────────────────────────────────────── */
 .topnav{background:var(--navy);height:60px;display:flex;align-items:center;padding:0 28px;gap:16px;flex-shrink:0;position:sticky;top:0;z-index:100}
 .topnav-logo{font-family:'Playfair Display',serif;font-size:16px;color:#fff;font-weight:500;white-space:nowrap}
 .topnav-badge{background:var(--gold);color:var(--navy);font-size:9px;font-weight:600;padding:2px 7px;border-radius:3px;margin-left:8px;letter-spacing:0.5px}
@@ -62,27 +59,22 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 .signout-btn{background:none;border:1px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.5);font-size:11px;padding:5px 12px;border-radius:6px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s}
 .signout-btn:hover{color:#fff;border-color:rgba(255,255,255,0.5)}
 
-/* ── CONTENT ─────────────────────────────────────────────────── */
 .portal-content{flex:1;padding:28px;max-width:1100px;margin:0 auto;width:100%}
 
-/* ── VIEWS ────────────────────────────────────────────────────── */
 .pview{display:none}.pview.active{display:block}
 #pview-sos.active{display:flex;flex-direction:column;align-items:center}
 
-/* ── CARDS / PANELS ──────────────────────────────────────────── */
 .pcard{background:#fff;border-radius:10px;border:0.5px solid var(--brd);overflow:hidden;margin-bottom:18px}
 .pcard-header{padding:16px 20px;border-bottom:1px solid var(--brd);display:flex;align-items:center;justify-content:space-between}
 .pcard-title{font-family:'Playfair Display',serif;font-size:15px;font-weight:500;color:var(--txt)}
 .pcard-sub{font-size:11px;color:var(--txt3);margin-top:2px}
 
-/* ── STATS ────────────────────────────────────────────────────── */
 .pstats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
 .pstat{background:#fff;border-radius:10px;padding:18px 20px;border:0.5px solid var(--brd)}
 .pstat-label{font-size:10px;color:var(--txt3);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:8px}
 .pstat-val{font-family:'Playfair Display',serif;font-size:26px;color:var(--txt);line-height:1}
 .pstat-sub{font-size:11px;color:var(--txt3);margin-top:5px}
 
-/* ── MATTER CARDS ────────────────────────────────────────────── */
 .matter-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
 .matter-pcard{background:#fff;border-radius:10px;border:0.5px solid var(--brd);padding:18px 20px;transition:all 0.15s;cursor:default}
 .matter-pcard:hover{border-color:var(--gold);box-shadow:0 2px 12px rgba(184,149,58,0.1)}
@@ -90,7 +82,6 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 .matter-pcard-meta{font-size:11px;color:var(--txt3);line-height:1.7}
 .matter-pcard-footer{margin-top:12px;display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid var(--brd)}
 
-/* ── STATUS PILLS ────────────────────────────────────────────── */
 .spill{font-size:10px;padding:3px 9px;border-radius:10px;font-weight:500;display:inline-block}
 .sp-active{background:#EAF3DE;color:#2D6A4F}
 .sp-urgent{background:#FCEBEB;color:#A32D2D}
@@ -98,7 +89,6 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 .sp-closed{background:var(--cream2);color:var(--txt3)}
 .sp-paid{background:#EAF3DE;color:#2D6A4F}
 
-/* ── CLIENT GROUP ────────────────────────────────────────────── */
 .group-panel{background:#fff;border-radius:10px;border:0.5px solid var(--brd);overflow:hidden;margin-bottom:18px}
 .portal-group-tab{flex:1;padding:10px 14px;font-size:12px;font-weight:500;color:var(--txt3);cursor:pointer;text-align:center;user-select:none;transition:all 0.12s;border-right:1px solid var(--brd)}
 .portal-group-tab:last-child{border-right:none}
@@ -120,7 +110,6 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 .sp-overdue{background:#FCEBEB;color:#A32D2D}
 .sp-draft{background:var(--cream2);color:var(--txt3)}
 
-/* ── EVENT LIST ──────────────────────────────────────────────── */
 .event-row{display:flex;gap:16px;padding:13px 20px;border-bottom:1px solid var(--brd);align-items:flex-start}
 .event-row:last-child{border-bottom:none}
 .event-date-box{width:44px;text-align:center;flex-shrink:0;padding-top:2px}
@@ -136,7 +125,6 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 .et-deadline{background:#FAEEDA;color:#854F0B}
 .et-adr{background:#EEEDFE;color:#3C3489}
 
-/* ── CALENDAR GRID (matches CMS style) ──────────────────────── */
 .p-cal-day-names{display:grid;grid-template-columns:repeat(7,1fr);padding:12px 16px 4px;gap:4px}
 .p-cal-day-name{text-align:center;font-size:9px;color:var(--txt3);letter-spacing:0.5px;text-transform:uppercase;padding-bottom:4px}
 .p-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;padding:0 16px 16px}
@@ -158,7 +146,6 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 .p-cal-event-mini{font-size:9px;color:var(--navy);background:rgba(13,27,42,0.07);border-radius:2px;padding:1px 4px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;display:block}
 @media(max-width:600px){.p-cal-day{height:44px}.p-cal-day-num{font-size:10px}.p-cal-event-mini{display:none}}
 
-/* ── DOCUMENT LIST ───────────────────────────────────────────── */
 .doc-list-row{display:flex;align-items:center;gap:14px;padding:11px 20px;border-bottom:1px solid var(--brd);transition:background 0.12s}
 .doc-list-row:last-child{border-bottom:none}
 .doc-list-row:hover{background:var(--cream)}
@@ -184,7 +171,6 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 .pbtn.view{color:var(--navy);border-color:var(--navy)}
 .pbtn.view:hover{background:var(--navy);color:#fff}
 
-/* ── INVOICE TABLE ───────────────────────────────────────────── */
 .inv-table{width:100%}
 .inv-header-row{display:grid;grid-template-columns:1.2fr 1.5fr 1fr 1fr 1fr;padding:9px 20px;background:var(--cream);border-bottom:1px solid var(--brd)}
 .inv-header-row span{font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:0.5px;font-weight:500}
@@ -195,7 +181,6 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 .inv-cell.muted{color:var(--txt3);font-size:11px}
 .inv-cell.bold{font-weight:500}
 
-/* ── PROFILE FORM ────────────────────────────────────────────── */
 .pform-row{margin-bottom:16px}
 .pform-label{display:block;font-size:11px;color:var(--txt3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;font-weight:500}
 .pform-input{width:100%;border:1px solid var(--brd);border-radius:7px;padding:9px 12px;font-size:13px;font-family:'DM Sans',sans-serif;color:var(--txt);background:#fff;outline:none;transition:border-color 0.15s}
@@ -205,7 +190,6 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 .pform-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
 .section-label{font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:1px;font-weight:500;padding-bottom:8px;border-bottom:1px solid var(--brd);margin:20px 0 14px}
 
-/* ── UPLOAD ZONE ─────────────────────────────────────────────── */
 .upload-zone{border:2px dashed var(--brd2);border-radius:10px;padding:32px;text-align:center;cursor:pointer;transition:all 0.15s;background:var(--cream)}
 .upload-zone:hover,.upload-zone.drag{border-color:var(--gold);background:rgba(184,149,58,0.04)}
 .upload-zone input{display:none}
@@ -213,11 +197,9 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 .upload-zone-text{font-size:13px;color:var(--txt2);font-weight:500}
 .upload-zone-sub{font-size:11px;color:var(--txt3);margin-top:5px}
 
-/* ── DOC TYPE COLORS ─────────────────────────────────────────── */
 .dt-pdf{background:#FCEBEB}.dt-doc{background:#E6F1FB}.dt-img{background:#EAF3DE}
 .dt-xls{background:#FAEEDA}.dt-other{background:#EEEDFE}
 
-/* ── VIEWER ──────────────────────────────────────────────────── */
 .viewer-overlay{position:fixed;inset:0;background:rgba(13,27,42,0.75);z-index:2000;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px}
 .viewer-overlay.hidden{display:none}
 .viewer-bar{background:#fff;border-radius:10px 10px 0 0;width:100%;max-width:920px;padding:12px 18px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--brd);flex-shrink:0}
@@ -227,7 +209,6 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 .viewer-body img{max-width:100%;max-height:100%;object-fit:contain;display:block;margin:auto;padding:20px}
 .viewer-nopreview{padding:48px 20px;text-align:center;color:var(--txt3);font-size:13px;line-height:1.7}
 
-/* ── VIEWER: MOBILE PORTRAIT ─────────────────────────────────────── */
 @media(max-width:640px) and (orientation:portrait){
   .viewer-overlay{padding:0}
   .viewer-bar{border-radius:0;padding:10px 14px;padding-top:calc(10px + env(safe-area-inset-top));position:sticky;top:0;z-index:1}
@@ -235,7 +216,6 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
   .viewer-title{font-size:12px}
 }
 
-/* ── VIEWER: MOBILE LANDSCAPE ────────────────────────────────────── */
 @media(max-height:500px) and (orientation:landscape){
   .viewer-overlay{padding:0;flex-direction:row;align-items:stretch}
   .viewer-bar{
@@ -253,7 +233,6 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
   .viewer-nopreview{padding:16px}
 }
 
-/* ── WELCOME BANNER ──────────────────────────────────────────── */
 .welcome-banner{background:var(--navy);border-radius:12px;padding:24px 28px;margin-bottom:22px;display:flex;align-items:center;gap:18px}
 .welcome-av{width:52px;height:52px;border-radius:50%;background:var(--gold);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:600;color:var(--navy);flex-shrink:0}
 .welcome-text{flex:1}
@@ -261,7 +240,6 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 .welcome-sub{font-size:12px;color:rgba(255,255,255,0.5);margin-top:3px}
 .welcome-firm{font-size:11px;color:var(--gold);margin-top:6px;letter-spacing:0.5px}
 
-/* ── MATTER DETAIL VIEW ──────────────────────────────────────── */
 .matter-detail-back{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--txt3);cursor:pointer;margin-bottom:18px;width:fit-content;padding:5px 0}
 .matter-detail-back:hover{color:var(--navy)}
 .matter-detail-hero{background:var(--navy);border-radius:12px;padding:22px 26px;margin-bottom:18px;color:#fff}
@@ -274,23 +252,19 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 .matter-detail-tab.active{background:var(--navy);color:#fff}
 .matter-detail-panel{display:none}.matter-detail-panel.active{display:block}
 
-/* ── EMPTY STATE ─────────────────────────────────────────────── */
 .empty{padding:40px 20px;text-align:center;color:var(--txt3);font-size:13px}
 .empty-icon{font-size:32px;margin-bottom:12px}
 .empty-title{font-size:14px;font-weight:500;color:var(--txt2);margin-bottom:6px;font-family:'Playfair Display',serif}
 
-/* ── TOAST ────────────────────────────────────────────────────── */
 .toast{position:fixed;bottom:24px;right:24px;background:var(--navy);color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;z-index:9999;opacity:0;transform:translateY(8px);transition:all 0.25s;pointer-events:none}
 .toast.show{opacity:1;transform:translateY(0)}
 .toast.error{background:#A33}
 
-/* ── LOADING ──────────────────────────────────────────────────── */
 .spinner{display:inline-block;width:13px;height:13px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;margin-right:6px}
 @keyframes spin{to{transform:rotate(360deg)}}
 .page-loading{display:flex;align-items:center;justify-content:center;padding:80px;flex-direction:column;gap:14px;color:var(--txt3)}
 .page-loading .big-spinner{width:32px;height:32px;border:3px solid var(--brd2);border-top-color:var(--gold);border-radius:50%;animation:spin 0.8s linear infinite}
 
-/* ── UPDATE FEED ─────────────────────────────────────────────── */
 .update-item{display:flex;gap:14px;padding:13px 20px;border-bottom:1px solid var(--brd)}
 .update-item:last-child{border-bottom:none}
 .update-dot{width:8px;height:8px;border-radius:50%;background:var(--gold);flex-shrink:0;margin-top:5px}
@@ -298,12 +272,9 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 .update-text{font-size:13px;color:var(--txt);line-height:1.5}
 .update-time{font-size:10px;color:var(--txt3);margin-top:3px}
 
-/* ── PROGRESS BAR ────────────────────────────────────────────── */
 .progress-wrap{height:4px;background:var(--cream2);border-radius:2px;overflow:hidden;margin-top:8px}
 .progress-bar{height:100%;background:var(--gold);border-radius:2px;transition:width 0.3s}
 
-/* ── RESPONSIVE ──────────────────────────────────────────────── */
-/* ── MESSAGING ───────────────────────────────────────────────── */
 .msg-layout{display:flex;flex-direction:column;background:#fff;border-radius:10px;border:0.5px solid var(--brd);overflow:hidden;height:calc(100vh - 160px);min-height:480px}
 .msg-header{padding:16px 20px;border-bottom:1px solid var(--brd);display:flex;align-items:center;gap:12px;flex-shrink:0}
 .msg-header-av{width:40px;height:40px;border-radius:50%;background:var(--navy);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#fff;flex-shrink:0}
@@ -332,7 +303,6 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 .msg-send-btn:disabled{opacity:0.5;cursor:not-allowed}
 .msg-unread-notice{background:rgba(184,149,58,0.12);border:1px solid rgba(184,149,58,0.3);border-radius:8px;padding:10px 16px;font-size:12px;color:var(--txt2);display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-shrink:0}
 
-/* ── PORTAL HAMBURGER DRAWER ─────────────────────────────────────── */
 .portal-hamburger{
   display:flex;background:none;border:none;cursor:pointer;
   padding:8px;color:#fff;border-radius:6px;touch-action:manipulation;
@@ -393,7 +363,6 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 }
 .portal-drawer-signout:hover{background:rgba(255,255,255,0.1);color:#fff}
 
-/* ── TABLET (768px) ──────────────────────────────────────────────── */
 @media(max-width:768px){
   .pstats{grid-template-columns:1fr 1fr}
   .topnav-tabs{gap:0;scrollbar-width:none;-ms-overflow-style:none}
@@ -408,16 +377,15 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
   .topnav-uname{display:none}
   .welcome-banner{flex-direction:column;text-align:center}
   .msg-layout{height:calc(100dvh - 130px);min-height:320px}
-  /* Overview two-col → single col */
+  /* Overview two-col â†’ single col */
   #pview-overview > div[style*="3fr"]{grid-template-columns:1fr!important}
-  /* Profile two-col → single col */
+  /* Profile two-col â†’ single col */
   #pview-profile > div[style*="2fr"]{grid-template-columns:1fr!important}
-  /* Upload two-col → single col */
+  /* Upload two-col â†’ single col */
   #pview-upload > div[style*="1fr 1fr"]{grid-template-columns:1fr!important}
-  /* Invoice summary → 3 still fine at tablet */
+  /* Invoice summary â†’ 3 still fine at tablet */
 }
 
-/* ── SMALL PHONE (640px) ─────────────────────────────────────────── */
 @media(max-width:640px){
   /* Switch to hamburger drawer pattern */
   .topnav{padding:0 14px;gap:10px}
@@ -430,10 +398,10 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
   /* Stats */
   .pstats{grid-template-columns:1fr 1fr}
 
-  /* Invoice summary stats → 1 col on small phones */
+  /* Invoice summary stats â†’ 1 col on small phones */
   #inv-summary{grid-template-columns:1fr!important}
 
-  /* Doc list actions — stack on narrow screens */
+  /* Doc list actions - stack on narrow screens */
   .doc-list-row{flex-wrap:wrap;gap:8px}
   .doc-list-actions{flex:0 0 100%;justify-content:flex-end}
 
@@ -460,7 +428,6 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
   .topnav-logo{font-size:14px}
 }
 
-/* ── SMALL PHONE (480px) ─────────────────────────────────────────── */
 @media(max-width:480px){
   .pstats{grid-template-columns:1fr 1fr}
   .topnav{height:52px}
@@ -468,14 +435,12 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
   .pcard-header{flex-direction:column;align-items:flex-start;gap:6px}
 }
 
-/* ── EXTRA SMALL (360px) ─────────────────────────────────────────── */
 @media(max-width:360px){
   .pstats{grid-template-columns:1fr}
   .portal-content{padding:8px}
   .auth-box{padding:24px 16px}
 }
 
-/* ── LANDSCAPE PHONE ─────────────────────────────────────────────── */
 @media(max-height:500px) and (orientation:landscape){
   /* Compact topnav */
   .topnav{height:44px;padding:0 12px}
@@ -483,21 +448,20 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
   .topnav-tab{padding:6px 10px;font-size:11px}
   .portal-content{padding:8px 12px}
 
-  /* Stats — spread horizontally */
+  /* Stats - spread horizontally */
   .pstats{grid-template-columns:repeat(4,1fr)}
 
-  /* Auth box — full screen on landscape */
+  /* Auth box - full screen on landscape */
   .auth-box{position:fixed;inset:0;border-radius:0;overflow-y:auto;margin:0;padding:20px 24px;display:flex;flex-direction:column;justify-content:center}
   #auth-screen{justify-content:center}
 
-  /* Messaging — taller on landscape */
+  /* Messaging - taller on landscape */
   .msg-layout{height:calc(100dvh - 48px)}
 
   /* Modals */
   .pwa-modal{padding:20px 24px;max-height:calc(100dvh - 24px);overflow-y:auto}
 }
 
-/* ── PWA INSTALL MODAL ───────────────────────────────────────────── */
 #pwa-install-banner{
   position:fixed;inset:0;background:rgba(13,27,42,0.65);z-index:8000;
   display:flex;align-items:center;justify-content:center;padding:24px;
@@ -545,7 +509,7 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
       <label class="auth-label">Email Address</label>
       <input class="auth-input" id="auth-email" type="email" placeholder="your@email.com" onkeydown="if(event.key==='Enter')signIn()" oninput="this.value=this.value.replace('+portal@','@')" onchange="this.value=this.value.replace('+portal@','@')"/>
       <label class="auth-label">Password</label>
-      <input class="auth-input" id="auth-password" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')signIn()"/>
+      <input class="auth-input" id="auth-password" type="password" placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" onkeydown="if(event.key==='Enter')signIn()"/>
       <div class="auth-error" id="auth-error"></div>
       <button class="auth-btn" id="auth-btn" onclick="signIn()">Sign In to Portal</button>
       <div class="auth-switch" style="font-size:11px;color:var(--txt3);text-align:center;margin-top:14px">Don't have access? Contact the firm to get your login credentials.</div>
@@ -559,10 +523,10 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
       <input class="auth-input" id="newpw-confirm" type="password" placeholder="Repeat your new password" onkeydown="if(event.key==='Enter')setNewPassword()"/>
       <div class="auth-error" id="newpw-error"></div>
       <button class="auth-btn" id="newpw-btn" onclick="setNewPassword()">Set New Password &amp; Continue</button>
-      <div class="auth-switch" style="margin-top:14px"><a onclick="signOut();showMode('signin')">← Back to sign in</a></div>
+      <div class="auth-switch" style="margin-top:14px"><a onclick="signOut();showMode('signin')">â† Back to sign in</a></div>
     </div>
   </div>
-  <div class="auth-notice">Your portal is secured with end-to-end encryption. Dennis Kimani Mutonga Advocate — Advocates of the High Court of Kenya.</div>
+  <div class="auth-notice">Your portal is secured with end-to-end encryption. Dennis Kimani Mutonga Advocate - Advocates of the High Court of Kenya.</div>
 </div>
 
 <!-- PORTAL SHELL -->
@@ -590,10 +554,10 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
       <div class="topnav-tab" onclick="showPView('groups',this)" id="groups-tab">My Groups <span id="groups-badge" style="display:none;background:rgba(184,149,58,0.3);color:#7A4800;font-size:9px;font-weight:700;padding:1px 5px;border-radius:8px;margin-left:3px;vertical-align:middle">0</span></div>
     </div>
     <div class="topnav-right">
-      <button class="topnav-sos-btn" id="topnav-sos-btn" onclick="showPView('sos',this)" title="Emergency SOS" style="display:none">🆘 SOS</button>
+      <button class="topnav-sos-btn" id="topnav-sos-btn" onclick="showPView('sos',this)" title="Emergency SOS" style="display:none">SOS</button>
       <div class="topnav-user" onclick="showPView('profile',null)">
         <div class="topnav-av" id="nav-av">?</div>
-        <span class="topnav-uname" id="nav-name">—</span>
+        <span class="topnav-uname" id="nav-name">-</span>
       </div>
       <button class="signout-btn" onclick="signOut()">Sign Out</button>
     </div>
@@ -605,10 +569,9 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
     <!-- LOADING STATE -->
     <div class="page-loading" id="portal-loading">
       <div class="big-spinner"></div>
-      <span style="font-size:13px">Loading your portal…</span>
+      <span style="font-size:13px">Loading your portal...</span>
     </div>
 
-    <!-- ── OVERVIEW ─────────────────────────────────────────── -->
     <div class="pview" id="pview-overview">
       <div class="welcome-banner">
         <div class="welcome-av" id="welcome-av">?</div>
@@ -619,10 +582,10 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
         </div>
       </div>
       <div class="pstats" id="overview-stats">
-        <div class="pstat"><div class="pstat-label">Active Matters</div><div class="pstat-val" id="stat-matters">—</div><div class="pstat-sub">Open cases</div></div>
-        <div class="pstat"><div class="pstat-label">Upcoming Events</div><div class="pstat-val" id="stat-events">—</div><div class="pstat-sub">Next 30 days</div></div>
-        <div class="pstat"><div class="pstat-label">Documents</div><div class="pstat-val" id="stat-docs">—</div><div class="pstat-sub">Firm shared &amp; uploads</div></div>
-        <div class="pstat"><div class="pstat-label">Invoices</div><div class="pstat-val" id="stat-invoices">—</div><div class="pstat-sub">Total issued</div></div>
+        <div class="pstat"><div class="pstat-label">Active Matters</div><div class="pstat-val" id="stat-matters">-</div><div class="pstat-sub">Open cases</div></div>
+        <div class="pstat"><div class="pstat-label">Upcoming Events</div><div class="pstat-val" id="stat-events">-</div><div class="pstat-sub">Next 30 days</div></div>
+        <div class="pstat"><div class="pstat-label">Documents</div><div class="pstat-val" id="stat-docs">-</div><div class="pstat-sub">Firm shared &amp; uploads</div></div>
+        <div class="pstat"><div class="pstat-label">Invoices</div><div class="pstat-val" id="stat-invoices">-</div><div class="pstat-sub">Total issued</div></div>
       </div>
       <div style="display:grid;grid-template-columns:3fr 2fr;gap:18px">
         <div class="pcard">
@@ -634,11 +597,10 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
           <div id="overview-events"></div>
         </div>
       </div>
-      <!-- Group panel — shown dynamically if client belongs to a group -->
+      <!-- Group panel - shown dynamically if client belongs to a group -->
       <div id="overview-group-panel" style="display:none"></div>
     </div>
 
-    <!-- ── MATTERS ──────────────────────────────────────────── -->
     <div class="pview" id="pview-matters">
       <div style="margin-bottom:20px">
         <h2 style="font-family:'Playfair Display',serif;font-size:22px;font-weight:500;color:var(--txt)">My Matters</h2>
@@ -647,45 +609,43 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
       <div class="matter-cards" id="matters-grid"></div>
     </div>
 
-    <!-- ── MATTER DETAIL ─────────────────────────────────────── -->
     <div class="pview" id="pview-matter-detail">
       <div class="matter-detail-back" onclick="showPView('matters',null)">
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         Back to My Matters
       </div>
       <div class="matter-detail-hero" id="md-hero">
-        <div class="matter-detail-hero-title" id="md-title">—</div>
+        <div class="matter-detail-hero-title" id="md-title">-</div>
         <div class="matter-detail-hero-meta" id="md-meta"></div>
       </div>
       <div class="matter-detail-tabs">
-        <div class="matter-detail-tab active" onclick="switchMatterDetailTab('updates',this)">📋 Updates</div>
-        <div class="matter-detail-tab" onclick="switchMatterDetailTab('documents',this)">📂 Documents</div>
-        <div class="matter-detail-tab" onclick="switchMatterDetailTab('events',this)">📅 Events</div>
+        <div class="matter-detail-tab active" onclick="switchMatterDetailTab('updates',this)">Updates</div>
+        <div class="matter-detail-tab" onclick="switchMatterDetailTab('documents',this)">Documents</div>
+        <div class="matter-detail-tab" onclick="switchMatterDetailTab('events',this)">Events</div>
       </div>
       <!-- Updates panel -->
       <div class="matter-detail-panel active" id="mdp-updates">
         <div class="pcard" id="md-updates-card">
-          <div style="padding:40px;text-align:center;color:var(--txt3)"><div class="spinner" style="border-color:rgba(0,0,0,0.1);border-top-color:var(--navy);width:20px;height:20px;display:inline-block;margin-bottom:12px"></div><br>Loading updates…</div>
+          <div style="padding:40px;text-align:center;color:var(--txt3)"><div class="spinner" style="border-color:rgba(0,0,0,0.1);border-top-color:var(--navy);width:20px;height:20px;display:inline-block;margin-bottom:12px"></div><br>Loading updates...</div>
         </div>
       </div>
       <!-- Documents panel -->
       <div class="matter-detail-panel" id="mdp-documents">
         <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
-          <button class="pbtn gold" onclick="showPView('upload',null)" id="md-upload-btn">📎 Upload Document</button>
+          <button class="pbtn gold" onclick="showPView('upload',null)" id="md-upload-btn">Upload Document</button>
         </div>
         <div id="md-docs-container">
-          <div class="pcard"><div style="padding:40px;text-align:center;color:var(--txt3)">Loading documents…</div></div>
+          <div class="pcard"><div style="padding:40px;text-align:center;color:var(--txt3)">Loading documents...</div></div>
         </div>
       </div>
       <!-- Events panel -->
       <div class="matter-detail-panel" id="mdp-events">
         <div class="pcard" id="md-events-card">
-          <div style="padding:40px;text-align:center;color:var(--txt3)">Loading events…</div>
+          <div style="padding:40px;text-align:center;color:var(--txt3)">Loading events...</div>
         </div>
       </div>
     </div>
 
-    <!-- ── DOCUMENTS ────────────────────────────────────────── -->
     <div class="pview" id="pview-documents">
       <div style="margin-bottom:20px;display:flex;align-items:flex-end;justify-content:space-between">
         <div>
@@ -694,16 +654,15 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
         </div>
         <div style="display:flex;gap:8px;align-items:center">
           <div style="display:flex;border:1px solid var(--brd);border-radius:7px;overflow:hidden">
-            <button id="pdvt-list" title="List view" onclick="setPortalDocView('list')" style="padding:5px 10px;background:var(--navy);color:#fff;border:none;cursor:pointer;font-size:13px;line-height:1">☰</button>
-            <button id="pdvt-grid" title="Grid view" onclick="setPortalDocView('grid')" style="padding:5px 10px;background:none;border:none;cursor:pointer;font-size:13px;line-height:1;color:var(--txt3)">⊞</button>
+            <button id="pdvt-list" title="List view" onclick="setPortalDocView('list')" style="padding:5px 10px;background:var(--navy);color:#fff;border:none;cursor:pointer;font-size:13px;line-height:1">List</button>
+            <button id="pdvt-grid" title="Grid view" onclick="setPortalDocView('grid')" style="padding:5px 10px;background:none;border:none;cursor:pointer;font-size:13px;line-height:1;color:var(--txt3)">Grid</button>
           </div>
-          <button class="pbtn gold" onclick="showPView('upload',null)">📎 Upload</button>
+          <button class="pbtn gold" onclick="showPView('upload',null)">Upload</button>
         </div>
       </div>
       <div id="documents-container"></div>
     </div>
 
-    <!-- ── EVENTS ───────────────────────────────────────────── -->
     <div class="pview" id="pview-events">
       <div style="margin-bottom:20px">
         <h2 style="font-family:'Playfair Display',serif;font-size:22px;font-weight:500">Events &amp; Appointments</h2>
@@ -712,10 +671,10 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
       <!-- Calendar grid card -->
       <div class="pcard" style="margin-bottom:18px">
         <div class="pcard-header">
-          <span class="pcard-title" id="p-cal-month-title">—</span>
+          <span class="pcard-title" id="p-cal-month-title">-</span>
           <div style="display:flex;gap:6px">
-            <button class="pbtn" style="padding:4px 10px;font-size:11px" onclick="changePortalMonth(-1)">‹ Prev</button>
-            <button class="pbtn" style="padding:4px 10px;font-size:11px" onclick="changePortalMonth(1)">Next ›</button>
+            <button class="pbtn" style="padding:4px 10px;font-size:11px" onclick="changePortalMonth(-1)">â€¹ Prev</button>
+            <button class="pbtn" style="padding:4px 10px;font-size:11px" onclick="changePortalMonth(1)">Next â€º</button>
           </div>
         </div>
         <div class="p-cal-day-names">
@@ -727,7 +686,6 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
       <div class="pcard" id="events-card"></div>
     </div>
 
-    <!-- ── INVOICES ─────────────────────────────────────────── -->
     <div class="pview" id="pview-invoices">
       <div style="margin-bottom:20px">
         <h2 style="font-family:'Playfair Display',serif;font-size:22px;font-weight:500">Invoices &amp; Billing</h2>
@@ -740,7 +698,6 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
       </div>
     </div>
 
-    <!-- ── UPLOAD ───────────────────────────────────────────── -->
     <div class="pview" id="pview-upload">
       <div style="margin-bottom:20px">
         <h2 style="font-family:'Playfair Display',serif;font-size:22px;font-weight:500">Upload Documents</h2>
@@ -767,19 +724,19 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
             </div>
             <div class="pform-row">
               <label class="pform-label">Description</label>
-              <input class="pform-input" id="up-description" placeholder="Brief description of the document…"/>
+              <input class="pform-input" id="up-description" placeholder="Brief description of the document..."/>
             </div>
             <div class="pform-row">
               <label class="pform-label">File</label>
               <div class="upload-zone" id="up-dropzone">
                 <input type="file" id="up-file" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.txt,.zip"/>
-                <div class="upload-zone-icon">📎</div>
+                <div class="upload-zone-icon">FILE</div>
                 <div class="upload-zone-text" id="up-zone-text">Click to select file or drag &amp; drop</div>
-                <div class="upload-zone-sub">PDF, Word, Excel, Image · Max 20MB</div>
+                <div class="upload-zone-sub">PDF, Word, Excel, Image - Max 20MB</div>
               </div>
             </div>
             <div id="up-progress-wrap" style="display:none;margin-bottom:14px">
-              <div style="font-size:11px;color:var(--txt3);margin-bottom:4px" id="up-status">Uploading…</div>
+              <div style="font-size:11px;color:var(--txt3);margin-bottom:4px" id="up-status">Uploading...</div>
               <div class="progress-wrap"><div class="progress-bar" id="up-progress-bar" style="width:0%"></div></div>
             </div>
             <button class="pbtn primary" id="up-btn" onclick="uploadClientDoc()" style="width:100%;padding:10px;font-size:13px">Upload Document</button>
@@ -792,7 +749,6 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
       </div>
     </div>
 
-    <!-- ── OTHER PARTIES ──────────────────────────────────── -->
     <div class="pview" id="pview-parties">
       <div style="margin-bottom:20px;display:flex;align-items:flex-end;justify-content:space-between">
         <div>
@@ -803,18 +759,16 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
       <div id="parties-container"></div>
     </div>
 
-    <!-- ── GROUPS ──────────────────────────────────────────── -->
     <div class="pview" id="pview-groups">
       <div style="margin-bottom:20px;display:flex;align-items:flex-end;justify-content:space-between">
         <div>
           <h2 style="font-family:'Playfair Display',serif;font-size:22px;font-weight:500">My Groups</h2>
-          <p style="font-size:12px;color:var(--txt3);margin-top:4px">Groups you belong to — shared matters, updates, and documents are visible here.</p>
+          <p style="font-size:12px;color:var(--txt3);margin-top:4px">Groups you belong to - shared matters, updates, and documents are visible here.</p>
         </div>
       </div>
-      <div id="portal-groups-container"><div style="padding:40px;text-align:center;color:var(--txt3);font-size:13px">Loading…</div></div>
+      <div id="portal-groups-container"><div style="padding:40px;text-align:center;color:var(--txt3);font-size:13px">Loading...</div></div>
     </div>
 
-    <!-- ── PROFILE ──────────────────────────────────────────── -->
     <div class="pview" id="pview-profile">
       <div style="margin-bottom:20px">
         <h2 style="font-family:'Playfair Display',serif;font-size:22px;font-weight:500">My Profile</h2>
@@ -824,7 +778,7 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
         <div class="pcard">
           <div class="pcard-header">
             <div class="pcard-title">Personal Information</div>
-            <button class="pbtn" id="edit-toggle-btn" onclick="toggleProfileEdit()">✏️ Edit</button>
+            <button class="pbtn" id="edit-toggle-btn" onclick="toggleProfileEdit()">Edit Edit</button>
           </div>
           <div style="padding:20px">
             <div class="section-label">Basic Details</div>
@@ -842,7 +796,7 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
             <div class="pform-grid">
               <div class="pform-row">
                 <label class="pform-label">Phone Number</label>
-                <input class="pform-input" id="prof-phone" disabled placeholder="—"/>
+                <input class="pform-input" id="prof-phone" disabled placeholder="-"/>
               </div>
               <div class="pform-row">
                 <label class="pform-label">Email Address</label>
@@ -851,21 +805,21 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
             </div>
             <div class="pform-row">
               <label class="pform-label">Physical Address</label>
-              <input class="pform-input" id="prof-address" disabled placeholder="—"/>
+              <input class="pform-input" id="prof-address" disabled placeholder="-"/>
             </div>
             <div class="pform-row">
               <label class="pform-label">Postal Address</label>
-              <input class="pform-input" id="prof-postal" disabled placeholder="—"/>
+              <input class="pform-input" id="prof-postal" disabled placeholder="-"/>
             </div>
             <div class="section-label">Identification</div>
             <div class="pform-grid">
               <div class="pform-row">
                 <label class="pform-label">ID / Registration No.</label>
-                <input class="pform-input" id="prof-id" disabled placeholder="—"/>
+                <input class="pform-input" id="prof-id" disabled placeholder="-"/>
               </div>
               <div class="pform-row">
                 <label class="pform-label">KRA PIN</label>
-                <input class="pform-input" id="prof-kra" disabled placeholder="—"/>
+                <input class="pform-input" id="prof-kra" disabled placeholder="-"/>
               </div>
             </div>
             <div id="prof-save-row" style="display:none;margin-top:8px;display:none">
@@ -879,7 +833,7 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
             <div class="pcard-header"><div class="pcard-title">Portal Account</div></div>
             <div style="padding:16px 20px">
               <div style="font-size:11px;color:var(--txt3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px">Signed in as</div>
-              <div style="font-size:13px;font-weight:500;color:var(--txt)" id="portal-email">—</div>
+              <div style="font-size:13px;font-weight:500;color:var(--txt)" id="portal-email">-</div>
               <div style="margin-top:14px;font-size:11px;color:var(--txt3);line-height:1.5">To change your password, contact the firm and they will send you new credentials.</div>
             </div>
           </div>
@@ -898,30 +852,28 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
       </div>
     </div>
 
-    <!-- ── MESSAGES ────────────────────────────────────────────── -->
     <div class="pview" id="pview-messages">
       <div class="msg-layout">
         <div class="msg-header">
           <div class="msg-header-av">DK</div>
           <div>
             <div class="msg-header-name">Dennis Kimani Mutonga Advocate</div>
-            <div class="msg-header-sub"><span class="msg-online"></span>Your legal team · Advocates of the High Court of Kenya</div>
+            <div class="msg-header-sub"><span class="msg-online"></span>Your legal team - Advocates of the High Court of Kenya</div>
           </div>
         </div>
         <div class="msg-feed" id="msg-feed">
-          <div class="empty"><div class="empty-icon">💬</div><div class="empty-title">No messages yet</div><div>Send a message to your legal team below.</div></div>
+          <div class="empty"><div class="empty-icon">Msg</div><div class="empty-title">No messages yet</div><div>Send a message to your legal team below.</div></div>
         </div>
         <div class="msg-compose">
           <div class="msg-compose-row">
-            <textarea class="msg-textarea" id="msg-input" placeholder="Type your message to the firm…" rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendPortalMessage();}"></textarea>
+            <textarea class="msg-textarea" id="msg-input" placeholder="Type your message to the firm..." rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendPortalMessage();}"></textarea>
             <button class="msg-send-btn" id="msg-send-btn" onclick="sendPortalMessage()">Send</button>
           </div>
-          <div style="font-size:10px;color:var(--txt3);margin-top:7px">Press Enter to send · Shift+Enter for new line</div>
+          <div style="font-size:10px;color:var(--txt3);margin-top:7px">Press Enter to send - Shift+Enter for new line</div>
         </div>
       </div>
     </div>
 
-    <!-- ── SOS HISTORY ──────────────────────────────────────────── -->
     <div class="pview" id="pview-sos-history">
       <div style="max-width:640px;margin:0 auto">
         <div style="margin-bottom:24px">
@@ -929,11 +881,10 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
           <div style="font-size:13px;color:var(--txt3)">A record of all emergency alerts you have sent to DKMA.</div>
         </div>
         <div id="sos-history-summary" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:24px"></div>
-        <div id="sos-history-list"><div style="text-align:center;padding:40px;color:var(--txt3);font-size:13px">Loading…</div></div>
+        <div id="sos-history-list"><div style="text-align:center;padding:40px;color:var(--txt3);font-size:13px">Loading...</div></div>
       </div>
     </div>
 
-    <!-- ── NOTIFICATIONS ──────────────────────────────────────── -->
     <div class="pview" id="pview-notifications">
       <div style="max-width:700px;margin:0 auto">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:10px">
@@ -941,12 +892,12 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
             <div style="font-family:'Playfair Display',serif;font-size:22px;color:var(--txt);margin-bottom:4px">Notifications</div>
             <div style="font-size:13px;color:var(--txt3)">Messages and alerts from DKMA Advocates addressed to you.</div>
           </div>
-          <button onclick="loadClientAlerts(true)" style="background:var(--cream2);border:1px solid var(--brd);color:var(--txt2);padding:7px 16px;border-radius:7px;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s" onmouseover="this.style.background='var(--cream)'" onmouseout="this.style.background='var(--cream2)'">↻ Refresh</button>
+          <button onclick="loadClientAlerts(true)" style="background:var(--cream2);border:1px solid var(--brd);color:var(--txt2);padding:7px 16px;border-radius:7px;font-size:12px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s" onmouseover="this.style.background='var(--cream)'" onmouseout="this.style.background='var(--cream2)'">â†» Refresh</button>
         </div>
 
         <!-- Unread count banner (shown if there are unread) -->
         <div id="notif-unread-banner" style="display:none;background:linear-gradient(135deg,var(--navy),var(--navy2));border-radius:10px;padding:14px 20px;margin-bottom:18px;display:none;align-items:center;gap:12px">
-          <span style="font-size:20px">🔔</span>
+          <span style="font-size:20px">ðŸ””</span>
           <div style="flex:1">
             <div style="font-size:13px;font-weight:500;color:#fff" id="notif-banner-text">You have new notifications</div>
             <div style="font-size:11px;color:rgba(255,255,255,0.55);margin-top:1px">From DKMA Advocates</div>
@@ -978,8 +929,8 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 
         <div id="client-notifications-list">
           <div style="text-align:center;padding:48px 20px;color:var(--txt3)">
-            <div style="font-size:32px;margin-bottom:14px">🔔</div>
-            <div style="font-family:'Playfair Display',serif;font-size:16px;color:var(--txt2);margin-bottom:6px">Loading notifications…</div>
+            <div style="font-size:32px;margin-bottom:14px">ðŸ””</div>
+            <div style="font-family:'Playfair Display',serif;font-size:16px;color:var(--txt2);margin-bottom:6px">Loading notifications...</div>
           </div>
         </div>
       </div>
@@ -998,7 +949,7 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
       <div class="portal-drawer-logo">DKMA</div>
       <div class="portal-drawer-sub">Client Portal</div>
     </div>
-    <button class="portal-drawer-close" onclick="closePortalDrawer()" aria-label="Close menu">×</button>
+    <button class="portal-drawer-close" onclick="closePortalDrawer()" aria-label="Close menu">?</button>
   </div>
   <div class="portal-drawer-nav">
     <div class="portal-drawer-item active" id="pdi-overview" onclick="showPView('overview',null,true);closePortalDrawer()">
@@ -1053,8 +1004,8 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
     <div class="portal-drawer-user">
       <div class="portal-drawer-av" id="portal-drawer-av">?</div>
       <div>
-        <div class="portal-drawer-name" id="portal-drawer-name">—</div>
-        <div class="portal-drawer-email" id="portal-drawer-email">—</div>
+        <div class="portal-drawer-name" id="portal-drawer-name">-</div>
+        <div class="portal-drawer-email" id="portal-drawer-email">-</div>
       </div>
     </div>
     <button class="portal-drawer-signout" onclick="signOut()">Sign Out</button>
@@ -1064,9 +1015,9 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 <!-- DOCUMENT VIEWER OVERLAY -->
 <div class="viewer-overlay hidden" id="viewer-overlay" onclick="if(event.target===this)closeViewer()">
   <div class="viewer-bar">
-    <span style="font-size:16px">📄</span>
+    <span style="font-size:16px">PDF</span>
     <span class="viewer-title" id="viewer-filename">Document</span>
-    <button id="viewer-dl-btn" class="pbtn" style="font-size:11px;padding:4px 12px">⬇ Download</button>
+    <button id="viewer-dl-btn" class="pbtn" style="font-size:11px;padding:4px 12px">Download</button>
     <button onclick="closeViewer()" style="background:none;border:none;font-size:22px;cursor:pointer;color:var(--txt3);line-height:1;padding:0 4px;margin-left:4px">×</button>
   </div>
   <div class="viewer-body" id="viewer-body"></div>
@@ -1075,7 +1026,6 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 <div class="toast" id="toast"></div>
 
 <script>
-// ── SUPABASE ──────────────────────────────────────────────────────
 const RAW_SUPABASE_URL='%%SUPABASE_URL%%';
 const RAW_SUPABASE_KEY='%%SUPABASE_ANON_KEY%%';
 const RAW_LAWYER_PHONE='%%LAWYER_PHONE%%';
@@ -1194,7 +1144,7 @@ const LAWYER_PHONE=_resolveInjectedValue(RAW_LAWYER_PHONE,{
 
 if(SUPABASE_URL.includes('%%')||SUPABASE_KEY.includes('%%')){
   _showConfigSetup();
-  throw new Error('Supabase credentials not injected — placeholders still present.');
+  throw new Error('Supabase credentials not injected - placeholders still present.');
 }
 if(typeof supabase==='undefined'||!supabase.createClient){
   document.body.innerHTML='<div style="font-family:sans-serif;padding:40px;text-align:center;color:#a33"><h2>Library Load Error</h2><p style="margin-top:12px;font-size:14px">The Supabase library failed to load from the CDN.<br>Check your internet connection and try again.</p></div>';
@@ -1211,9 +1161,8 @@ function toPortalEmail(email){
   return email.replace('@','+portal@');
 }
 const FIRM_BUCKET='matter-documents';
-// client-uploads bucket removed — client files now go into matter-documents under client__ prefix
+// client-uploads bucket removed - client files now go into matter-documents under client__ prefix
 
-// ── STATE ─────────────────────────────────────────────────────────
 let currentUser=null;
 let clientRecord=null;       // row from clients table
 let myMatters=[];
@@ -1230,29 +1179,29 @@ let firmContact={};          // firm settings from firm_settings table
 const SIGNATURE_REQUESTS_PREFIX='client__signature_request__';
 const SIGNATURE_RESPONSE_PREFIX='client__signature_response__';
 const SIGNATURE_ARTIFACTS_PREFIX='client__signature_artifact__';
+const SIGNATURE_TEMPLATE_PREFIX='client__signature_template__';
 
-// ── HELPERS ───────────────────────────────────────────────────────
 function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function initials(n){return(n||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);}
 function fmtMoney(n){
-  n=Number(String(n??0).replace(/,/g,''))||0;
+  n=Number(String(n - 0).replace(/,/g,''))||0;
   const hasDecimals=Math.abs(n%1)>0.000001;
   return 'KES '+n.toLocaleString('en-KE',{minimumFractionDigits:hasDecimals?2:0,maximumFractionDigits:2});
 }
-function fmtDate(d){if(!d)return'—';const dt=new Date(d);return isNaN(dt)?d:dt.toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'});}
+function fmtDate(d){if(!d)return'-';const dt=new Date(d);return isNaN(dt)?d:dt.toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'});}
 function parseDateLocal(s){if(!s)return new Date(NaN);const[y,m,d]=(s+'').split('-').map(Number);return new Date(y,m-1,d);}
-function fmtFileSize(b){if(!b)return'—';if(b<1024)return b+'B';if(b<1048576)return(b/1024).toFixed(0)+'KB';return(b/1048576).toFixed(1)+'MB';}
+function fmtFileSize(b){if(!b)return'-';if(b<1024)return b+'B';if(b<1048576)return(b/1024).toFixed(0)+'KB';return(b/1048576).toFixed(1)+'MB';}
 function docIcon(name){
   const ext=(name||'').split('.').pop().toLowerCase();
-  if(ext==='pdf')return{icon:'📄',cls:'dt-pdf'};
-  if(['doc','docx'].includes(ext))return{icon:'📝',cls:'dt-doc'};
-  if(['xls','xlsx','csv'].includes(ext))return{icon:'📊',cls:'dt-xls'};
-  if(['jpg','jpeg','png','gif','webp'].includes(ext))return{icon:'🖼️',cls:'dt-img'};
-  return{icon:'📎',cls:'dt-other'};
+  if(ext==='pdf')return{icon:'PDF',cls:'dt-pdf'};
+  if(['doc','docx'].includes(ext))return{icon:'DOC',cls:'dt-doc'};
+  if(['xls','xlsx','csv'].includes(ext))return{icon:'XLS',cls:'dt-xls'};
+  if(['jpg','jpeg','png','gif','webp'].includes(ext))return{icon:'IMG',cls:'dt-img'};
+  return{icon:'FILE',cls:'dt-other'};
 }
 function spill(status){
   const map={active:'sp-active',urgent:'sp-urgent',pending:'sp-pending',closed:'sp-closed',paid:'sp-paid',sent:'sp-sent',overdue:'sp-overdue',draft:'sp-draft'};
-  const label=status?status.charAt(0).toUpperCase()+status.slice(1):'—';
+  const label=status?status.charAt(0).toUpperCase()+status.slice(1):'-';
   return`<span class="spill ${map[status]||'sp-closed'}">${label}</span>`;
 }
 function categoryLabel(cat){return{pleading:'Pleading',correspondence:'Correspondence',evidence:'Evidence',contract:'Contract',id:'ID / KYC',finance:'Finance',order:'Court Order',other:'Other'}[cat]||cat||'Document';}
@@ -1290,7 +1239,7 @@ function getSignatureRequest(requestId){
   return (mySignatureRequests||[]).find(r=>r.id===requestId)||null;
 }
 function isSignatureSystemFile(name){
-  return !!name&&(name.startsWith(SIGNATURE_REQUESTS_PREFIX)||name.startsWith(SIGNATURE_RESPONSE_PREFIX)||name.startsWith(SIGNATURE_ARTIFACTS_PREFIX));
+  return !!name&&(name.startsWith(SIGNATURE_REQUESTS_PREFIX)||name.startsWith(SIGNATURE_RESPONSE_PREFIX)||name.startsWith(SIGNATURE_ARTIFACTS_PREFIX)||name.startsWith(SIGNATURE_TEMPLATE_PREFIX));
 }
 function defaultSignatureFields(){
   return[];
@@ -1351,7 +1300,12 @@ function deriveSignatureRequestStatus(signers){
   if((signers||[]).some(s=>s.status==='opened'||s.status==='signed'))return'in_progress';
   return'sent';
 }
-function signatureFieldValue(req,field,typedName='',signatureDataUrl=''){
+function assignedFieldLabel(req,field){
+  const signer=field?.signer_id?getRequestSigners(req).find(s=>s.id===field.signer_id):null;
+  return signer?.name?`${signer.name} - ${field.label||field.type}`:(field.label||field.type);
+}
+function signatureFieldValue(req,field,typedName='',signatureDataUrl='',activeSignerId=''){
+  if(field?.signer_id&&activeSignerId&&field.signer_id!==activeSignerId)return'';
   if(field.type==='name')return typedName||req.signed_name||req.signer_name||'';
   if(field.type==='date'){
     const raw=req.signed_at||new Date().toISOString();
@@ -1392,7 +1346,6 @@ function empty(icon,title,sub=''){
   return`<div class="empty"><div class="empty-icon">${icon}</div><div class="empty-title">${title}</div>${sub?`<div>${sub}</div>`:''}  </div>`;
 }
 
-// ── AUTH SCREENS ──────────────────────────────────────────────────
 function showMode(mode){
   ['signin','newpassword'].forEach(m=>{
     const el=document.getElementById('auth-mode-'+m);
@@ -1407,7 +1360,7 @@ async function signIn(){
   errEl.textContent='';
   if(!email||!pw){errEl.textContent='Please enter email and password.';return;}
   const btn=document.getElementById('auth-btn');
-  btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Signing in…';
+  btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Signing in...';
 
   // Primary attempt: +portal alias (e.g. client+portal@gmail.com)
   const portalEmail=toPortalEmail(email);
@@ -1448,9 +1401,9 @@ async function signIn(){
     showNewPasswordScreen();
     return;
   }
-  // Normal login — portal launches via onAuthStateChange SIGNED_IN
+  // Normal login - portal launches via onAuthStateChange SIGNED_IN
 }
-// signUp and sendReset removed — accounts are managed by the firm
+// signUp and sendReset removed - accounts are managed by the firm
 async function signOut(){
   await sb.auth.signOut();
   document.getElementById('portal-shell').style.display='none';
@@ -1458,7 +1411,6 @@ async function signOut(){
   showMode('signin');
 }
 
-// ── NAVIGATION ────────────────────────────────────────────────────
 function showPView(id,el,fromMobile){
   // Guard: if SOS is not enabled for this client, silently redirect to overview
   if(id==='sos'&&!clientRecord?.sos_enabled){id='overview';el=null;}
@@ -1494,7 +1446,6 @@ function showPView(id,el,fromMobile){
   if(id==='groups'){renderPortalGroups();}
 }
 
-// ── PORTAL DRAWER open/close ──────────────────────────────────────
 function openPortalDrawer(){
   document.getElementById('portal-nav-drawer').classList.add('open');
   document.getElementById('portal-drawer-overlay').style.display='block';
@@ -1518,7 +1469,6 @@ function showAuthScreen(){
   document.getElementById('portal-shell').style.display='none';
 }
 
-// ── INIT ──────────────────────────────────────────────────────────
 async function initPortal(){
   // Supabase picks up the #access_token from the URL automatically
   const{data:{session}}=await sb.auth.getSession();
@@ -1528,7 +1478,7 @@ async function initPortal(){
       // If user just signed in and must change their temporary password, stay on that screen
       if(window._mustChangePassword){return;}
       currentUser=session.user;
-      // Always fetch fresh metadata — session.user.user_metadata can be stale
+      // Always fetch fresh metadata - session.user.user_metadata can be stale
       // (e.g. after an admin resets the client's password via the service role API)
       const{data:{user:freshSignedInUser}}=await sb.auth.getUser();
       if(freshSignedInUser?.user_metadata?.must_change_password||session.user?.user_metadata?.must_change_password){
@@ -1549,7 +1499,7 @@ async function initPortal(){
 
   if(session){
     currentUser=session.user;
-    // Always fetch fresh metadata on session restore — the cached session token
+    // Always fetch fresh metadata on session restore - the cached session token
     // can carry a stale must_change_password=false even after an admin reset
     const{data:{user:freshRestoredUser}}=await sb.auth.getUser();
     if(freshRestoredUser?.user_metadata?.must_change_password||session.user?.user_metadata?.must_change_password){
@@ -1583,7 +1533,7 @@ async function setNewPassword(){
   if(!pw||pw.length<8){errEl.textContent='Password must be at least 8 characters.';return;}
   if(pw!==pw2){errEl.textContent='Passwords do not match.';return;}
   const btn=document.getElementById('newpw-btn');
-  btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Updating…';
+  btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Updating...';
   // Clear the flag BEFORE updateUser so the onAuthStateChange SIGNED_IN event
   // that fires during the update is not blocked and can call launchPortal() directly.
   window._mustChangePassword=false;
@@ -1600,7 +1550,7 @@ async function setNewPassword(){
     return;
   }
   errEl.style.color='var(--green)';
-  errEl.textContent='Password updated! Signing you in…';
+  errEl.textContent='Password updated! Signing you in...';
   // Fallback: if onAuthStateChange already fired and launched the portal, this
   // setTimeout is a no-op. If it hasn't fired yet (e.g. slow network), we launch manually.
   setTimeout(async()=>{
@@ -1618,7 +1568,7 @@ async function launchPortal(){
   document.getElementById('auth-screen').style.display='none';
   document.getElementById('portal-shell').style.display='flex';
   document.getElementById('portal-loading').style.display='flex';
-  // currentUser.email is the +portal alias — strip it to find the real client record
+  // currentUser.email is the +portal alias - strip it to find the real client record
   const realEmail=currentUser.email.replace('+portal@','@');
   const{data:cData}=await sb.from('clients').select('*').ilike('email',realEmail).maybeSingle();
   clientRecord=cData||null;
@@ -1665,17 +1615,16 @@ function updateNavUser(){
   document.getElementById('welcome-name').textContent='Welcome, '+name.split(' ')[0];
   document.getElementById('welcome-sub').textContent=clientRecord?.type||'Client';
   const portalEmailEl=document.getElementById('portal-email');
-  if(portalEmailEl)portalEmailEl.textContent=realEmail||'—';
+  if(portalEmailEl)portalEmailEl.textContent=realEmail||'-';
   // Sync drawer user info
   const dav=document.getElementById('portal-drawer-av');
   const dnm=document.getElementById('portal-drawer-name');
   const dem=document.getElementById('portal-drawer-email');
   if(dav)dav.textContent=initials(name);
   if(dnm)dnm.textContent=name;
-  if(dem)dem.textContent=realEmail||'—';
+  if(dem)dem.textContent=realEmail||'-';
 }
 
-// ── DATA LOADERS ──────────────────────────────────────────────────
 async function loadFirmSettings(){
   try{
     const{data,error}=await sb.from('firm_settings').select('key,value');
@@ -1834,6 +1783,19 @@ async function loadMySignatureRequests(){
   mySignatureRequests=rows;
 }
 
+function dedupePortalSignatureRequests(rows){
+  const sorted=(rows||[]).slice().sort((a,b)=>signatureSortValue(b)-signatureSortValue(a));
+  const seen=new Set();
+  const deduped=[];
+  sorted.forEach(r=>{
+    const key=r.document_path||r.id;
+    if(seen.has(key))return;
+    seen.add(key);
+    deduped.push(r);
+  });
+  return deduped;
+}
+
 async function loadGazettedHolidays(){
   const{data,error}=await sb.from('gazetted_holidays').select('*').order('date',{ascending:true});
   if(!error)gazettedHolidays=data||[];
@@ -1882,7 +1844,7 @@ function renderSignatureInbox(requests,matterId=''){
   return `<div class="pcard" style="margin-bottom:14px">
     <div class="pcard-header">
       <div>
-        <div class="pcard-title">✍ Signature Requests</div>
+        <div class="pcard-title">Signature Requests</div>
         <div class="pcard-sub">Review documents awaiting signature and reopen signed records when you need them.</div>
       </div>
       <span style="font-size:11px;color:var(--txt3)">${rows.length} request${rows.length!==1?'s':''}</span>
@@ -1891,10 +1853,10 @@ function renderSignatureInbox(requests,matterId=''){
       const matter=myMatters.find(m=>m.id===r.matter_id);
       const canSign=r.status==='sent'||r.status==='opened';
       return `<div class="doc-list-row">
-        <div class="doc-list-icon dt-doc">✍</div>
+        <div class="doc-list-icon dt-doc">Sign</div>
         <div class="doc-list-info">
           <div class="doc-list-name" title="${esc(r.document_name||r.request_title||'Signature Request')}">${esc(r.document_name||r.request_title||'Signature Request')}</div>
-          <div class="doc-list-meta">${matter?esc(matter.title)+' · ':''}${fmtDate(r.sent_at||r.created_at)}${r.message?' · '+esc(r.message):''}</div>
+          <div class="doc-list-meta">${matter?esc(matter.title)+' - ':''}${fmtDate(r.sent_at||r.created_at)}${r.message?' - '+esc(r.message):''}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end">
           ${signaturePill(r.status)}
@@ -1905,15 +1867,15 @@ function renderSignatureInbox(requests,matterId=''){
   </div>`;
 }
 renderSignatureInbox=function(requests,matterId=''){
-  const rows=(requests||[]).filter(r=>{
+  const rows=dedupePortalSignatureRequests((requests||[]).filter(r=>{
     if(matterId&&r.matter_id!==matterId)return false;
     return !!getPortalSignerState(r).signer;
-  });
+  }));
   if(!rows.length)return'';
   return `<div class="pcard" style="margin-bottom:14px">
     <div class="pcard-header">
       <div>
-        <div class="pcard-title">âœ Signature Requests</div>
+        <div class="pcard-title">Signature Requests</div>
         <div class="pcard-sub">Review documents awaiting signature and reopen signed records when you need them.</div>
       </div>
       <span style="font-size:11px;color:var(--txt3)">${rows.length} request${rows.length!==1?'s':''}</span>
@@ -1924,10 +1886,10 @@ renderSignatureInbox=function(requests,matterId=''){
       const canSign=signerState.canSign;
       const cta=signerState.reason==='waiting_turn'?'Waiting turn':(canSign?'Sign now':'View record');
       return `<div class="doc-list-row">
-        <div class="doc-list-icon dt-doc">âœ</div>
+        <div class="doc-list-icon dt-doc">Sign</div>
         <div class="doc-list-info">
           <div class="doc-list-name" title="${esc(r.document_name||r.request_title||'Signature Request')}">${esc(r.document_name||r.request_title||'Signature Request')}</div>
-          <div class="doc-list-meta">${matter?esc(matter.title)+' Â· ':''}${fmtDate(r.sent_at||r.created_at)}${r.message?' Â· '+esc(r.message):''}${signerState.reason==='waiting_turn'?' Â· Another signer goes first':''}</div>
+          <div class="doc-list-meta">${matter?esc(matter.title)+' - ':''}${fmtDate(r.sent_at||r.created_at)}${r.message?' - '+esc(r.message):''}${signerState.reason==='waiting_turn'?' - Another signer goes first':''}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end">
           ${signaturePill(r.status)}
@@ -2016,6 +1978,7 @@ function openSignatureSourceDocument(req){
 }
 async function renderSignatureDocPreview(req,mountEl,typedName='',signatureDataUrl=''){
   if(!mountEl||!req?.document_path)return;
+  const activeSignerId=getPortalSignerState(req)?.signer?.id||'';
   const slash=req.document_path.indexOf('/');
   const storageName=slash===-1?req.document_path:req.document_path.slice(slash+1);
   const ext=((storageName.split('.').pop())||'').toLowerCase();
@@ -2095,10 +2058,10 @@ async function renderSignatureDocPreview(req,mountEl,typedName='',signatureDataU
     const signaturePreviewUrl=await resolveSignaturePreviewSource(req,signatureDataUrl);
     const layer=mountEl.querySelector('#sigdoc-preview-layer');
     layer.innerHTML=fields.map(f=>{
-      const val=signatureFieldValue(req,f,typedName,signaturePreviewUrl);
+      const val=signatureFieldValue(req,f,typedName,signaturePreviewUrl,activeSignerId);
       const isSig=f.type==='signature';
       return `<div style="position:absolute;left:${f.x*100}%;top:${f.y*100}%;width:${f.w*100}%;height:${f.h*100}%;border:${isSig?'0':'2px dashed '+(f.type==='name'?'#185FA5':'#854F0B')};background:${isSig?'transparent':'rgba(255,255,255,0.82)'};border-radius:8px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:6px;text-align:center">
-        ${isSig&&val?`<img src="${val}" alt="Signature" style="max-width:100%;max-height:100%;object-fit:contain">`:val?`<span style="font-size:${f.type==='date'?'11px':'12px'};font-weight:${f.type==='name'?'600':'500'};color:#0D1B2A">${esc(val)}</span>`:`<span style="font-size:11px;font-weight:600;color:${isSig?'#3C3489':f.type==='name'?'#185FA5':'#854F0B'}">${esc(f.label||f.type)}</span>`}
+        ${isSig&&val?`<img src="${val}" alt="Signature" style="max-width:100%;max-height:100%;object-fit:contain">`:val?`<span style="font-size:${f.type==='date'?'11px':'12px'};font-weight:${f.type==='name'?'600':'500'};color:#0D1B2A">${esc(val)}</span>`:`<span style="font-size:11px;font-weight:600;color:${isSig?'#3C3489':f.type==='name'?'#185FA5':'#854F0B'}">${esc(assignedFieldLabel(req,f))}</span>`}
       </div>`;
     }).join('');
   }catch(e){
@@ -2178,7 +2141,7 @@ function buildSignatureCertificateHtml(req,typedName,signatureDataUrl){
         <div class="label">Document</div><div>${esc(req.document_name||'Document')}</div>
         <div class="label">Matter</div><div>${esc(matter?.title||req.matter_title||'Matter')}</div>
         <div class="label">Signer</div><div>${esc(typedName)}</div>
-        <div class="label">Signer Email</div><div>${esc(req.signer_email||'—')}</div>
+        <div class="label">Signer Email</div><div>${esc(req.signer_email||'-')}</div>
         <div class="label">Sent</div><div>${esc(fmtDate(req.sent_at||req.created_at))}</div>
         <div class="label">Signed</div><div>${esc(fmtDate(req.signed_at))}</div>
         <div class="label">Request ID</div><div><code>${esc(req.id||makeSigId())}</code></div>
@@ -2206,7 +2169,7 @@ async function submitSignatureRequest(requestId,overlay){
   if(!signatureDataUrl){portalToast('Draw your signature in the box first.',true);return;}
   const submitBtn=overlay.querySelector('#sig-submit');
   submitBtn.disabled=true;
-  submitBtn.textContent='Saving…';
+  submitBtn.textContent='Saving...';
   try{
     const baseFolder=req.matter_id;
     const signaturePath=`${baseFolder}/${SIGNATURE_ARTIFACTS_PREFIX}${req.id}__signature.png`;
@@ -2276,17 +2239,17 @@ function openSignatureOverlay(requestId){
     <div style="padding:20px 24px;border-bottom:1px solid var(--brd);display:flex;align-items:flex-start;gap:14px;background:linear-gradient(180deg,#FFFFFF 0%,#FBF8F1 100%)">
       <div style="flex:1;min-width:0">
         <div style="font-family:'Playfair Display',serif;font-size:24px;color:var(--txt)">${canSign?'Sign Document':'Signed Record'}</div>
-        <div style="font-size:12px;color:var(--txt3);margin-top:4px">${esc(req.document_name||'Document')}${matter?' • '+esc(matter.title):''}</div>
+        <div style="font-size:12px;color:var(--txt3);margin-top:4px">${esc(req.document_name||'Document')}${matter?' â€¢ '+esc(matter.title):''}</div>
       </div>
       ${signaturePill(req.status)}
-      <button type="button" id="sig-close" style="background:none;border:none;font-size:24px;line-height:1;color:var(--txt3);cursor:pointer">×</button>
+      <button type="button" id="sig-close" style="background:none;border:none;font-size:24px;line-height:1;color:var(--txt3);cursor:pointer">?</button>
     </div>
     <div style="padding:22px;display:grid;gap:18px;max-height:calc(94dvh - 95px);overflow:auto;background:#fff">
       <div style="background:var(--cream);border:1px solid var(--brd);border-radius:14px;padding:14px 16px;font-size:12px;color:var(--txt2);line-height:1.7">
         ${esc(req.message||'Review the document and sign once you are satisfied with its contents.')}
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <button class="pbtn view" type="button" id="sig-open-doc">👁 View document</button>
+        <button class="pbtn view" type="button" id="sig-open-doc">View document</button>
         ${req.certificate_path?'<button class="pbtn" type="button" id="sig-open-record">Open signed record</button>':''}
       </div>
       <div id="sig-preview-mount"></div>
@@ -2355,7 +2318,6 @@ function openSignatureOverlay(requestId){
   }
 }
 
-// ── RENDER: OVERVIEW ─────────────────────────────────────────────
 submitSignatureRequest=async function(requestId,overlay){
   const req=getSignatureRequest(requestId);
   if(!req){portalToast('Signature request not found.',true);return;}
@@ -2449,17 +2411,17 @@ openSignatureOverlay=function(requestId){
     <div style="padding:20px 24px;border-bottom:1px solid var(--brd);display:flex;align-items:flex-start;gap:14px;background:linear-gradient(180deg,#FFFFFF 0%,#FBF8F1 100%)">
       <div style="flex:1;min-width:0">
         <div style="font-family:'Playfair Display',serif;font-size:24px;color:var(--txt)">${canSign?'Sign Document':(signedAlready?'Signed Record':'Signature Status')}</div>
-        <div style="font-size:12px;color:var(--txt3);margin-top:4px">${esc(req.document_name||'Document')}${matter?' â€¢ '+esc(matter.title):''}</div>
+        <div style="font-size:12px;color:var(--txt3);margin-top:4px">${esc(req.document_name||'Document')}${matter?' - '+esc(matter.title):''}</div>
       </div>
       ${signaturePill(req.status)}
-      <button type="button" id="sig-close" style="background:none;border:none;font-size:24px;line-height:1;color:var(--txt3);cursor:pointer">Ã—</button>
+      <button type="button" id="sig-close" style="background:none;border:none;font-size:24px;line-height:1;color:var(--txt3);cursor:pointer">x</button>
     </div>
     <div style="padding:22px;display:grid;gap:18px;max-height:calc(94dvh - 95px);overflow:auto;background:#fff">
       <div style="background:var(--cream);border:1px solid var(--brd);border-radius:14px;padding:14px 16px;font-size:12px;color:var(--txt2);line-height:1.7">
         ${waitingTurn?'Another signer must complete their step before this document opens for your signature.<br><br>':''}${esc(req.message||'Review the document and sign once you are satisfied with its contents.')}
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <button class="pbtn view" type="button" id="sig-open-doc">ðŸ‘ View document</button>
+        <button class="pbtn view" type="button" id="sig-open-doc">View document</button>
         ${req.certificate_path?'<button class="pbtn" type="button" id="sig-open-record">Open signed record</button>':''}
       </div>
       <div id="sig-preview-mount"></div>
@@ -2537,9 +2499,9 @@ function renderOverview(){
   document.getElementById('stat-events').textContent=upcoming.length;
   document.getElementById('stat-invoices').textContent=myInvoices.length;
 
-  // Updates feed — load from matter_updates table
+  // Updates feed - load from matter_updates table
   const updEl=document.getElementById('overview-updates');
-  if(!myMatters.length){updEl.innerHTML=empty('⚖️','No matters yet','Your matters will appear here once opened by the firm.');
+  if(!myMatters.length){updEl.innerHTML=empty('âš–ï¸','No matters yet','Your matters will appear here once opened by the firm.');
   }else{
     // Try to load recent updates from DB
     const matterIds=myMatters.map(m=>m.id);
@@ -2555,8 +2517,8 @@ function renderOverview(){
               <div class="update-dot" style="background:${m.status==='urgent'?'#E2443A':m.status==='active'?'var(--green)':'var(--gold)'}"></div>
               <div class="update-body">
                 <div class="update-text"><strong>${esc(m.title)}</strong> &nbsp;${spill(m.status)}</div>
-                ${updates.length?`<div class="update-time" style="margin-top:4px">${updates.join(' · ')}</div>`:''}
-                <div class="update-time">${esc(m.type||'')}${m.file_number?' · File: '+esc(m.file_number):''}</div>
+                ${updates.length?`<div class="update-time" style="margin-top:4px">${updates.join('  -  ')}</div>`:''}
+                <div class="update-time">${esc(m.type||'')}${m.file_number?'  -  File: '+esc(m.file_number):''}</div>
               </div>
             </div>`;}).join('');
           return;
@@ -2567,7 +2529,7 @@ function renderOverview(){
         const updcolor={'hearing':'#A32D2D','filing':'#185FA5','correspondence':'#2D6A4F','negotiation':'#3C3489','instruction':'#854F0B','order':'#A32D2D','settlement':'#2D6A4F','research':'var(--txt2)','general':'var(--txt2)'};
         updEl.innerHTML=data.map(u=>{
           const m=myMatters.find(x=>x.id===u.matter_id);
-          const dateStr=u.update_date?new Date(u.update_date+'T00:00').toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'}):'—';
+          const dateStr=u.update_date?new Date(u.update_date+'T00:00').toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'}):'-';
           const typeLabel=PORTAL_UPDATE_TYPE_LABELS[u.update_type]||u.update_type||'Update';
           return`<div class="update-item">
             <div class="update-dot" style="background:${updbg[u.update_type]||'var(--gold)'}"></div>
@@ -2576,17 +2538,17 @@ function renderOverview(){
                 <span style="font-size:10px;padding:1px 7px;border-radius:8px;font-weight:500;background:${updbg[u.update_type]||'var(--cream2)'};color:${updcolor[u.update_type]||'var(--txt2)'}">${esc(typeLabel)}</span>
                 <span style="font-size:10px;color:var(--txt3)">${dateStr}</span>
               </div>
-              <div class="update-text">${esc(u.details.slice(0,120))}${u.details.length>120?'…':''}</div>
-              ${m?`<div class="update-time" style="margin-top:3px">📁 ${esc(m.title)}</div>`:''}
+              <div class="update-text">${esc(u.details.slice(0,120))}${u.details.length>120?'...':''}</div>
+              ${m?`<div class="update-time" style="margin-top:3px">ðŸ“ ${esc(m.title)}</div>`:''}
             </div>
           </div>`;
         }).join('');
       });
     // Show loading placeholder immediately
-    updEl.innerHTML=`<div style="padding:24px;text-align:center;color:var(--txt3);font-size:12px">Loading updates…</div>`;
+    updEl.innerHTML=`<div style="padding:24px;text-align:center;color:var(--txt3);font-size:12px">Loading updates...</div>`;
   }
 
-  // Upcoming events — mix firm events + holidays (static + gazetted) in next 30 days
+  // Upcoming events - mix firm events + holidays (static + gazetted) in next 30 days
   const evEl=document.getElementById('overview-events');
   const todayStr=now.toISOString().split('T')[0];
   const in30Str=in30.toISOString().split('T')[0];
@@ -2598,7 +2560,7 @@ function renderOverview(){
     ...upcomingHols.map(h=>({date:h.date,type:'holiday',data:h}))
   ].sort((a,b)=>a.date.localeCompare(b.date)).slice(0,5);
   document.getElementById('stat-events').textContent=upcoming.length+upcomingHols.length;
-  if(!mixed.length){evEl.innerHTML=empty('📅','No upcoming events','Events and public holidays will appear here.');}
+  if(!mixed.length){evEl.innerHTML=empty('ðŸ“…','No upcoming events','Events and public holidays will appear here.');}
   else evEl.innerHTML=mixed.map(item=>item.type==='holiday'?holidayRow(item.data):eventRow(item.data)).join('');
 
   // Render group panel if client belongs to one
@@ -2619,15 +2581,15 @@ function renderGroupPanel(){
 
   el.innerHTML=`<div class="group-panel">
     <div class="group-panel-header">
-      <div class="group-panel-icon">👥</div>
+      <div class="group-panel-icon">ðŸ‘¥</div>
       <div style="flex:1;min-width:0">
         <div class="group-panel-title">${esc(myGroup.name)}</div>
-        <div class="group-panel-sub">${members.length} member${members.length!==1?'s':''} · ${isFocal?'You are the focal point contact':'Grouped matter'}</div>
+        <div class="group-panel-sub">${members.length} member${members.length!==1?'s':''}  -  ${isFocal?'You are the focal point contact':'Grouped matter'}</div>
       </div>
       <span class="group-type-badge">${typeLabel}</span>
     </div>
     <div style="padding:10px 20px 4px;font-size:11px;color:var(--txt3);border-bottom:1px solid var(--brd)">
-      This matter is shared with the group members listed below. The ⭐ focal point is the primary contact for the firm.
+      This matter is shared with the group members listed below. The â­ focal point is the primary contact for the firm.
     </div>
     ${members.map(m=>{
       const isMe=m.id===clientRecord.id;
@@ -2638,18 +2600,17 @@ function renderGroupPanel(){
           <div style="font-size:13px;font-weight:${isMe?'600':'400'};color:var(--txt)">${esc(m.name)}${isMe?'':''}</div>
           <div style="font-size:11px;color:var(--txt3);margin-top:1px">${esc(m.type||'Client')}</div>
         </div>
-        ${isFocalMember?'<span class="group-focal-badge">⭐ Focal Point</span>':''}
+        ${isFocalMember?'<span class="group-focal-badge">â­ Focal Point</span>':''}
         ${isMe?'<span class="group-you-badge">You</span>':''}
       </div>`;
     }).join('')}
   </div>`;
 }
 
-// ── RENDER: MATTERS ───────────────────────────────────────────────
 function renderMatters(){
   const g=document.getElementById('matters-grid');
-  if(!clientRecord){g.innerHTML=empty('⚖️','Account not linked','Contact the firm to link your portal account.');return;}
-  if(!myMatters.length){g.innerHTML=empty('⚖️','No matters yet','Your legal matters will appear here once opened.');return;}
+  if(!clientRecord){g.innerHTML=empty('âš–ï¸','Account not linked','Contact the firm to link your portal account.');return;}
+  if(!myMatters.length){g.innerHTML=empty('âš–ï¸','No matters yet','Your legal matters will appear here once opened.');return;}
   g.innerHTML=myMatters.map(m=>`
     <div class="matter-pcard" onclick="openMatterDetail('${m.id}')" style="cursor:pointer">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px">
@@ -2657,13 +2618,13 @@ function renderMatters(){
         ${spill(m.status)}
       </div>
       <div class="matter-pcard-meta">
-        ${m.file_number?`<div>📁 File No: <strong>${esc(m.file_number)}</strong></div>`:''}
-        ${m.type?`<div>⚖️ ${esc(m.type)}</div>`:''}
-        ${m.court?`<div>🏛️ ${esc(m.court)}</div>`:''}
-        ${m.open_date?`<div>📅 Opened: ${fmtDate(m.open_date)}</div>`:''}
-        ${myGroup&&m.group_id===myGroup.id?`<div><span class="matter-group-tag">👥 ${esc(myGroup.name)}</span></div>`:''}
+        ${m.file_number?`<div>ðŸ“ File No: <strong>${esc(m.file_number)}</strong></div>`:''}
+        ${m.type?`<div>âš–ï¸ ${esc(m.type)}</div>`:''}
+        ${m.court?`<div>ðŸ›ï¸ ${esc(m.court)}</div>`:''}
+        ${m.open_date?`<div>ðŸ“… Opened: ${fmtDate(m.open_date)}</div>`:''}
+        ${myGroup&&m.group_id===myGroup.id?`<div><span class="matter-group-tag">ðŸ‘¥ ${esc(myGroup.name)}</span></div>`:''}
       </div>
-      ${m.next_date?`<div style="margin-top:10px;padding:8px 12px;background:rgba(255,255,255,0.7);border-radius:6px;font-size:11px;color:var(--txt2)">⏰ Next Date: <strong style="color:var(--red)">${fmtDate(m.next_date)}</strong></div>`:''}
+      ${m.next_date?`<div style="margin-top:10px;padding:8px 12px;background:rgba(255,255,255,0.7);border-radius:6px;font-size:11px;color:var(--txt2)">â° Next Date: <strong style="color:var(--red)">${fmtDate(m.next_date)}</strong></div>`:''}
       <div class="matter-pcard-footer" style="margin-top:12px">
         <button class="pbtn" style="font-size:11px;display:flex;align-items:center;gap:5px;pointer-events:none">
           <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -2674,7 +2635,6 @@ function renderMatters(){
     </div>`).join('');
 }
 
-// ── OPEN MATTER DETAIL ────────────────────────────────────────────
 let activeMatterDetailId = null;
 let activeMatterDetailTab = 'updates';
 
@@ -2687,14 +2647,14 @@ function openMatterDetail(matterId){
   // Populate hero
   document.getElementById('md-title').textContent = m.title;
   const metaParts = [];
-  if(m.file_number) metaParts.push('📁 File No: '+m.file_number);
-  if(m.type) metaParts.push('⚖️ '+m.type);
-  if(m.court) metaParts.push('🏛️ '+m.court);
+  if(m.file_number) metaParts.push('ðŸ“ File No: '+m.file_number);
+  if(m.type) metaParts.push('âš–ï¸ '+m.type);
+  if(m.court) metaParts.push('ðŸ›ï¸ '+m.court);
   if(m.status) metaParts.push(m.status.charAt(0).toUpperCase()+m.status.slice(1));
-  if(m.next_date) metaParts.push('⏰ Next: '+fmtDate(m.next_date));
+  if(m.next_date) metaParts.push('â° Next: '+fmtDate(m.next_date));
   // Add group tag if matter is linked to this client's group
-  if(myGroup && m.group_id===myGroup.id) metaParts.push('👥 '+myGroup.name);
-  document.getElementById('md-meta').innerHTML = metaParts.join(' &nbsp;·&nbsp; ');
+  if(myGroup && m.group_id===myGroup.id) metaParts.push('ðŸ‘¥ '+myGroup.name);
+  document.getElementById('md-meta').innerHTML = metaParts.join(' &nbsp; - &nbsp; ');
 
   // If group matter, inject group members panel below hero
   const existingGroupPanel = document.getElementById('md-group-panel');
@@ -2708,10 +2668,10 @@ function openMatterDetail(matterId){
     panel.id='md-group-panel';
     panel.innerHTML=`<div class="group-panel" style="margin-top:16px">
       <div class="group-panel-header">
-        <div class="group-panel-icon">👥</div>
+        <div class="group-panel-icon">ðŸ‘¥</div>
         <div style="flex:1;min-width:0">
           <div class="group-panel-title">${esc(myGroup.name)}</div>
-          <div class="group-panel-sub">${typeLabels[myGroup.group_type]||'Group'} · ${members.length} member${members.length!==1?'s':''}</div>
+          <div class="group-panel-sub">${typeLabels[myGroup.group_type]||'Group'}  -  ${members.length} member${members.length!==1?'s':''}</div>
         </div>
         <span class="group-type-badge">Shared Matter</span>
       </div>
@@ -2727,7 +2687,7 @@ function openMatterDetail(matterId){
             <div style="font-size:12px;font-weight:${isMe?'600':'400'};color:var(--txt)">${esc(mc.name)}</div>
             <div style="font-size:10px;color:var(--txt3)">${esc(mc.type||'Client')}</div>
           </div>
-          ${isFocalMember?'<span class="group-focal-badge">⭐ Focal</span>':''}
+          ${isFocalMember?'<span class="group-focal-badge">â­ Focal</span>':''}
           ${isMe?'<span class="group-you-badge">You</span>':''}
         </div>`;
       }).join('')}
@@ -2768,7 +2728,6 @@ function switchMatterDetailTab(tab, el){
   if(tab==='events') renderMatterDetailEvents(activeMatterDetailId);
 }
 
-// ── MATTER DETAIL: UPDATES ────────────────────────────────────────
 const PORTAL_UPDATE_TYPE_LABELS2={
   'hearing':'Hearing','filing':'Court Filing','correspondence':'Correspondence',
   'negotiation':'Negotiation','instruction':'Client Instruction','order':'Court Order',
@@ -2777,13 +2736,13 @@ const PORTAL_UPDATE_TYPE_LABELS2={
 async function loadMatterDetailUpdates(matterId){
   const card = document.getElementById('md-updates-card');
   if(!card) return;
-  card.innerHTML = `<div style="padding:40px;text-align:center;color:var(--txt3)">Loading updates…</div>`;
+  card.innerHTML = `<div style="padding:40px;text-align:center;color:var(--txt3)">Loading updates...</div>`;
   const {data,error} = await sb.from('matter_updates').select('update_date,update_type,details').eq('matter_id',matterId).eq('portal_visible',true).order('update_date',{ascending:false});
   if(error){ card.innerHTML=`<div style="padding:32px;text-align:center;font-size:13px;color:var(--txt3)">Unable to load updates.</div>`; return; }
   const updates = data||[];
   if(!updates.length){
     card.innerHTML=`<div style="padding:40px;text-align:center">
-      <div style="font-size:32px;margin-bottom:12px">📋</div>
+      <div style="font-size:32px;margin-bottom:12px">ðŸ“‹</div>
       <div style="font-family:'Playfair Display',serif;font-size:16px;color:var(--txt2);margin-bottom:6px">No updates yet</div>
       <div style="font-size:12px;color:var(--txt3);line-height:1.6">The firm will record updates here as your matter progresses.</div>
     </div>`;
@@ -2792,9 +2751,9 @@ async function loadMatterDetailUpdates(matterId){
   const updbg={'hearing':'#FCEBEB','filing':'#E6F1FB','correspondence':'#EAF3DE','negotiation':'#EEEDFE','instruction':'#FAEEDA','order':'#FCEBEB','settlement':'#EAF3DE','research':'var(--cream2)','general':'var(--cream2)'};
   const updcolor={'hearing':'#A32D2D','filing':'#185FA5','correspondence':'#2D6A4F','negotiation':'#3C3489','instruction':'#854F0B','order':'#A32D2D','settlement':'#2D6A4F','research':'var(--txt2)','general':'var(--txt2)'};
   card.innerHTML = updates.map(u=>{
-    const dayNum=u.update_date?new Date(u.update_date+'T00:00').getDate():'—';
+    const dayNum=u.update_date?new Date(u.update_date+'T00:00').getDate():'-';
     const monthStr=u.update_date?new Date(u.update_date+'T00:00').toLocaleString('en',{month:'short'}):'';
-    const dateStr=u.update_date?new Date(u.update_date+'T00:00').toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'}):'—';
+    const dateStr=u.update_date?new Date(u.update_date+'T00:00').toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'}):'-';
     const typeLabel=PORTAL_UPDATE_TYPE_LABELS2[u.update_type]||u.update_type||'Update';
     return`<div style="display:flex;gap:14px;padding:16px 22px;border-bottom:1px solid var(--brd);align-items:flex-start">
       <div style="width:40px;text-align:center;flex-shrink:0">
@@ -2812,11 +2771,10 @@ async function loadMatterDetailUpdates(matterId){
   }).join('');
 }
 
-// ── MATTER DETAIL: DOCUMENTS ──────────────────────────────────────
 async function loadMatterDetailDocs(matterId){
   const container = document.getElementById('md-docs-container');
   if(!container) return;
-  container.innerHTML = `<div class="pcard"><div style="padding:40px;text-align:center;color:var(--txt3)">Loading documents…</div></div>`;
+  container.innerHTML = `<div class="pcard"><div style="padding:40px;text-align:center;color:var(--txt3)">Loading documents...</div></div>`;
 
   // Firm-shared docs for this matter
   const {data:firmData} = await sb.storage.from(FIRM_BUCKET).list(matterId,{limit:200,sortBy:{column:'created_at',order:'desc'}});
@@ -2831,7 +2789,7 @@ async function loadMatterDetailDocs(matterId){
   const matterSignatureMarkup=renderSignatureInbox(mySignatureRequests.filter(r=>r.matter_id===matterId&&r.status!=='cancelled'&&r.status!=='declined'),matterId);
 
   if(!firmDocs.length && !clientUploads.length && !matterSignatureMarkup){
-    container.innerHTML=`<div class="pcard">${empty('📂','No documents yet','Documents shared by the firm and your uploads for this matter will appear here.')}</div>`;
+    container.innerHTML=`<div class="pcard">${empty('Docs','No documents yet','Documents shared by the firm and your uploads for this matter will appear here.')}</div>`;
     return;
   }
 
@@ -2842,7 +2800,7 @@ async function loadMatterDetailDocs(matterId){
   if(firmDocs.length){
     html+=`<div class="pcard" style="margin-bottom:14px">
       <div class="pcard-header">
-        <div><div class="pcard-title">📁 Shared by Firm</div><div class="pcard-sub">Documents the firm has shared with you for this matter</div></div>
+        <div><div class="pcard-title">Shared by Firm</div><div class="pcard-sub">Documents the firm has shared with you for this matter</div></div>
         <span style="font-size:11px;color:var(--txt3)">${firmDocs.length} file${firmDocs.length!==1?'s':''}</span>
       </div>
       ${firmDocs.map(f=>sharedDocRow({...f,matterId,matterTitle:''})).join('')}
@@ -2853,7 +2811,7 @@ async function loadMatterDetailDocs(matterId){
   if(clientUploads.length){
     html+=`<div class="pcard" style="margin-bottom:14px">
       <div class="pcard-header">
-        <div><div class="pcard-title">📤 My Uploads</div><div class="pcard-sub">Files you have sent to the firm for this matter</div></div>
+        <div><div class="pcard-title">My Uploads</div><div class="pcard-sub">Files you have sent to the firm for this matter</div></div>
         <span style="font-size:11px;color:var(--txt3)">${clientUploads.length} file${clientUploads.length!==1?'s':''}</span>
       </div>
       ${clientUploads.map(f=>{
@@ -2868,10 +2826,10 @@ async function loadMatterDetailDocs(matterId){
           <div class="doc-list-icon ${cls}">${icon}</div>
           <div class="doc-list-info">
             <div class="doc-list-name" title="${esc(displayName)}">${esc(displayName)}</div>
-            <div class="doc-list-meta">${cat?categoryLabel(cat)+' · ':''}${fmtFileSize(meta.size)}${dateStr?' · '+dateStr:''}</div>
+            <div class="doc-list-meta">${cat?categoryLabel(cat)+' - ':''}${fmtFileSize(meta.size)}${dateStr?' - '+dateStr:''}</div>
           </div>
           <div class="doc-list-actions">
-            <button class="pbtn view" onclick="viewClientUpload('${esc(f._folder||matterId)}','${esc(f.name)}','${esc(displayName)}')">👁 View</button>
+            <button class="pbtn view" onclick="viewClientUpload('${esc(f._folder||matterId)}','${esc(f.name)}','${esc(displayName)}')">View</button>
           </div>
         </div>`;
       }).join('')}
@@ -2881,7 +2839,6 @@ async function loadMatterDetailDocs(matterId){
   container.innerHTML=html;
 }
 
-// ── MATTER DETAIL: EVENTS ─────────────────────────────────────────
 function renderMatterDetailEvents(matterId){
   const card = document.getElementById('md-events-card');
   if(!card) return;
@@ -2891,7 +2848,7 @@ function renderMatterDetailEvents(matterId){
   const past = matterEvents.filter(e=>parseDateLocal(e.event_date)<now).sort((a,b)=>b.event_date.localeCompare(a.event_date));
 
   if(!matterEvents.length){
-    card.innerHTML=empty('📅','No events for this matter','Events and hearings linked to this matter will appear here.');
+    card.innerHTML=empty('ðŸ“…','No events for this matter','Events and hearings linked to this matter will appear here.');
     return;
   }
 
@@ -2907,7 +2864,6 @@ function renderMatterDetailEvents(matterId){
   card.innerHTML=html;
 }
 
-// ── RENDER: DOCUMENTS ─────────────────────────────────────────────
 // Tabs: General (all docs flat) | Matter Specific (grouped by matter)
 let _docsActiveTab='general';
 
@@ -2924,7 +2880,7 @@ function setPortalDocView(v){
 
 function renderDocuments(){
   const c=document.getElementById('documents-container');
-  if(!clientRecord){c.innerHTML=empty('📂','Account not linked','Contact the firm to link your portal account.');return;}
+  if(!clientRecord){c.innerHTML=empty('Docs','Account not linked','Contact the firm to link your portal account.');return;}
 
   const totalFirm=sharedDocs.length;
   const totalMine=myUploads.length;
@@ -2932,7 +2888,7 @@ function renderDocuments(){
   const pendingMarkup=renderSignatureInbox(mySignatureRequests.filter(r=>r.status!=='cancelled'&&r.status!=='declined'));
 
   if(!total&&!pendingMarkup){
-    c.innerHTML=`<div class="pcard">${empty('📂','No documents yet','Documents shared by the firm and files you upload will both appear here.')}</div>`;return;
+    c.innerHTML=`<div class="pcard">${empty('Docs','No documents yet','Documents shared by the firm and files you upload will both appear here.')}</div>`;return;
   }
 
   // Tab bar
@@ -2981,7 +2937,7 @@ function renderDocuments(){
         :[...firmRows,...clientRows].join('');
       return`<div class="pcard" style="margin-bottom:14px">
         <div class="pcard-header">
-          <div><div class="pcard-title">📁 ${esc(grp.title)}</div><div class="pcard-sub">${grp.firm.length} from firm · ${grp.client.length} uploaded by you</div></div>
+          <div><div class="pcard-title">${esc(grp.title)}</div><div class="pcard-sub">${grp.firm.length} from firm - ${grp.client.length} uploaded by you</div></div>
           <span style="font-size:11px;color:var(--txt3)">${total} file${total!==1?'s':''}</span>
         </div>
         ${inner}
@@ -3006,11 +2962,9 @@ function docCardGeneral(f, source){
   const meta=f.metadata||{};
   const sizeStr=fmtFileSize(meta.size);
   const matterId=f.matterId||f._matterId||'';
-  const sigReq=source==='firm'?signatureRequestForPath(`${matterId}/${f.name}`):null;
-  const canSign=sigReq&&(sigReq.status==='sent'||sigReq.status==='opened');
   const sourceBadge=source==='firm'
-    ?`<span style="background:#EAF3DE;color:#2D6A4F;font-size:9px;padding:1px 6px;border-radius:6px;font-weight:600">📁 Firm</span>`
-    :`<span style="background:#E6F1FB;color:#185FA5;font-size:9px;padding:1px 6px;border-radius:6px;font-weight:600">📤 You</span>`;
+    ?`<span style="background:#EAF3DE;color:#2D6A4F;font-size:9px;padding:1px 6px;border-radius:6px;font-weight:600">Firm</span>`
+    :`<span style="background:#E6F1FB;color:#185FA5;font-size:9px;padding:1px 6px;border-radius:6px;font-weight:600">You</span>`;
   const folder=f._folder||matterId;
   const viewFn=source==='firm'
     ?`viewSharedDoc('${esc(matterId)}','${esc(f.name)}','${esc(displayName)}')`
@@ -3021,8 +2975,8 @@ function docCardGeneral(f, source){
     <div class="doc-card-name" title="${esc(displayName)}">${esc(displayName)}</div>
     <div class="doc-card-meta">${[sourceBadge,sizeStr].filter(Boolean).join(' ')}</div>
     <div class="doc-card-actions">
-      <button class="pbtn view" style="padding:4px 8px;font-size:10px" onclick="${viewFn}">👁</button>
-      ${dlFn?`<button class="pbtn" style="padding:4px 8px;font-size:10px" onclick="${dlFn}">⬇</button>`:''}
+      <button class="pbtn view" style="padding:4px 8px;font-size:10px" onclick="${viewFn}">View</button>
+      ${dlFn?`<button class="pbtn" style="padding:4px 8px;font-size:10px" onclick="${dlFn}">Download</button>`:''}
     </div>
   </div>`;
 }
@@ -3034,17 +2988,15 @@ function switchDocsTab(tab){
   renderDocuments();
 }
 
-// Unified doc row used in both tabs — shows source badge + correct view action
+// Unified doc row used in both tabs - shows source badge + correct view action
 function docRowGeneral(f, source){
   let displayName=f.name, cat='', desc='', matterId=f.matterId||f._matterId||'', folder=f._folder||matterId;
   const parts=f.name.split('__');
 
   if(source==='firm'){
-    // Format: shared__{cat}__{desc}__{ts}_{name}
     if(parts.length>=4){cat=parts[1];desc=parts[2];displayName=parts.slice(3).join('__');}
     else if(parts.length===2){displayName=parts[1];}
   } else {
-    // Format: client__{cat}__{desc}__{ts}_{name}
     if(parts.length>=4){cat=parts[1];desc=parts[2];displayName=parts.slice(3).join('__');}
   }
   const tsM=displayName.match(/^\d+_(.+)$/);if(tsM)displayName=tsM[1];
@@ -3052,16 +3004,16 @@ function docRowGeneral(f, source){
   const meta=f.metadata||{};
   const dateStr=f.created_at?new Date(f.created_at).toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'}):'';
   const catLabel=cat?categoryLabel(cat):'';
-  const metaStr=[catLabel,fmtFileSize(meta.size),dateStr,desc?desc.replace(/_/g,' '):''].filter(Boolean).join(' · ');
+  const metaStr=[catLabel,fmtFileSize(meta.size),dateStr,desc?desc.replace(/_/g,' '):''].filter(Boolean).join(' - ');
 
   const sourceBadge=source==='firm'
-    ? `<span style="background:#EAF3DE;color:#2D6A4F;font-size:9px;padding:1px 7px;border-radius:8px;font-weight:600;white-space:nowrap">📁 Firm</span>`
-    : `<span style="background:#E6F1FB;color:#185FA5;font-size:9px;padding:1px 7px;border-radius:8px;font-weight:600;white-space:nowrap">📤 You</span>`;
+    ? `<span style="background:#EAF3DE;color:#2D6A4F;font-size:9px;padding:1px 7px;border-radius:8px;font-weight:600;white-space:nowrap">Firm</span>`
+    : `<span style="background:#E6F1FB;color:#185FA5;font-size:9px;padding:1px 7px;border-radius:8px;font-weight:600;white-space:nowrap">You</span>`;
 
   const viewBtn=source==='firm'
-    ? `<button class="pbtn view" style="white-space:nowrap" onclick="viewSharedDoc('${esc(matterId)}','${esc(f.name)}','${esc(displayName)}')">👁 View</button>
-       <button class="pbtn" style="white-space:nowrap" onclick="downloadSharedDoc('${esc(matterId)}','${esc(f.name)}','${esc(displayName)}')">⬇</button>`
-    : `<button class="pbtn view" style="white-space:nowrap" onclick="viewClientUpload('${esc(folder)}','${esc(f.name)}','${esc(displayName)}')">👁 View</button>`;
+    ? `<button class="pbtn view" style="white-space:nowrap" onclick="viewSharedDoc('${esc(matterId)}','${esc(f.name)}','${esc(displayName)}')">View</button>
+       <button class="pbtn" style="white-space:nowrap" onclick="downloadSharedDoc('${esc(matterId)}','${esc(f.name)}','${esc(displayName)}')">Download</button>`
+    : `<button class="pbtn view" style="white-space:nowrap" onclick="viewClientUpload('${esc(folder)}','${esc(f.name)}','${esc(displayName)}')">View</button>`;
 
   return`<div class="doc-list-row">
     <div class="doc-list-icon ${cls}">${icon}</div>
@@ -3093,19 +3045,17 @@ function sharedDocRow(f){
     <div class="doc-list-icon ${cls}">${icon}</div>
     <div class="doc-list-info">
       <div class="doc-list-name" title="${esc(displayName)}">${esc(displayName)} ${sigReq?signaturePill(sigReq.status):''}</div>
-      <div class="doc-list-meta">${category?categoryLabel(category)+' · ':''}${fmtFileSize(meta.size)}${dateStr?' · '+dateStr:''}${description?' · '+esc(description):''}</div>
+      <div class="doc-list-meta">${category?categoryLabel(category)+' - ':''}${fmtFileSize(meta.size)}${dateStr?' - '+dateStr:''}${description?' - '+esc(description):''}</div>
     </div>
     <div class="doc-list-actions">
-      <button class="pbtn view" onclick="viewSharedDoc('${esc(f.matterId)}','${esc(f.name)}','${esc(displayName)}')">👁 View</button>
-      <button class="pbtn" onclick="downloadSharedDoc('${esc(f.matterId)}','${esc(f.name)}','${esc(displayName)}')">⬇</button>
-      ${sigReq?`<button class="pbtn ${canSign?'primary':'view'}" onclick="openSignatureOverlay('${esc(sigReq.id)}')">${canSign?'✍ Sign':'Signed'}</button>`:''}
+      <button class="pbtn view" onclick="viewSharedDoc('${esc(f.matterId)}','${esc(f.name)}','${esc(displayName)}')">View</button>
+      <button class="pbtn" onclick="downloadSharedDoc('${esc(f.matterId)}','${esc(f.name)}','${esc(displayName)}')">Download</button>
+      ${sigReq?`<button class="pbtn ${canSign?'primary':'view'}" onclick="openSignatureOverlay('${esc(sigReq.id)}')">${canSign?'Sign':'Signed'}</button>`:''}
     </div>
   </div>`;
 }
 
-// ── RENDER: EVENTS ────────────────────────────────────────────────
-// ── KENYAN PUBLIC HOLIDAYS ────────────────────────────────────────
-// Islamic holidays use a gazetted lookup table — update annually.
+// Islamic holidays use a gazetted lookup table - update annually.
 // Dates marked estimated:true are computed estimates, not yet gazetted.
 // Source: https://www.kenyalaw.org/kl/index.php?id=4521 (Kenya Gazette)
 const ISLAMIC_HOLIDAYS={
@@ -3184,21 +3134,21 @@ function holidayRow(h){
     numColor='#854F0B';
     tagBg=ghTypeBg[h.ghType]||ghTypeBg.other;
     tagColor=ghTypeColor[h.ghType]||ghTypeColor.other;
-    flag='📋';
+    flag='ðŸ“‹';
     tagLabel=ghTypeLabel[h.ghType]||'Gazetted';
-    subNote='Gazetted Holiday · Kenya';
+    subNote='Gazetted Holiday  -  Kenya';
   } else if(isIslamic){
     bgColor='rgba(24,95,165,0.04)';
     numColor='#185FA5';
     tagBg='#E6F1FB';tagColor='#185FA5';
-    flag='☪️';tagLabel='Islamic Holiday';
-    subNote='Public Holiday · Kenya'+(h.estimated?' · Date subject to moon sighting':'');
+    flag='â˜ªï¸';tagLabel='Islamic Holiday';
+    subNote='Public Holiday  -  Kenya'+(h.estimated?'  -  Date subject to moon sighting':'');
   } else {
     bgColor='rgba(45,106,79,0.04)';
     numColor='#2D6A4F';
     tagBg='#EAF3DE';tagColor='#2D6A4F';
-    flag='🇰🇪';tagLabel='Public Holiday';
-    subNote='Public Holiday · Kenya';
+    flag='ðŸ‡°ðŸ‡ª';tagLabel='Public Holiday';
+    subNote='Public Holiday  -  Kenya';
   }
   return`<div class="event-row" style="background:${bgColor}">
     <div class="event-date-box">
@@ -3214,7 +3164,6 @@ function holidayRow(h){
 }
 
 
-// ── PORTAL CALENDAR ───────────────────────────────────────────────
 let portalCalYear=new Date().getFullYear(), portalCalMonth=new Date().getMonth();
 function changePortalMonth(dir){
   portalCalMonth+=dir;
@@ -3290,8 +3239,8 @@ function renderPortalCalendar(){
     let inner=`<div class="p-cal-day-num">${d}</div>`;
     if(hols.length){
       const firstHol=hols[0];
-      const flag=firstHol.gazetted?'📋':firstHol.islamic?'☪️':'🇰🇪';
-      const firstName=firstHol.name.length>13?firstHol.name.slice(0,12)+'…':firstHol.name;
+      const flag=firstHol.gazetted?'ðŸ“‹':firstHol.islamic?'â˜ªï¸':'ðŸ‡°ðŸ‡ª';
+      const firstName=firstHol.name.length>13?firstHol.name.slice(0,12)+'...':firstHol.name;
       inner+=`<div class="p-cal-holiday-label" title="${esc(hols.map(h=>h.name+(h.estimated?' (est.)':'')).join(', '))}">${flag} ${esc(firstName)}</div>`;
     }
     if(evs.length) inner+=`<div class="p-cal-dot ${dc}"></div><div class="p-cal-event-mini">${esc(evs[0].title)}</div>`;
@@ -3322,7 +3271,7 @@ function renderPortalCalendar(){
 
 function renderEvents(){
   const c=document.getElementById('events-card');
-  if(!clientRecord){c.innerHTML=empty('📅','Account not linked','Contact the firm to link your portal account.');return;}
+  if(!clientRecord){c.innerHTML=empty('ðŸ“…','Account not linked','Contact the firm to link your portal account.');return;}
   const now=new Date();
   const todayStr=now.toISOString().split('T')[0];
   const thisYear=now.getFullYear();
@@ -3350,12 +3299,11 @@ function renderEvents(){
     html+=`<div style="padding:12px 20px 6px;font-size:10px;color:var(--txt3);text-transform:uppercase;letter-spacing:0.5px;font-weight:500;border-bottom:1px solid var(--brd);border-top:1px solid var(--brd);margin-top:6px">Past</div>`;
     html+=pastMixed.slice(0,8).map(item=>item.type==='holiday'?holidayRow({...item.data}):eventRow(item.data,true)).join('');
   }
-  if(!html) html=empty('📅','No events yet','Upcoming hearings, meetings and public holidays will appear here.');
+  if(!html) html=empty('ðŸ“…','No events yet','Upcoming hearings, meetings and public holidays will appear here.');
   c.innerHTML=html;
 }
 
 
-// ── MEETING LINK HELPERS ──────────────────────────────────────────
 function portalMeetingPlatform(url){
   if(!url)return'Meeting';
   const u=url.toLowerCase();
@@ -3367,12 +3315,12 @@ function portalMeetingPlatform(url){
   return'Meeting';
 }
 function portalMeetingIcon(url){
-  if(!url)return'🔗';
+  if(!url)return'ðŸ”—';
   const u=url.toLowerCase();
-  if(u.includes('zoom.us'))return'📹';
-  if(u.includes('teams.microsoft')||u.includes('teams.live'))return'💻';
-  if(u.includes('meet.google'))return'🟢';
-  return'🔗';
+  if(u.includes('zoom.us'))return'ðŸ“¹';
+  if(u.includes('teams.microsoft')||u.includes('teams.live'))return'ðŸ’»';
+  if(u.includes('meet.google'))return'ðŸŸ¢';
+  return'ðŸ”—';
 }
 
 function eventRow(e,faded=false){
@@ -3387,21 +3335,20 @@ function eventRow(e,faded=false){
     </div>
     <div class="event-body">
       <div class="event-title">${esc(e.title)}</div>
-      <div class="event-meta">${e.event_time?e.event_time+' · ':''}${e.location?esc(e.location)+' · ':''}${m?esc(m.title):''}</div>
+      <div class="event-meta">${e.event_time?e.event_time+'  -  ':''}${e.location?esc(e.location)+'  -  ':''}${m?esc(m.title):''}</div>
       <span class="event-tag ${tagMap[e.type]||'et-internal'}">${tagLabel[e.type]||'Event'}</span>
-      ${e.notes?`<div style="font-size:11px;color:var(--txt3);margin-top:5px;line-height:1.5">${esc(e.notes.slice(0,100))}${e.notes.length>100?'…':''}</div>`:''}
+      ${e.notes?`<div style="font-size:11px;color:var(--txt3);margin-top:5px;line-height:1.5">${esc(e.notes.slice(0,100))}${e.notes.length>100?'...':''}</div>`:''}
       ${e.meeting_link?`<a href="${esc(e.meeting_link)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;margin-top:8px;background:#185FA5;color:#fff;font-size:11px;font-weight:500;padding:5px 12px;border-radius:6px;text-decoration:none">${portalMeetingIcon(e.meeting_link)} Join ${portalMeetingPlatform(e.meeting_link)}</a>`:''}
     </div>
   </div>`; 
 }
 
-// ── RENDER: INVOICES ──────────────────────────────────────────────
 let _invView='list';
 function setInvView(v){_invView=v;renderInvoices();}
 function renderInvoices(){
   const s=document.getElementById('inv-summary');
   const l=document.getElementById('invoices-list');
-  if(!clientRecord){l.innerHTML=empty('💰','Account not linked','Contact the firm to link your portal account.');return;}
+  if(!clientRecord){l.innerHTML=empty('ðŸ’°','Account not linked','Contact the firm to link your portal account.');return;}
   const total=myInvoices.reduce((a,i)=>a+(Number(i.amount)||0),0);
   const paid=myInvoices.filter(i=>i.status==='paid').reduce((a,i)=>a+(Number(i.amount)||0),0);
   const outstanding=myInvoices.filter(i=>i.status==='sent'||i.status==='overdue').reduce((a,i)=>a+(Number(i.amount)||0),0);
@@ -3411,18 +3358,18 @@ function renderInvoices(){
     <div class="pstat"><div class="pstat-label">Outstanding</div><div class="pstat-val" style="color:var(--red)">${fmtMoney(outstanding)}</div><div class="pstat-sub">${myInvoices.filter(i=>i.status==='overdue').length} overdue</div></div>`;
   const hdr=document.getElementById('inv-view-toggle');
   if(hdr){hdr.querySelectorAll('.vtgl-btn').forEach(b=>b.classList.toggle('active',b.dataset.v===_invView));}
-  if(!myInvoices.length){l.innerHTML=empty('💰','No invoices yet','Invoices from the firm will appear here.');return;}
+  if(!myInvoices.length){l.innerHTML=empty('ðŸ’°','No invoices yet','Invoices from the firm will appear here.');return;}
   if(_invView==='list'){
     l.innerHTML='<div class="inv-table"><div class="inv-header-row"><span>Invoice</span><span>Description</span><span>Amount</span><span>Status</span><span>Due</span><span></span></div>'
     +myInvoices.map(i=>{
       const m=myMatters.find(x=>x.id===i.matter_id);
       return '<div class="inv-data-row">'
-        +'<div class="inv-cell bold">'+esc(i.invoice_no||'—')+'</div>'
-        +'<div class="inv-cell muted">'+(i.description?esc(i.description.slice(0,40))+(i.description.length>40?'…':''):m?esc(m.title):'—')+'</div>'
+        +'<div class="inv-cell bold">'+esc(i.invoice_no||'-')+'</div>'
+        +'<div class="inv-cell muted">'+(i.description?esc(i.description.slice(0,40))+(i.description.length>40?'...':''):m?esc(m.title):'-')+'</div>'
         +'<div class="inv-cell bold">'+fmtMoney(i.amount)+'</div>'
         +'<div class="inv-cell">'+spill(i.status)+'</div>'
         +'<div class="inv-cell muted">'+fmtDate(i.due_date)+'</div>'
-        +'<div class="inv-cell" style="display:flex;gap:4px;flex-wrap:wrap"><button class="pbtn view" style="font-size:10px;padding:3px 8px" onclick="downloadPortalInvoiceDocx(\''+i.id+'\')">⬇ PDF</button>'+(i.status==='paid'||i.status==='partially_paid'?'<button class="pbtn" style="font-size:10px;padding:3px 8px;color:var(--green);border-color:var(--green)" onclick="downloadPortalReceiptPdf(\''+i.id+'\',event)">🧾 Receipt</button>':'')+'</div>'
+        +'<div class="inv-cell" style="display:flex;gap:4px;flex-wrap:wrap"><button class="pbtn view" style="font-size:10px;padding:3px 8px" onclick="downloadPortalInvoiceDocx(\''+i.id+'\')">Download PDF</button>'+(i.status==='paid'||i.status==='partially_paid'?'<button class="pbtn" style="font-size:10px;padding:3px 8px;color:var(--green);border-color:var(--green)" onclick="downloadPortalReceiptPdf(\''+i.id+'\',event)">ðŸ§¾ Receipt</button>':'')+'</div>'
         +'</div>';
     }).join('')+'</div>';
   } else {
@@ -3430,22 +3377,21 @@ function renderInvoices(){
     +myInvoices.map(i=>{
       return '<div style="background:#fff;border:1px solid var(--brd);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:8px">'
         +'<div style="display:flex;justify-content:space-between;align-items:flex-start">'
-        +'<span style="font-weight:600;font-size:13px;color:var(--navy)">'+esc(i.invoice_no||'—')+'</span>'
+        +'<span style="font-weight:600;font-size:13px;color:var(--navy)">'+esc(i.invoice_no||'-')+'</span>'
         +spill(i.status)+'</div>'
         +'<div style="font-size:22px;font-weight:700;color:var(--navy)">'+fmtMoney(i.amount)+'</div>'
-        +'<div style="font-size:11px;color:var(--txt3)">'+(i.description?esc(i.description.slice(0,50)):'—')+'</div>'
+        +'<div style="font-size:11px;color:var(--txt3)">'+(i.description?esc(i.description.slice(0,50)):'-')+'</div>'
         +'<div style="font-size:11px;color:var(--txt3)">Due: '+fmtDate(i.due_date)+'</div>'
-        +'<button class="pbtn view" style="margin-top:4px;font-size:11px;padding:6px" onclick="downloadPortalInvoiceDocx(\''+i.id+'\')">⬇ Download PDF</button>'+(i.status==='paid'||i.status==='partially_paid'?'<button class="pbtn" style="font-size:11px;padding:6px;color:var(--green);border-color:var(--green)" onclick="downloadPortalReceiptPdf(\''+i.id+'\',event)">🧾 Receipt</button>':'')
+        +'<button class="pbtn view" style="margin-top:4px;font-size:11px;padding:6px" onclick="downloadPortalInvoiceDocx(\''+i.id+'\')">Download Download PDF</button>'+(i.status==='paid'||i.status==='partially_paid'?'<button class="pbtn" style="font-size:11px;padding:6px;color:var(--green);border-color:var(--green)" onclick="downloadPortalReceiptPdf(\''+i.id+'\',event)">ðŸ§¾ Receipt</button>':'')
         +'</div>';
     }).join('')+'</div>';
   }
 }
 
-// ── RENDER: MY UPLOADS ────────────────────────────────────────────
 async function renderMyUploads(){
   const c=document.getElementById('my-uploads-list');
   if(!clientRecord){c.innerHTML=`<div style="padding:20px;font-size:12px;color:var(--txt3)">Account not linked.</div>`;return;}
-  if(!myUploads.length){c.innerHTML=empty('📤','No uploads yet','Files you upload will appear here.');return;}
+  if(!myUploads.length){c.innerHTML=empty('ðŸ“¤','No uploads yet','Files you upload will appear here.');return;}
   c.innerHTML=myUploads.map(f=>{
     // New format: client__{category}__{description}__{timestamp}_{filename}
     let displayName=f.name;
@@ -3465,7 +3411,7 @@ async function renderMyUploads(){
       <div class="doc-list-icon ${cls}" style="width:30px;height:30px;font-size:14px">${icon}</div>
       <div class="doc-list-info">
         <div class="doc-list-name" style="font-size:12px">${esc(displayName)}</div>
-        <div class="doc-list-meta">${fmtFileSize(meta.size)}${dateStr?' · '+dateStr:''}${matterName?' · '+esc(matterName):''}</div>
+        <div class="doc-list-meta">${fmtFileSize(meta.size)}${dateStr?'  -  '+dateStr:''}${matterName?'  -  '+esc(matterName):''}</div>
       </div>
       <button class="pbtn view" style="font-size:10px;padding:3px 8px" onclick="viewClientUpload('${esc(folder)}','${esc(f.name)}','${esc(displayName)}')">View</button>
     </div>`;
@@ -3478,7 +3424,6 @@ function populateUploadMatterSelect(){
   sel.innerHTML='<option value="">None / General</option>'+myMatters.map(m=>`<option value="${m.id}">${esc(m.title)}</option>`).join('');
 }
 
-// ── UPLOAD CLIENT DOC ─────────────────────────────────────────────
 async function uploadClientDoc(){
   if(!clientRecord){toast('Account not linked to a client record.',true);return;}
   const file=document.getElementById('up-file').files[0];
@@ -3496,10 +3441,10 @@ async function uploadClientDoc(){
   const progressWrap=document.getElementById('up-progress-wrap');
   const bar=document.getElementById('up-progress-bar');
   const statusTxt=document.getElementById('up-status');
-  btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Uploading…';
+  btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Uploading...';
   progressWrap.style.display='block';
   bar.style.width='20%';
-  statusTxt.textContent='Uploading '+file.name+'…';
+  statusTxt.textContent='Uploading '+file.name+'...';
   const{error}=await sb.storage.from(FIRM_BUCKET).upload(storagePath,file,{upsert:false,contentType:file.type||'application/octet-stream'});
   bar.style.width='100%';
   btn.disabled=false;btn.textContent='Upload Document';
@@ -3513,7 +3458,6 @@ async function uploadClientDoc(){
   renderMyUploads();
 }
 
-// ── RENDER: PROFILE ───────────────────────────────────────────────
 function renderProfile(){
   if(!clientRecord){
     document.getElementById('pview-profile').querySelector('.pcard').innerHTML=`<div class="pcard-header"><div class="pcard-title">Profile Not Linked</div></div><div style="padding:20px;font-size:13px;color:var(--txt3)">Your portal account (${esc(currentUser?.email)}) is not yet linked to a client record. Please contact the firm to complete setup.</div>`;
@@ -3535,7 +3479,7 @@ function toggleProfileEdit(){
   profileEditActive=!profileEditActive;
   const fields=['prof-name','prof-phone','prof-address','prof-postal'];
   fields.forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=!profileEditActive;});
-  document.getElementById('edit-toggle-btn').textContent=profileEditActive?'✕ Cancel':'✏️ Edit';
+  document.getElementById('edit-toggle-btn').textContent=profileEditActive?'âœ• Cancel':'Edit Edit';
   const saveRow=document.getElementById('prof-save-row');
   saveRow.style.display=profileEditActive?'block':'none';
 }
@@ -3543,14 +3487,14 @@ function cancelProfileEdit(){
   profileEditActive=false;
   const fields=['prof-name','prof-phone','prof-address','prof-postal'];
   fields.forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=true;});
-  document.getElementById('edit-toggle-btn').textContent='✏️ Edit';
+  document.getElementById('edit-toggle-btn').textContent='Edit Edit';
   document.getElementById('prof-save-row').style.display='none';
   renderProfile();
 }
 async function saveProfile(){
   if(!clientRecord)return;
   const btn=document.getElementById('prof-save-btn');
-  btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Saving…';
+  btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Saving...';
   const payload={
     name:document.getElementById('prof-name').value.trim()||clientRecord.name,
     phone:document.getElementById('prof-phone').value.trim()||null,
@@ -3566,7 +3510,6 @@ async function saveProfile(){
   toast('Profile updated successfully.');
 }
 
-// ── DOCUMENT VIEWER ───────────────────────────────────────────────
 async function viewSharedDoc(matterId,storageName,displayName){
   const path=`${matterId}/${storageName}`;
   const{data,error}=await sb.storage.from(FIRM_BUCKET).createSignedUrl(path,600);
@@ -3600,7 +3543,7 @@ function openViewer(url,displayName,dlFn){
   } else if(ext==='pdf'){
     body.innerHTML=`<iframe src="${url}" style="width:100%;height:100%;min-height:300px;border:none;display:block;flex:1"></iframe>`;
   } else {
-    body.innerHTML=`<div class="viewer-nopreview"><div style="font-size:40px;margin-bottom:16px">📄</div><div style="font-weight:500;color:var(--txt);margin-bottom:10px">${esc(displayName)}</div><div>Preview not available for this file type.</div><div style="margin-top:16px"><button class="pbtn primary" onclick="document.getElementById('viewer-dl-btn').click()">⬇ Download to Open</button></div></div>`;
+    body.innerHTML=`<div class="viewer-nopreview"><div style="font-size:40px;margin-bottom:16px">ðŸ“„</div><div style="font-weight:500;color:var(--txt);margin-bottom:10px">${esc(displayName)}</div><div>Preview not available for this file type.</div><div style="margin-top:16px"><button class="pbtn primary" onclick="document.getElementById('viewer-dl-btn').click()">Download Download to Open</button></div></div>`;
   }
   document.getElementById('viewer-overlay').classList.remove('hidden');
   document.body.style.overflow='hidden';
@@ -3619,7 +3562,6 @@ function closeViewer(){
   document.body.style.overflow='';
 }
 
-// ── ORIENTATION / RESIZE: keep viewer body height in sync (Android fix) ──
 (function(){
   function syncViewerHeight(){
     const body=document.getElementById('viewer-body');
@@ -3651,7 +3593,6 @@ function updateMsgBadge(){
   if(drawerBadge){drawerBadge.textContent=unread;drawerBadge.style.display=unread>0?'':'none';}
 }
 
-// ── POLLING-BASED REALTIME (works on GitHub Pages / static hosts) ──
 let _portalPollInterval=null;
 let _portalSnap={messages:'',matters:'',invoices:0,events:'',matter_updates:'',alerts:0,docs:''};
 
@@ -3666,7 +3607,6 @@ async function portalPollAll(){
     const cid=clientRecord.id;
     const v=_activePortalView();
 
-    // ── Messages ──────────────────────────────────────────────────
     const{data:mxd}=await sb.from('client_messages').select('created_at').eq('client_id',cid).order('created_at',{ascending:false}).limit(1);
     const msgMax=mxd&&mxd[0]?mxd[0].created_at:'';
     if(msgMax&&msgMax!==_portalSnap.messages){
@@ -3677,7 +3617,6 @@ async function portalPollAll(){
       if(feed)renderMsgFeed();
     }
 
-    // ── Matters — detect new/changed matters ──────────────────────
     const{count:mC}=await sb.from('matters').select('*',{count:'exact',head:true}).eq('client_id',cid);
     const mT=String(mC||0);
     if(mT!==_portalSnap.matters){
@@ -3688,7 +3627,6 @@ async function portalPollAll(){
       if(v==='overview')renderOverview();
     }
 
-    // ── Invoices ──────────────────────────────────────────────────
     const{count:iC}=await sb.from('invoices').select('*',{count:'exact',head:true}).eq('client_id',cid);
     if((iC||0)!==_portalSnap.invoices){
       _portalSnap.invoices=iC||0;
@@ -3697,7 +3635,6 @@ async function portalPollAll(){
       if(v==='overview')renderOverview();
     }
 
-    // ── Events — detect new events AND portal_visible changes ─────
     const mIds=myMatters.map(m=>m.id);
     if(mIds.length){
       const{data:eLatest}=await sb.from('events').select('updated_at').in('matter_id',mIds).order('updated_at',{ascending:false}).limit(1);
@@ -3710,7 +3647,6 @@ async function portalPollAll(){
       }
     }
 
-    // ── Matter updates — detect new/changed updates ───────────────
     if(mIds.length){
       const{data:muLatest}=await sb.from('matter_updates')
         .select('updated_at,created_at').in('matter_id',mIds)
@@ -3731,7 +3667,6 @@ async function portalPollAll(){
       }
     }
 
-    // ── Alerts / notifications ─────────────────────────────────────
     const{count:aCount}=await sb.from('alerts')
       .select('*',{count:'exact',head:true})
       .eq('alert_type','client').eq('target_client_id',cid);
@@ -3762,7 +3697,7 @@ function setupPortalPolling(){
 }
 
 function setupMessagesRealtime(){
-  // Legacy name — now handled by polling
+  // Legacy name - now handled by polling
   setupPortalPolling();
 }
 
@@ -3784,7 +3719,7 @@ function renderMsgFeed(){
   if(!feed)return;
   const clientName=clientRecord?.name||'You';
   if(!myMessages.length){
-    feed.innerHTML=`<div class="empty"><div class="empty-icon">💬</div><div class="empty-title">No messages yet</div><div>Send a message to your legal team below.</div></div>`;
+    feed.innerHTML=`<div class="empty"><div class="empty-icon">ðŸ’¬</div><div class="empty-title">No messages yet</div><div>Send a message to your legal team below.</div></div>`;
     return;
   }
   feed.innerHTML=myMessages.map(m=>{
@@ -3820,7 +3755,7 @@ async function sendPortalMessage(){
   const msg=(inp?.value||'').trim();
   if(!msg)return;
   const btn=document.getElementById('msg-send-btn');
-  btn.disabled=true;btn.textContent='Sending…';
+  btn.disabled=true;btn.textContent='Sending...';
   // Optimistically append message so UI feels instant
   const optimistic={id:'_tmp_'+Date.now(),client_id:clientRecord.id,sender:'client',message:msg,read_by_client:true,created_at:new Date().toISOString()};
   myMessages=[...myMessages,optimistic];
@@ -3849,14 +3784,13 @@ async function sendPortalMessage(){
   renderMsgFeed();
 }
 
-// ── FILE DROP ZONE ────────────────────────────────────────────────
 window.addEventListener('load',()=>{
   const zone=document.getElementById('up-dropzone');
   const inp=document.getElementById('up-file');
   if(!zone||!inp)return;
   zone.addEventListener('click',()=>inp.click());
   inp.addEventListener('change',()=>{
-    if(inp.files[0])document.getElementById('up-zone-text').textContent='📎 '+inp.files[0].name;
+    if(inp.files[0])document.getElementById('up-zone-text').textContent='FILE '+inp.files[0].name;
   });
   zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drag');});
   zone.addEventListener('dragleave',()=>zone.classList.remove('drag'));
@@ -3865,13 +3799,12 @@ window.addEventListener('load',()=>{
     if(e.dataTransfer.files[0]){
       const dt=new DataTransfer();dt.items.add(e.dataTransfer.files[0]);
       inp.files=dt.files;
-      document.getElementById('up-zone-text').textContent='📎 '+e.dataTransfer.files[0].name;
+      document.getElementById('up-zone-text').textContent='FILE '+e.dataTransfer.files[0].name;
     }
   });
   initPortal();
 });
 
-// ── SOS / PANIC ALERT ─────────────────────────────────────────────
 let _sosLat=null,_sosLng=null,_sosSit=null;
 
 function portalSosTriggered(){
@@ -3898,7 +3831,6 @@ function portalSosReset(){
   _sosSit=null;
 }
 
-// ── SOS HISTORY ───────────────────────────────────────────────────
 async function loadSosHistory(){
   const listEl=document.getElementById('sos-history-list');
   const summaryEl=document.getElementById('sos-history-summary');
@@ -3906,7 +3838,7 @@ async function loadSosHistory(){
     listEl.innerHTML='<div style="text-align:center;padding:40px;color:var(--txt3);font-size:13px">No client record found.</div>';
     return;
   }
-  listEl.innerHTML='<div style="text-align:center;padding:40px;color:var(--txt3);font-size:13px">Loading…</div>';
+  listEl.innerHTML='<div style="text-align:center;padding:40px;color:var(--txt3);font-size:13px">Loading...</div>';
   const{data,error}=await sb.from('panic_alerts')
     .select('*')
     .eq('client_id',clientRecord.id)
@@ -3941,28 +3873,28 @@ async function loadSosHistory(){
   }
 
   const sitLabels={arrested:'Arrested / Detained',danger:'In Danger',accident:'Accident / Injury',other:'Other Emergency',unspecified:'Unspecified'};
-  const sitIcons={arrested:'🚔',danger:'⚠️',accident:'🏥',other:'❗',unspecified:'🆘'};
+  const sitIcons={arrested:'ðŸš”',danger:'âš ï¸',accident:'ðŸ¥',other:'â—',unspecified:'ðŸ†˜'};
 
   listEl.innerHTML=alerts.map(a=>{
     const date=new Date(a.triggered_at);
     const dateStr=date.toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'});
     const timeStr=date.toLocaleTimeString('en-KE',{hour:'2-digit',minute:'2-digit'});
     const status=a.resolved
-      ?'<span style="background:#e8f5e9;color:#2D6A4F;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">✓ Resolved</span>'
+      ?'<span style="background:#e8f5e9;color:#2D6A4F;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">âœ“ Resolved</span>'
       :a.acknowledged
-      ?'<span style="background:#fff8e1;color:#b8960a;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">👁 Acknowledged</span>'
-      :'<span style="background:#fff0f0;color:#A30000;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">🔴 Active</span>';
+      ?'<span style="background:#fff8e1;color:#b8960a;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">ðŸ‘ Acknowledged</span>'
+      :'<span style="background:#fff0f0;color:#A30000;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px">ðŸ”´ Active</span>';
     return`<div style="background:#fff;border-radius:12px;border:0.5px solid var(--brd);padding:16px 20px;margin-bottom:10px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
         <div style="display:flex;align-items:center;gap:8px">
-          <span style="font-size:20px">${sitIcons[a.situation]||'🆘'}</span>
+          <span style="font-size:20px">${sitIcons[a.situation]||'ðŸ†˜'}</span>
           <span style="font-size:13px;font-weight:600;color:var(--txt)">${esc(sitLabels[a.situation]||a.situation)}</span>
         </div>
         ${status}
       </div>
       <div style="font-size:11px;color:var(--txt3)">${dateStr} at ${timeStr}</div>
       ${a.note?`<div style="font-size:12px;color:var(--txt2);margin-top:6px;padding:8px 12px;background:var(--cream);border-radius:7px">${esc(a.note)}</div>`:''}
-      ${a.maps_link?`<a href="${esc(a.maps_link)}" target="_blank" style="font-size:11px;color:var(--gold);text-decoration:none;display:inline-block;margin-top:6px">📍 View location</a>`:''}
+      ${a.maps_link?`<a href="${esc(a.maps_link)}" target="_blank" style="font-size:11px;color:var(--gold);text-decoration:none;display:inline-block;margin-top:6px">ðŸ“ View location</a>`:''}
     </div>`;
   }).join('');
 }
@@ -3978,12 +3910,12 @@ async function checkActiveAlert(){
     .limit(1)
     .maybeSingle();
   if(!error&&data){
-    // Active unresolved alert — show locked sent screen
+    // Active unresolved alert - show locked sent screen
     _sosSetState('active');
     const dt=new Date(data.triggered_at);
     const timeStr=dt.toLocaleString('en-KE',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
     const el=document.getElementById('sos-active-time');
-    if(el)el.textContent='Sent '+timeStr+' — awaiting firm response';
+    if(el)el.textContent='Sent '+timeStr+' - awaiting firm response';
   } else {
     _sosSetState('ready');
     document.getElementById('sos-form-section').style.display='none';
@@ -4009,11 +3941,11 @@ function portalGetLocation(){
   const txt=document.getElementById('sos-loc-txt');
   const retry=document.getElementById('sos-loc-retry');
   dot.className='sos-loc-dot spin';
-  txt.textContent='Getting your location…';
+  txt.textContent='Getting your location...';
   retry.style.display='none';
   if(!navigator.geolocation){
     dot.className='sos-loc-dot err';
-    txt.textContent='Location unavailable on this device — alert will still send';
+    txt.textContent='Location unavailable on this device - alert will still send';
     return;
   }
   navigator.geolocation.getCurrentPosition(
@@ -4022,11 +3954,11 @@ function portalGetLocation(){
       _sosLng=pos.coords.longitude;
       const acc=Math.round(pos.coords.accuracy);
       dot.className='sos-loc-dot got';
-      txt.textContent=`Location captured (±${acc}m)`;
+      txt.textContent=`Location captured (Â±${acc}m)`;
     },
     ()=>{
       dot.className='sos-loc-dot err';
-      txt.textContent='Could not get location — alert will still send without it';
+      txt.textContent='Could not get location - alert will still send without it';
       retry.style.display='inline';
     },
     {timeout:10000,enableHighAccuracy:true}
@@ -4077,9 +4009,9 @@ async function portalSendAlert(){
   const phone=(LAWYER_PHONE||'').includes('%%')?'':LAWYER_PHONE;
   const sitLabels={arrested:'ARRESTED / DETAINED',danger:'IN DANGER',accident:'ACCIDENT / INJURY',other:'EMERGENCY'};
   const sitLabel=sitLabels[_sosSit||'other']||'EMERGENCY';
-  const locPart=_sosLat?`📍 https://maps.google.com/?q=${_sosLat},${_sosLng}`:'📍 Location not available';
-  const notePart=note?`\n📝 ${note}`:'';
-  const waMsg=encodeURIComponent(`🚨 *EMERGENCY — ${clientRecord.name}*\n\n*Situation:* ${sitLabel}\n${locPart}${notePart}\n\n*Time:* ${now.toLocaleString('en-KE')}\n*Device:* ${getDevice(ua)}`);
+  const locPart=_sosLat?`ðŸ“ https://maps.google.com/?q=${_sosLat},${_sosLng}`:'ðŸ“ Location not available';
+  const notePart=note?`\nðŸ“ ${note}`:'';
+  const waMsg=encodeURIComponent(`ðŸš¨ *EMERGENCY - ${clientRecord.name}*\n\n*Situation:* ${sitLabel}\n${locPart}${notePart}\n\n*Time:* ${now.toLocaleString('en-KE')}\n*Device:* ${getDevice(ua)}`);
 
   const callBtn=document.getElementById('sos-call-btn');
   const waBtn=document.getElementById('sos-wa-btn');
@@ -4091,12 +4023,12 @@ async function portalSendAlert(){
   if(data?.id)refTxt.textContent=`Alert reference: ${String(data.id).slice(0,8).toUpperCase()}`;
 
   btn.disabled=false;
-  // Go to 'active' locked state — client cannot resend until firm resolves
+  // Go to 'active' locked state - client cannot resend until firm resolves
   _sosSetState('active');
   const dt=new Date(now);
   const timeStr=dt.toLocaleString('en-KE',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
   const activeTimeEl=document.getElementById('sos-active-time');
-  if(activeTimeEl)activeTimeEl.textContent='Sent '+timeStr+' — awaiting firm response';
+  if(activeTimeEl)activeTimeEl.textContent='Sent '+timeStr+' - awaiting firm response';
   // Poll until resolved so client can't send duplicates
   startAlertResolutionPoll(data?.id);
 }
@@ -4115,7 +4047,6 @@ function startAlertResolutionPoll(alertId){
   },15000); // check every 15 seconds
 }
 
-// ── CLIENT NOTIFICATIONS (firm-targeted alerts) ───────────────────
 let clientAlerts = [];
 let notifReadIds = new Set();
 let activeNotifFilter = 'all';
@@ -4201,9 +4132,9 @@ function renderClientAlerts(){
   else if(activeNotifFilter==='info')filtered=clientAlerts.filter(a=>a.priority==='info'||a.priority==='reminder');
 
   if(!filtered.length){
-    const emptyLabels={all:'No notifications yet. The firm will send you updates and important notices here.',unread:'You\'re all caught up — no unread notifications.',critical:'No critical notifications.',info:'No info or reminder notifications.'};
+    const emptyLabels={all:'No notifications yet. The firm will send you updates and important notices here.',unread:'You\'re all caught up - no unread notifications.',critical:'No critical notifications.',info:'No info or reminder notifications.'};
     el.innerHTML=`<div style="text-align:center;padding:48px 20px">
-      <div style="font-size:36px;margin-bottom:14px">${activeNotifFilter==='unread'?'✅':'🔔'}</div>
+      <div style="font-size:36px;margin-bottom:14px">${activeNotifFilter==='unread'?'âœ…':'ðŸ””'}</div>
       <div style="font-family:'Playfair Display',serif;font-size:16px;color:var(--txt2);margin-bottom:8px">${activeNotifFilter==='unread'?'All caught up':'No notifications'}</div>
       <div style="font-size:12px;color:var(--txt3);max-width:340px;margin:0 auto;line-height:1.6">${emptyLabels[activeNotifFilter]||emptyLabels.all}</div>
     </div>`;
@@ -4227,7 +4158,7 @@ function renderClientAlerts(){
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <span style="font-size:10px;padding:2px 9px;border-radius:10px;font-weight:600;background:${priorityBg[a.priority]||'#E6F1FB'};color:${priorityColor[a.priority]||'#185FA5'}">${priorityLabel[a.priority]||'Notice'}</span>
             ${isTargeted?`<span style="font-size:9px;padding:1px 7px;border-radius:8px;background:#EAF3DE;color:#2D6A4F;font-weight:500">For you</span>`:'<span style="font-size:9px;padding:1px 7px;border-radius:8px;background:var(--cream2);color:var(--txt3);font-weight:500">Firm-wide</span>'}
-            ${isUnread?`<span style="font-size:9px;color:var(--navy);font-weight:600;letter-spacing:0.3px">● New</span>`:''}
+            ${isUnread?`<span style="font-size:9px;color:var(--navy);font-weight:600;letter-spacing:0.3px">â— New</span>`:''}
           </div>
           <div style="font-size:10px;color:var(--txt3);white-space:nowrap">${dateStr}</div>
         </div>
@@ -4247,8 +4178,8 @@ function renderClientAlerts(){
 <!-- PWA INSTALL BANNER -->
 <div id="pwa-install-banner">
   <div class="pwa-modal">
-    <button class="pwa-modal-close" onclick="dismissPwaBanner()" aria-label="Close">×</button>
-    <div class="pwa-modal-icon">📱</div>
+    <button class="pwa-modal-close" onclick="dismissPwaBanner()" aria-label="Close">?</button>
+    <div class="pwa-modal-icon">ðŸ“±</div>
     <div class="pwa-modal-title">Install DKMA Portal</div>
     <div class="pwa-modal-sub">Add to your home screen for quick, secure access to your matters and documents.</div>
     <div class="pwa-modal-actions">
@@ -4259,7 +4190,6 @@ function renderClientAlerts(){
 </div>
 
 <script>
-// ── SERVICE WORKER REGISTRATION ───────────────────────────────────
 // Only register the SW when Supabase credentials have been injected (i.e. real
 // server deployment). If placeholders are still present the page will have
 // already shown a config-error screen, and trying to fetch sw.js would
@@ -4290,7 +4220,6 @@ if('serviceWorker' in navigator && _swCredentialsReady){
   });
 }
 
-// ── PWA INSTALL PROMPT ────────────────────────────────────────────
 let _deferredInstallPrompt = null;
 const _pwaInstallKey = 'dkma-portal-pwa-dismissed';
 
@@ -4329,7 +4258,7 @@ function dismissPwaBanner(){
 
 async function triggerPwaInstall(){
   if(!_deferredInstallPrompt){
-    // iOS Safari fallback — show instructions
+    // iOS Safari fallback - show instructions
     showIosInstallGuide();
     return;
   }
@@ -4346,16 +4275,16 @@ function showIosInstallGuide(){
   overlay.style.cssText = 'position:fixed;inset:0;background:rgba(13,27,42,0.85);z-index:9999;display:flex;align-items:flex-end;justify-content:center;padding:20px';
   const steps = isIos && isSafari
     ? `<div style="margin-top:14px;display:flex;flex-direction:column;gap:10px">
-        <div style="display:flex;gap:12px;align-items:center"><div style="font-size:22px">1.</div><div>Tap the <strong>Share</strong> button <span style="font-size:18px">⎦⬆</span> at the bottom of Safari</div></div>
+        <div style="display:flex;gap:12px;align-items:center"><div style="font-size:22px">1.</div><div>Tap the <strong>Share</strong> button <span style="font-size:18px">âŽ¦â¬†</span> at the bottom of Safari</div></div>
         <div style="display:flex;gap:12px;align-items:center"><div style="font-size:22px">2.</div><div>Scroll down and tap <strong>"Add to Home Screen"</strong></div></div>
-        <div style="display:flex;gap:12px;align-items:center"><div style="font-size:22px">3.</div><div>Tap <strong>Add</strong> — the app icon will appear on your home screen</div></div>
+        <div style="display:flex;gap:12px;align-items:center"><div style="font-size:22px">3.</div><div>Tap <strong>Add</strong> - the app icon will appear on your home screen</div></div>
       </div>`
     : `<div style="margin-top:12px;font-size:13px;color:rgba(255,255,255,0.7);line-height:1.6">
         Open this page in <strong>Chrome</strong> on Android or <strong>Safari</strong> on iPhone, then use the browser menu to install or add to home screen.
       </div>`;
   overlay.innerHTML = `
     <div style="background:#fff;border-radius:16px 16px 8px 8px;padding:28px;max-width:420px;width:100%">
-      <div style="font-family:'Playfair Display',serif;font-size:18px;color:var(--navy);margin-bottom:6px">📱 Install on Your Device</div>
+      <div style="font-family:'Playfair Display',serif;font-size:18px;color:var(--navy);margin-bottom:6px">ðŸ“± Install on Your Device</div>
       <div style="font-size:13px;color:var(--txt2)">Your browser doesn't support automatic install prompts.</div>
       ${steps}
       <button onclick="this.closest('div[style*=fixed]').remove()" style="margin-top:20px;width:100%;background:var(--navy);color:#fff;border:none;padding:11px;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer;font-weight:500">Got it</button>
@@ -4363,7 +4292,6 @@ function showIosInstallGuide(){
   document.body.appendChild(overlay);
 }
 
-// ── PORTAL BROWSER NOTIFICATIONS ─────────────────────────────────
 let _portalNotifPermission = 'default';
 let _portalNotifInterval = null;
 let _portalLastMsgIds = new Set();
@@ -4379,7 +4307,7 @@ async function initPortalNotifications(){
     setTimeout(() => {
       const t = document.createElement('div');
       t.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--navy);color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;z-index:9000;display:flex;align-items:center;gap:12px;box-shadow:0 4px 20px rgba(0,0,0,0.25);max-width:360px;width:calc(100% - 40px)';
-      t.innerHTML = `<span>🔔</span><span style="flex:1;line-height:1.4">Get notified when the firm sends you messages or shares documents.</span><button onclick="requestPortalNotifPermission(this)" style="background:var(--gold);color:var(--navy);border:none;padding:5px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">Enable</button><button onclick="this.closest('div').remove()" style="background:none;border:none;color:rgba(255,255,255,0.5);cursor:pointer;font-size:18px;line-height:1;padding:0 4px;flex-shrink:0">×</button>`;
+      t.innerHTML = `<span>ðŸ””</span><span style="flex:1;line-height:1.4">Get notified when the firm sends you messages or shares documents.</span><button onclick="requestPortalNotifPermission(this)" style="background:var(--gold);color:var(--navy);border:none;padding:5px 14px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap">Enable</button><button onclick="this.closest('div').remove()" style="background:none;border:none;color:rgba(255,255,255,0.5);cursor:pointer;font-size:18px;line-height:1;padding:0 4px;flex-shrink:0">?</button>`;
       document.body.appendChild(t);
       setTimeout(() => t.remove(), 14000);
     }, 5000);
@@ -4391,13 +4319,13 @@ async function requestPortalNotifPermission(btn){
   const result = await Notification.requestPermission();
   _portalNotifPermission = result;
   if(result === 'granted'){
-    toast('Notifications enabled ✓');
+    toast('Notifications enabled âœ“');
     startPortalNotifPolling();
-    setTimeout(() => portalFireNotif('DKMA Notifications Active', "You'll be notified of new messages and document shares.", '⚖️'), 600);
+    setTimeout(() => portalFireNotif('DKMA Notifications Active', "You'll be notified of new messages and document shares.", 'âš–ï¸'), 600);
   }
 }
 
-function portalFireNotif(title, body, icon='⚖️'){
+function portalFireNotif(title, body, icon='âš–ï¸'){
   if(_portalNotifPermission !== 'granted') return;
   try {
     const n = new Notification(title, {
@@ -4433,7 +4361,7 @@ async function pollPortalNewMessages(){
   const newMsgs = data.filter(m => !_portalLastMsgIds.has(m.id));
   newMsgs.forEach(m => {
     _portalLastMsgIds.add(m.id);
-    portalFireNotif('New message from DKMA', m.message?.slice(0,100) || 'You have a new message', '💬');
+    portalFireNotif('New message from DKMA', m.message?.slice(0,100) || 'You have a new message', 'ðŸ’¬');
   });
 }
 
@@ -4443,19 +4371,18 @@ function checkPortalTodayEvents(){
   const todayEvs = myEvents.filter(e => e.event_date === today && !_portalLastEventIds.has('fired_' + e.id));
   todayEvs.forEach(e => {
     _portalLastEventIds.add('fired_' + e.id);
-    const body = (e.event_time ? e.event_time + ' · ' : '') + (e.location || '');
-    portalFireNotif('Today: ' + e.title, body || 'Scheduled for today', '📅');
+    const body = (e.event_time ? e.event_time + '  -  ' : '') + (e.location || '');
+    portalFireNotif('Today: ' + e.title, body || 'Scheduled for today', 'ðŸ“…');
   });
 }
 
-// ── OTHER PARTIES ────────────────────────────────────────────────
 let _partiesCache = {}; // keyed by matter_id
 
 async function renderParties(){
   const c = document.getElementById('parties-container');
-  if(!clientRecord){c.innerHTML=`<div class="pcard">${empty('👥','Account not linked','Contact the firm to link your portal account.')}</div>`;return;}
-  if(!myMatters.length){c.innerHTML=`<div class="pcard">${empty('👥','No matters yet','Other parties will appear here once matters are opened.')}</div>`;return;}
-  c.innerHTML=`<div style="padding:32px;text-align:center;color:var(--txt3)"><div class="big-spinner" style="margin:0 auto 12px"></div><div style="font-size:13px">Loading parties…</div></div>`;
+  if(!clientRecord){c.innerHTML=`<div class="pcard">${empty('ðŸ‘¥','Account not linked','Contact the firm to link your portal account.')}</div>`;return;}
+  if(!myMatters.length){c.innerHTML=`<div class="pcard">${empty('ðŸ‘¥','No matters yet','Other parties will appear here once matters are opened.')}</div>`;return;}
+  c.innerHTML=`<div style="padding:32px;text-align:center;color:var(--txt3)"><div class="big-spinner" style="margin:0 auto 12px"></div><div style="font-size:13px">Loading parties...</div></div>`;
 
   // Load all parties for this client (by client_id, or by their matter IDs as fallback)
   const matterIds = myMatters.map(m=>m.id);
@@ -4487,7 +4414,7 @@ async function renderParties(){
   });
 
   if(!parties.length){
-    c.innerHTML=`<div class="pcard">${empty('👥','No other parties recorded','Other parties in your matters will appear here once added by the firm.')}</div>`;
+    c.innerHTML=`<div class="pcard">${empty('ðŸ‘¥','No other parties recorded','Other parties in your matters will appear here once added by the firm.')}</div>`;
     return;
   }
 
@@ -4503,7 +4430,7 @@ async function renderParties(){
     <div class="pcard" style="margin-bottom:18px">
       <div class="pcard-header">
         <div>
-          <div class="pcard-title">📁 ${esc(title)}</div>
+          <div class="pcard-title">ðŸ“ ${esc(title)}</div>
           <div class="pcard-sub">${pts.length} part${pts.length!==1?'ies':'y'} recorded</div>
         </div>
         ${status ? spill(status) : ''}
@@ -4513,18 +4440,18 @@ async function renderParties(){
         <div style="width:38px;height:38px;border-radius:50%;background:var(--cream2);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:var(--txt2);flex-shrink:0;border:1px solid var(--brd)">${initials(p.name||'?')}</div>
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
-            <span style="font-size:13px;font-weight:500;color:var(--txt)">${esc(p.name||'—')}</span>
+            <span style="font-size:13px;font-weight:500;color:var(--txt)">${esc(p.name||'-')}</span>
             ${roleBadge(p.role)}
           </div>
           <div style="font-size:11px;color:var(--txt3);line-height:1.7">
-            ${p.phone?`<span>📞 ${esc(p.phone)}</span>&nbsp;&nbsp;`:''}
-            ${p.email?`<span>✉️ ${esc(p.email)}</span>&nbsp;&nbsp;`:''}
-            ${p.address?`<span>📍 ${esc(p.address)}</span>`:''}
+            ${p.phone?`<span>ðŸ“ž ${esc(p.phone)}</span>&nbsp;&nbsp;`:''}
+            ${p.email?`<span>âœ‰ï¸ ${esc(p.email)}</span>&nbsp;&nbsp;`:''}
+            ${p.address?`<span>ðŸ“ ${esc(p.address)}</span>`:''}
             ${!p.phone&&!p.email&&!p.address?'<span style="color:var(--brd2)">No contact details on file</span>':''}
           </div>
-          ${p.notes?`<div style="margin-top:5px;font-size:11px;color:var(--txt3);background:var(--cream);padding:5px 9px;border-radius:5px;line-height:1.5">${esc(p.notes.slice(0,120))}${p.notes.length>120?'…':''}</div>`:''}
+          ${p.notes?`<div style="margin-top:5px;font-size:11px;color:var(--txt3);background:var(--cream);padding:5px 9px;border-radius:5px;line-height:1.5">${esc(p.notes.slice(0,120))}${p.notes.length>120?'...':''}</div>`:''}
         </div>
-        <button class="pbtn" style="font-size:11px;flex-shrink:0" onclick="openPartyEditOverlay('${p.id}','${esc(p.matter_id||'')}')">✏️ Edit</button>
+        <button class="pbtn" style="font-size:11px;flex-shrink:0" onclick="openPartyEditOverlay('${p.id}','${esc(p.matter_id||'')}')">Edit Edit</button>
       </div>`).join('')}
     </div>`;
 
@@ -4538,7 +4465,7 @@ async function renderParties(){
   const unlinked = _partiesCache['__none__']||[];
   if(unlinked.length) html += renderPartyCard('General / Not Matter-Specific', null, unlinked);
 
-  c.innerHTML = html || `<div class="pcard">${empty('👥','No other parties recorded','Other parties in your matters will appear here once added by the firm.')}</div>`;
+  c.innerHTML = html || `<div class="pcard">${empty('ðŸ‘¥','No other parties recorded','Other parties in your matters will appear here once added by the firm.')}</div>`;
 }
 
 async function openPartyEditOverlay(partyId, matterId){
@@ -4558,18 +4485,18 @@ async function openPartyEditOverlay(partyId, matterId){
           <div style="font-size:10px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">${m?esc(m.title):''}</div>
           <div style="font-family:'Playfair Display',serif;font-size:17px;color:#fff;font-weight:500">Edit Party Details</div>
         </div>
-        <button onclick="document.getElementById('party-edit-overlay').remove()" style="background:rgba(255,255,255,0.1);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;line-height:1">×</button>
+        <button onclick="document.getElementById('party-edit-overlay').remove()" style="background:rgba(255,255,255,0.1);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;line-height:1">?</button>
       </div>
       <div style="flex:1;overflow-y:auto;padding:22px">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--brd)">
           <div style="width:42px;height:42px;border-radius:50%;background:var(--cream2);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:var(--txt2);border:1px solid var(--brd)">${initials(p.name||'?')}</div>
           <div>
-            <div style="font-size:14px;font-weight:500;color:var(--txt)">${esc(p.name||'—')}</div>
+            <div style="font-size:14px;font-weight:500;color:var(--txt)">${esc(p.name||'-')}</div>
             <div style="font-size:11px;color:var(--txt3);margin-top:2px">Role: ${esc(p.role||'Party')}</div>
           </div>
         </div>
         <div style="font-size:11px;color:var(--txt3);background:#E6F1FB;padding:10px 14px;border-radius:7px;margin-bottom:18px;line-height:1.55">
-          ℹ️ You can update the contact details for this party. The firm will be notified of any changes.
+          â„¹ï¸ You can update the contact details for this party. The firm will be notified of any changes.
         </div>
         <div class="pform-row">
           <label class="pform-label">Phone Number</label>
@@ -4585,7 +4512,7 @@ async function openPartyEditOverlay(partyId, matterId){
         </div>
         <div class="pform-row">
           <label class="pform-label">Notes / Additional Info</label>
-          <textarea class="pform-input" id="pedit-notes" rows="3" placeholder="Any additional information about this party…" style="resize:vertical">${esc(p.notes||'')}</textarea>
+          <textarea class="pform-input" id="pedit-notes" rows="3" placeholder="Any additional information about this party..." style="resize:vertical">${esc(p.notes||'')}</textarea>
         </div>
         <div id="pedit-error" style="font-size:12px;color:var(--red);min-height:16px;margin-bottom:8px"></div>
         <div style="display:flex;gap:10px">
@@ -4602,7 +4529,7 @@ async function savePartyEdit(partyId, matterId){
   const btn = document.getElementById('pedit-save-btn');
   const errEl = document.getElementById('pedit-error');
   if(!btn)return;
-  btn.disabled=true; btn.innerHTML='<span class="spinner"></span>Saving…';
+  btn.disabled=true; btn.innerHTML='<span class="spinner"></span>Saving...';
   const payload = {
     phone: document.getElementById('pedit-phone').value.trim()||null,
     email: document.getElementById('pedit-email').value.trim()||null,
@@ -4612,7 +4539,7 @@ async function savePartyEdit(partyId, matterId){
   const {data, error} = await sb.from('parties').update(payload).eq('id', partyId).select().single();
   btn.disabled=false; btn.textContent='Save Changes';
   if(error){ errEl.textContent='Error saving: '+error.message; return; }
-  // Update cache — key is matter_id or '__none__' for unlinked parties
+  // Update cache - key is matter_id or '__none__' for unlinked parties
   const cacheKey = matterId || '__none__';
   const pts = _partiesCache[cacheKey];
   if(pts){ const idx=pts.findIndex(x=>String(x.id)===String(partyId)); if(idx>-1)pts[idx]={...pts[idx],...payload}; }
@@ -4621,7 +4548,6 @@ async function savePartyEdit(partyId, matterId){
   renderParties();
 }
 
-// ── MATTER UPDATES OVERLAY (client view) ──────────────────────────
 const PORTAL_UPDATE_TYPE_LABELS={
   'hearing':'Hearing','filing':'Court Filing','correspondence':'Correspondence',
   'negotiation':'Negotiation','instruction':'Client Instruction','order':'Court Order',
@@ -4643,14 +4569,14 @@ async function openMatterUpdatesOverlay(matterId, matterTitle){
           <div style="font-size:10px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Matter Updates</div>
           <div style="font-family:'Playfair Display',serif;font-size:17px;color:#fff;font-weight:500;line-height:1.3">${esc(matterTitle)}</div>
         </div>
-        <button onclick="document.getElementById('matter-updates-overlay').remove()" style="background:rgba(255,255,255,0.1);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;line-height:1">×</button>
+        <button onclick="document.getElementById('matter-updates-overlay').remove()" style="background:rgba(255,255,255,0.1);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;line-height:1">?</button>
       </div>
       <div id="matter-updates-body" style="flex:1;overflow-y:auto;padding:0">
-        <div style="padding:40px;text-align:center;color:var(--txt3)"><div style="font-size:24px;margin-bottom:12px">⏳</div>Loading updates…</div>
+        <div style="padding:40px;text-align:center;color:var(--txt3)"><div style="font-size:24px;margin-bottom:12px">...</div>Loading updates...</div>
       </div>
       <div style="padding:14px 22px;border-top:1px solid var(--brd);background:var(--cream);flex-shrink:0">
         <div style="background:#E6F1FB;border-radius:8px;padding:11px 16px;display:flex;align-items:flex-start;gap:10px">
-          <span style="font-size:16px;flex-shrink:0">ℹ️</span>
+          <span style="font-size:16px;flex-shrink:0">â„¹ï¸</span>
           <div style="font-size:12px;color:#185FA5;line-height:1.55">For more details on any update, or to ask a question, please <strong>contact the firm directly</strong>. Use the Messages tab or call our offices.</div>
         </div>
       </div>
@@ -4669,15 +4595,15 @@ async function openMatterUpdatesOverlay(matterId, matterTitle){
   const updates=data||[];
   if(!updates.length){
     bodyEl.innerHTML=`<div style="padding:40px;text-align:center">
-      <div style="font-size:32px;margin-bottom:12px">📋</div>
+      <div style="font-size:32px;margin-bottom:12px">ðŸ“‹</div>
       <div style="font-family:'Playfair Display',serif;font-size:16px;color:var(--txt2);margin-bottom:6px">No updates yet</div>
       <div style="font-size:12px;color:var(--txt3);line-height:1.6">The firm will record updates here as your matter progresses.<br>Contact us if you have any questions.</div>
     </div>`;
     return;
   }
   bodyEl.innerHTML=updates.map(u=>{
-    const dateStr=u.update_date?new Date(u.update_date+'T00:00').toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'}):'—';
-    const dayNum=u.update_date?new Date(u.update_date+'T00:00').getDate():'—';
+    const dateStr=u.update_date?new Date(u.update_date+'T00:00').toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'}):'-';
+    const dayNum=u.update_date?new Date(u.update_date+'T00:00').getDate():'-';
     const monthStr=u.update_date?new Date(u.update_date+'T00:00').toLocaleString('en',{month:'short'}):'';
     return`<div style="display:flex;gap:14px;padding:16px 22px;border-bottom:1px solid var(--brd);align-items:flex-start">
       <div style="width:40px;text-align:center;flex-shrink:0;padding-top:2px">
@@ -4695,13 +4621,12 @@ async function openMatterUpdatesOverlay(matterId, matterTitle){
   }).join('');
 }
 
-// ── PORTAL GROUPS VIEW ────────────────────────────────────────────
 async function renderPortalGroups(){
   const el=document.getElementById('portal-groups-container');
   if(!el)return;
   const groups=window._myAllGroups||[];
   if(!groups.length){
-    el.innerHTML=`<div class="group-panel"><div style="padding:40px;text-align:center;color:var(--txt3);font-size:13px"><div style="font-size:32px;margin-bottom:12px">👥</div><div style="font-family:'Playfair Display',serif;font-size:15px;color:var(--txt2);margin-bottom:6px">No groups yet</div><div>The firm will add you to a group when relevant.</div></div></div>`;
+    el.innerHTML=`<div class="group-panel"><div style="padding:40px;text-align:center;color:var(--txt3);font-size:13px"><div style="font-size:32px;margin-bottom:12px">ðŸ‘¥</div><div style="font-family:'Playfair Display',serif;font-size:15px;color:var(--txt2);margin-bottom:6px">No groups yet</div><div>The firm will add you to a group when relevant.</div></div></div>`;
     return;
   }
   const typeLabels={class_action:'Class Action',joint_petitioners:'Joint Petitioners',co_defendants:'Co-Defendants',consortium:'Consortium',family:'Family Group',other:'Group'};
@@ -4719,7 +4644,7 @@ async function renderPortalGroups(){
           return`<div class="group-member-row${isYou?' is-you':''}">
             <div class="group-member-av" style="background:${isYou?'var(--gold)':'var(--navy)'};color:${isYou?'var(--navy)':'#fff'}">${ini}</div>
             <div style="flex:1"><div style="font-size:13px;font-weight:500;color:var(--txt)">${esc(m.name)}${isYou?` <span style="font-size:10px;color:var(--txt3)">(You)</span>`:''}</div><div style="font-size:11px;color:var(--txt3)">${esc(m.type||'')}</div></div>
-            ${isFP?'<span class="group-focal-badge">⭐ Focal Point</span>':''}
+            ${isFP?'<span class="group-focal-badge">â­ Focal Point</span>':''}
           </div>`;
         }).join('');
     // First group open by default
@@ -4727,14 +4652,14 @@ async function renderPortalGroups(){
     return`<div class="group-panel" style="margin-bottom:16px" id="pg-card-${g.id}">
       <!-- Clickable header -->
       <div class="group-panel-header" style="cursor:pointer;user-select:none" onclick="togglePortalGroup('${g.id}')">
-        <div class="group-panel-icon">👥</div>
+        <div class="group-panel-icon">ðŸ‘¥</div>
         <div style="flex:1">
           <div class="group-panel-title">${esc(g.name)}</div>
-          <div class="group-panel-sub">${typeLabel} · ${members.length} member${members.length!==1?'s':''}</div>
+          <div class="group-panel-sub">${typeLabel}  -  ${members.length} member${members.length!==1?'s':''}</div>
         </div>
-        ${isFocal?'<span style="font-size:9px;font-weight:600;padding:2px 8px;border-radius:8px;background:#FFF8E7;color:#7A4800">⭐ Focal Point</span>':''}
+        ${isFocal?'<span style="font-size:9px;font-weight:600;padding:2px 8px;border-radius:8px;background:#FFF8E7;color:#7A4800">â­ Focal Point</span>':''}
         <span class="group-type-badge" style="margin-left:8px">${typeLabel}</span>
-        <span id="pg-chevron-${g.id}" style="margin-left:12px;font-size:12px;color:var(--txt3);transition:transform 0.2s;display:inline-block;transform:${open?'rotate(180deg)':'rotate(0)'}"">▼</span>
+        <span id="pg-chevron-${g.id}" style="margin-left:12px;font-size:12px;color:var(--txt3);transition:transform 0.2s;display:inline-block;transform:${open?'rotate(180deg)':'rotate(0)'}"">â–¼</span>
       </div>
       <!-- Collapsible body -->
       <div id="pg-body-${g.id}" style="display:${open?'block':'none'};border-top:1px solid var(--brd)">
@@ -4747,17 +4672,17 @@ async function renderPortalGroups(){
         <!-- Panels -->
         <div id="pgtab-members-${g.id}" style="display:block">${membersHtml}</div>
         <div id="pgtab-updates-${g.id}" style="display:none">
-          <div id="pg-updates-feed-${g.id}" style="padding:16px 20px;font-size:12px;color:var(--txt3)">Loading…</div>
+          <div id="pg-updates-feed-${g.id}" style="padding:16px 20px;font-size:12px;color:var(--txt3)">Loading...</div>
         </div>
         <div id="pgtab-documents-${g.id}" style="display:none">
-          <div id="pg-docs-list-${g.id}" style="padding:16px 20px;font-size:12px;color:var(--txt3)">Loading…</div>
+          <div id="pg-docs-list-${g.id}" style="padding:16px 20px;font-size:12px;color:var(--txt3)">Loading...</div>
         </div>
       </div>
     </div>`;
   }).join('');
   // Auto-load updates + docs for first group if it starts open
   if(groups.length){
-    // don't auto-load — only load on tab click to avoid unnecessary requests
+    // don't auto-load - only load on tab click to avoid unnecessary requests
   }
 }
 
@@ -4801,7 +4726,7 @@ async function loadPortalGroupUpdates(gId){
       </div>`;
     }).join('');
   }catch(e){
-    el.innerHTML=`<div style="color:var(--txt3);font-size:12px;padding:16px 0">Updates not available — the group_updates table may not be set up yet.</div>`;
+    el.innerHTML=`<div style="color:var(--txt3);font-size:12px;padding:16px 0">Updates not available - the group_updates table may not be set up yet.</div>`;
   }
 }
 
@@ -4817,13 +4742,13 @@ async function loadPortalGroupDocuments(gId){
       const date=new Date(d.created_at).toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'});
       const sizeStr=d.file_size?formatBytes(d.file_size):'';
       return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--brd)">
-        <div style="font-size:24px">📄</div>
-        <div style="flex:1"><div style="font-size:13px;font-weight:500;color:var(--txt)">${esc(d.display_name||d.file_name)}</div><div style="font-size:11px;color:var(--txt3)">${sizeStr?sizeStr+' · ':''}${date}</div></div>
-        ${d.storage_path?`<button onclick="downloadGroupDoc('${d.storage_path}','${esc(d.display_name||d.file_name)}')" style="background:var(--navy);color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer">⬇ Download</button>`:''}
+        <div style="font-size:24px">ðŸ“„</div>
+        <div style="flex:1"><div style="font-size:13px;font-weight:500;color:var(--txt)">${esc(d.display_name||d.file_name)}</div><div style="font-size:11px;color:var(--txt3)">${sizeStr?sizeStr+'  -  ':''}${date}</div></div>
+        ${d.storage_path?`<button onclick="downloadGroupDoc('${d.storage_path}','${esc(d.display_name||d.file_name)}')" style="background:var(--navy);color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer">Download Download</button>`:''}
       </div>`;
     }).join('');
   }catch(e){
-    el.innerHTML=`<div style="color:var(--txt3);font-size:12px;padding:16px 0">Documents not available — the group_documents table may not be set up yet.</div>`;
+    el.innerHTML=`<div style="color:var(--txt3);font-size:12px;padding:16px 0">Documents not available - the group_documents table may not be set up yet.</div>`;
   }
 }
 
@@ -4837,21 +4762,20 @@ async function downloadGroupDoc(storagePath,fileName){
   }catch(e){alert('Download failed: '+e.message);}
 }
 
-// ─── PORTAL INVOICE PDF GENERATOR (mirrors CMS dynamic letterhead) ────────────────────────────────
 async function downloadPortalInvoiceDocx(invId){
   const inv=myInvoices.find(x=>x.id===invId);if(!inv){return;}
   let lineItems=[];
   try{lineItems=inv.line_items?JSON.parse(inv.line_items):[];}catch(e){}
-  if(!lineItems.length){lineItems=[{description:inv.description||'Professional Services',qty:1,unit_price:Number(inv.subtotal??inv.amount)||0,subtotal:Number(inv.subtotal??inv.amount)||0}];}
+  if(!lineItems.length){lineItems=[{description:inv.description||'Professional Services',qty:1,unit_price:Number(inv.subtotal - inv.amount)||0,subtotal:Number(inv.subtotal - inv.amount)||0}];}
   const derivedSubtotal=lineItems.reduce((s,l)=>s+(Number(l.subtotal)||0),0);
-  const sub=Number(inv.subtotal??derivedSubtotal)||0;
+  const sub=Number(inv.subtotal - derivedSubtotal)||0;
   const storedVatRate=Number(inv.vat_rate)||0;
   const vatRate=storedVatRate>0?storedVatRate:0.16;
-  const vat=Number(inv.vat_amount??(((Boolean(inv.has_vat)||Number(inv.vat_amount)>0)&&Number(inv.amount)>sub)?Number(inv.amount)-sub:0))||0;
+  const vat=Number(inv.vat_amount - (((Boolean(inv.has_vat)||Number(inv.vat_amount)>0)&&Number(inv.amount)>sub)?Number(inv.amount)-sub:0))||0;
   const showVat=Boolean(inv.has_vat)||vat>0;
   const total=Number(inv.amount||inv.total_amount||(sub+vat))||(sub+vat);
   const fmtMny=n=>'KES '+Number(n).toLocaleString('en-KE',{minimumFractionDigits:2,maximumFractionDigits:2});
-  const fmtDt=d=>d?new Date(d).toLocaleDateString('en-KE',{day:'2-digit',month:'long',year:'numeric'}):'—';
+  const fmtDt=d=>d?new Date(d).toLocaleDateString('en-KE',{day:'2-digit',month:'long',year:'numeric'}):'-';
   const summaryRowsHtml=showVat?`
       <tr class="total-row">
         <td colspan="2" style="text-align:center;">SUBTOTAL</td>
@@ -4906,17 +4830,16 @@ async function downloadPortalInvoiceDocx(invId){
   const lineRowsHtml=lineItems.map((l,i)=>`
     <tr>
       <td style="padding:8px 12px;border:1px solid #888;text-align:center;">${i+1}</td>
-      <td style="padding:8px 12px;border:1px solid #888;">${l.description||'—'}</td>
+      <td style="padding:8px 12px;border:1px solid #888;">${l.description||'-'}</td>
       <td style="padding:8px 12px;border:1px solid #888;text-align:right;">${fmtMny(l.subtotal||l.unit_price||0)}</td>
     </tr>`).join('');
 
-  // Dynamic letterhead — same as CMS (no hardcoded images)
+  // Dynamic letterhead - same as CMS (no hardcoded images)
   const _iframeDoc=`<!DOCTYPE html><html><head><meta charset="UTF-8">
 <style>
   *{box-sizing:border-box;margin:0;padding:0;}
   html{width:993px;background:#fff;font-family:'Sitka Text',serif;font-size:13px;color:#1a1a1a;display:flex;flex-direction:column;min-height:1404px;}
   body{width:993px;flex:1;display:flex;flex-direction:column;min-height:1404px;}
-  /* ── Dynamic letterhead header ── */
   .dyn-hdr{width:993px;display:flex;flex-direction:column;flex-shrink:0;background:#fff;}
   .dyn-hdr-top{background:#0D1B2A;display:flex;align-items:center;justify-content:space-between;padding:22px 32px 22px 28px;}
   .dyn-hdr-logo{width:88px;height:88px;object-fit:contain;background:transparent;flex-shrink:0;margin-right:18px;}
@@ -4926,13 +4849,11 @@ async function downloadPortalInvoiceDocx(invId){
   .dyn-hdr-contact{text-align:right;font-size:10.5px;color:rgba(255,255,255,0.75);line-height:2;}
   .dyn-hdr-gold-bar{height:5px;background:linear-gradient(90deg,#B8953A 0%,#D4AF5A 50%,#B8953A 100%);}
   .dyn-hdr-addr-bar{background:#F8F5F0;border-bottom:1px solid #D9D4CB;padding:7px 32px;font-size:10.5px;color:#5a5a5a;display:flex;justify-content:space-between;align-items:center;}
-  /* ── Dynamic letterhead footer ── */
   .dyn-ftr{width:993px;display:flex;flex-direction:column;flex-shrink:0;margin-top:auto;}
   .dyn-ftr-gold-bar{height:4px;background:linear-gradient(90deg,#B8953A 0%,#D4AF5A 50%,#B8953A 100%);}
   .dyn-ftr-bottom{background:#0D1B2A;display:flex;align-items:center;justify-content:space-between;padding:14px 32px;font-size:10.5px;color:rgba(255,255,255,0.65);}
   .dyn-ftr-name{font-family:'Playfair Display',Georgia,serif;font-size:12px;color:#B8953A;font-weight:600;}
   .dyn-ftr-logo{width:44px;height:44px;object-fit:contain;background:transparent;opacity:0.85;}
-  /* ── Body styles ── */
   .body{padding:22px 44px 20px;background:#fff;flex:1;}
   .date-line{font-size:13px;color:#0D1B2A;font-weight:bold;margin-bottom:14px;}
   .dear{font-size:13px;margin-bottom:6px;}
@@ -5055,7 +4976,6 @@ async function downloadPortalInvoiceDocx(invId){
 }
 window.downloadPortalInvoiceDocx = downloadPortalInvoiceDocx;
 
-// ─── RECEIPT PDF GENERATOR ───────────────────────────────────────────────────
 async function downloadPortalReceiptPdf(invId, paymentIdOrEvent = null, e = null) {
   const _isEventLike = (value) => !!value && typeof value === 'object' &&
     (typeof value.stopPropagation === 'function' || typeof value.preventDefault === 'function');
@@ -5098,7 +5018,7 @@ async function downloadPortalReceiptPdf(invId, paymentIdOrEvent = null, e = null
     return true;
   };
 
-  portalToast('Generating receipt…');
+  portalToast('Generating receipt...');
 
   const { data: inv, error: invErr } = await sb
     .from('invoices')
@@ -5130,7 +5050,7 @@ async function downloadPortalReceiptPdf(invId, paymentIdOrEvent = null, e = null
     return;
   }
 
-  const fmtDt = (d) => d ? new Date(d).toLocaleDateString('en-KE', { day:'2-digit', month:'long', year:'numeric' }) : '—';
+  const fmtDt = (d) => d ? new Date(d).toLocaleDateString('en-KE', { day:'2-digit', month:'long', year:'numeric' }) : '-';
   const fmtMny = (n) => 'KES ' + Number(n || 0).toLocaleString('en-KE', { minimumFractionDigits:2, maximumFractionDigits:2 });
   const _esc = (s) => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   function amountInWords(n) {
@@ -5155,14 +5075,14 @@ async function downloadPortalReceiptPdf(invId, paymentIdOrEvent = null, e = null
   const matter = inv.matters || {};
   const totalPaid = payments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
   const amountPaid = Number(payment.amount || 0);
-  const subtotal = Number(inv.subtotal ?? ((Number(inv.total_amount || inv.amount || 0)) - (Number(inv.vat_amount) || 0))) || 0;
+  const subtotal = Number(inv.subtotal  -  ((Number(inv.total_amount || inv.amount || 0)) - (Number(inv.vat_amount) || 0))) || 0;
   const vat = Number(inv.vat_amount || 0) || 0;
   const showVat = Boolean(inv.has_vat) || vat > 0;
   const vatRate = Number(inv.vat_rate) > 0 ? Number(inv.vat_rate) : 0.16;
   const total = Number(inv.total_amount || inv.amount || (subtotal + vat)) || (subtotal + vat);
   const balance = Math.max(0, total - totalPaid);
   const receiptNo = ('RCPT-' + String(inv.invoice_no || 'INV').replace(/[^A-Za-z0-9]+/g,'-').replace(/^-+|-+$/g,'') + '-' + String(payment.id || '').replace(/[^A-Za-z0-9]/g,'').slice(0,8)).toUpperCase();
-  const paymentMethod = payment.payment_method || payment.method || '—';
+  const paymentMethod = payment.payment_method || payment.method || '-';
   const reference = payment.transaction_ref || payment.reference || '';
   const notes = payment.notes || 'Payment received with thanks.';
 
@@ -5232,17 +5152,17 @@ async function downloadPortalReceiptPdf(invId, paymentIdOrEvent = null, e = null
 <div class="body">
   <div class="date-line">Date: ${fmtDt(payment.payment_date)}</div>
   <div class="dear">Received from:</div>
-  <div class="dear cname">${_esc(client.name || '—')}</div>
+  <div class="dear cname">${_esc(client.name || '-')}</div>
   <div class="para">${matter.title ? `Matter: <strong>${_esc(matter.title)}</strong><br>` : ''}${client.email ? `${_esc(client.email)}<br>` : ''}${client.phone ? `${_esc(client.phone)}` : ''}</div>
-  <div class="re">RE: OFFICIAL RECEIPT - ${_esc(inv.invoice_no || '—')}</div>
+  <div class="re">RE: OFFICIAL RECEIPT - ${_esc(inv.invoice_no || '-')}</div>
   <div class="para">We acknowledge with thanks receipt of your payment in respect of the above invoice. The details of the payment are as follows:</div>
   <table>
     <tr><th style="width:38%">Particulars</th><th>Details</th></tr>
     <tr><td>Receipt No.</td><td>${_esc(receiptNo)}</td></tr>
-    <tr><td>Invoice No.</td><td>${_esc(inv.invoice_no || '—')}</td></tr>
+    <tr><td>Invoice No.</td><td>${_esc(inv.invoice_no || '-')}</td></tr>
     <tr><td>Receipt Date</td><td>${fmtDt(payment.payment_date)}</td></tr>
     <tr><td>Payment Method</td><td>${_esc(paymentMethod)}</td></tr>
-    <tr><td>Reference</td><td>${_esc(reference || '—')}</td></tr>
+    <tr><td>Reference</td><td>${_esc(reference || '-')}</td></tr>
     <tr><td>Description</td><td>${_esc(inv.description || matter.title || 'Professional services rendered')}</td></tr>
     <tr><td>Notes</td><td>${_esc(notes)}</td></tr>
     ${receiptTaxRows}
@@ -5329,3 +5249,4 @@ window.downloadPortalReceiptPdf = downloadPortalReceiptPdf;
 
 </body>
 </html>
+
