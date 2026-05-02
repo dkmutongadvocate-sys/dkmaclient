@@ -1227,8 +1227,8 @@ let myGroup=null;            // client_groups row if this client belongs to a gr
 let gazettedHolidays=[];     // ad-hoc holidays from gazetted_holidays table
 let profileEditing=false;
 let firmContact={};          // firm settings from firm_settings table
-const SIGNATURE_REQUESTS_PREFIX='signature-requests';
-const SIGNATURE_ARTIFACTS_PREFIX='signature-artifacts';
+const SIGNATURE_REQUESTS_PREFIX='client__signature_request__';
+const SIGNATURE_ARTIFACTS_PREFIX='client__signature_artifact__';
 
 // ── HELPERS ───────────────────────────────────────────────────────
 function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -1288,6 +1288,31 @@ function signatureRequestForPath(docPath){
 function getSignatureRequest(requestId){
   return (mySignatureRequests||[]).find(r=>r.id===requestId)||null;
 }
+function isSignatureSystemFile(name){
+  return !!name&&(name.startsWith(SIGNATURE_REQUESTS_PREFIX)||name.startsWith(SIGNATURE_ARTIFACTS_PREFIX));
+}
+function defaultSignatureFields(){
+  return[
+    {id:'sig_default_signature',type:'signature',x:0.58,y:0.72,w:0.26,h:0.1,label:'Signature'},
+    {id:'sig_default_name',type:'name',x:0.18,y:0.72,w:0.26,h:0.08,label:'Full Name'},
+    {id:'sig_default_date',type:'date',x:0.72,y:0.84,w:0.18,h:0.07,label:'Date'}
+  ];
+}
+function getRequestFields(req){
+  if(Array.isArray(req?.fields)&&req.fields.length)return req.fields;
+  return defaultSignatureFields();
+}
+function signatureFieldValue(req,field,typedName='',signatureDataUrl=''){
+  if(field.type==='name')return typedName||req.signed_name||req.signer_name||'';
+  if(field.type==='date'){
+    const raw=req.signed_at||new Date().toISOString();
+    const dt=new Date(raw);
+    return isNaN(dt)?'':dt.toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'});
+  }
+  if(field.type==='signature')return signatureDataUrl||'';
+  return '';
+}
+function escapeAttr(s){return esc(s).replace(/'/g,'&#39;');}
 function toast(msg,isError=false){
   const t=document.getElementById('toast');
   t.textContent=msg;t.className='toast'+(isError?' error':'');
@@ -1665,13 +1690,13 @@ async function loadMyUploads(){
   ]);
 
   if(genResult.data) genResult.data.forEach(f=>{
-    if(f.name==='.emptyFolderPlaceholder'||!f.name.startsWith('client__'))return;
+    if(f.name==='.emptyFolderPlaceholder'||!f.name.startsWith('client__')||isSignatureSystemFile(f.name))return;
     allFiles.push({...f,_matterId:'general',_folder:'client-general/'+clientRecord.id});
   });
   matterResults.forEach(({mid,r})=>{
     if(!r||!r.data)return;
     r.data.forEach(f=>{
-      if(f.name==='.emptyFolderPlaceholder'||!f.name.startsWith('client__'))return;
+      if(f.name==='.emptyFolderPlaceholder'||!f.name.startsWith('client__')||isSignatureSystemFile(f.name))return;
       allFiles.push({...f,_matterId:mid,_folder:mid});
     });
   });
@@ -1692,11 +1717,11 @@ async function writeSignatureJson(path,payload){
 }
 async function loadMySignatureRequests(){
   if(!clientRecord){mySignatureRequests=[];return;}
-  const folder=`${SIGNATURE_REQUESTS_PREFIX}/${clientRecord.id}`;
+  const folder=`client-general/${clientRecord.id}`;
   const {data,error}=await sb.storage.from(FIRM_BUCKET).list(folder,{limit:200,sortBy:{column:'created_at',order:'desc'}});
   if(error){mySignatureRequests=[];return;}
   const rows=(await Promise.all((data||[])
-    .filter(f=>f.name&&f.name.endsWith('.json'))
+    .filter(f=>f.name&&f.name.startsWith(SIGNATURE_REQUESTS_PREFIX)&&f.name.endsWith('.json'))
     .map(async f=>{
       try{
         const rec=await readSignatureJson(`${folder}/${f.name}`);
@@ -1856,6 +1881,41 @@ function openSignatureSourceDocument(req){
   const storageName=req.document_path.slice(slash+1);
   viewSharedDoc(matterId,storageName,req.document_name||'Document');
 }
+async function renderSignatureDocPreview(req,mountEl,typedName='',signatureDataUrl=''){
+  if(!mountEl||!req?.document_path)return;
+  const slash=req.document_path.indexOf('/');
+  const storageName=slash===-1?req.document_path:req.document_path.slice(slash+1);
+  const ext=((storageName.split('.').pop())||'').toLowerCase();
+  try{
+    const {data,error}=await sb.storage.from(FIRM_BUCKET).createSignedUrl(req.document_path,300);
+    if(error)throw error;
+    const url=data.signedUrl;
+    const fields=getRequestFields(req);
+    mountEl.innerHTML=`<div style="font-size:11px;color:var(--txt3);margin-bottom:8px">Signing Preview</div>
+      <div style="position:relative;background:#fff;border:1px solid var(--brd);border-radius:12px;overflow:hidden;min-height:420px">
+        <div id="sigdoc-preview-base"></div>
+        <div id="sigdoc-preview-layer" style="position:absolute;inset:0;pointer-events:none"></div>
+      </div>`;
+    const base=mountEl.querySelector('#sigdoc-preview-base');
+    if(['png','jpg','jpeg','gif','webp'].includes(ext)){
+      base.innerHTML=`<img src="${url}" alt="${escapeAttr(req.document_name||'Document')}" style="display:block;width:100%;height:auto">`;
+    }else if(['pdf','html'].includes(ext)){
+      base.innerHTML=`<iframe src="${url}" style="display:block;width:100%;min-height:720px;border:none;background:#fff"></iframe>`;
+    }else{
+      base.innerHTML=`<div style="padding:48px 24px;text-align:center;color:var(--txt3)">Preview is not available for this file type, but the saved placeholders will still be used.</div>`;
+    }
+    const layer=mountEl.querySelector('#sigdoc-preview-layer');
+    layer.innerHTML=fields.map(f=>{
+      const val=signatureFieldValue(req,f,typedName,signatureDataUrl);
+      const isSig=f.type==='signature';
+      return `<div style="position:absolute;left:${f.x*100}%;top:${f.y*100}%;width:${f.w*100}%;height:${f.h*100}%;border:2px dashed ${isSig?'#3C3489':f.type==='name'?'#185FA5':'#854F0B'};background:rgba(255,255,255,0.82);border-radius:8px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:6px;text-align:center">
+        ${isSig&&val?`<img src="${val}" alt="Signature" style="max-width:100%;max-height:100%;object-fit:contain">`:val?`<span style="font-size:${f.type==='date'?'11px':'12px'};font-weight:${f.type==='name'?'600':'500'};color:#0D1B2A">${esc(val)}</span>`:`<span style="font-size:11px;font-weight:600;color:${isSig?'#3C3489':f.type==='name'?'#185FA5':'#854F0B'}">${esc(f.label||f.type)}</span>`}
+      </div>`;
+    }).join('');
+  }catch(e){
+    mountEl.innerHTML=`<div style="padding:18px;border:1px solid var(--brd);border-radius:10px;background:#fff;color:var(--txt3);font-size:12px">Could not load preview: ${esc(e.message)}</div>`;
+  }
+}
 async function openSignatureCertificate(req){
   if(!req?.certificate_path){portalToast('Signed record not available yet.',true);return;}
   const {data,error}=await sb.storage.from(FIRM_BUCKET).createSignedUrl(req.certificate_path,300);
@@ -1865,6 +1925,40 @@ async function openSignatureCertificate(req){
   const blobUrl=URL.createObjectURL(new Blob([html],{type:'text/html;charset=utf-8'}));
   window.open(blobUrl,'_blank');
   setTimeout(()=>URL.revokeObjectURL(blobUrl),60000);
+}
+function injectSignatureFieldsIntoHtml(sourceHtml,req,typedName,signatureDataUrl){
+  const parser=new DOMParser();
+  const doc=parser.parseFromString(sourceHtml,'text/html');
+  if(!doc?.body)return buildSignatureCertificateHtml(req,typedName,signatureDataUrl);
+  const wrapper=doc.createElement('div');
+  wrapper.id='dkma-sign-wrap';
+  wrapper.setAttribute('style','position:relative;min-height:100vh;');
+  while(doc.body.firstChild)wrapper.appendChild(doc.body.firstChild);
+  doc.body.appendChild(wrapper);
+  const banner=doc.createElement('div');
+  banner.setAttribute('style','position:sticky;top:0;z-index:9999;background:#0D1B2A;color:#fff;padding:10px 16px;font:12px Arial,sans-serif;text-align:center;');
+  banner.textContent='Signed via DKMA client portal on '+new Date(req.signed_at||new Date().toISOString()).toLocaleString('en-KE');
+  doc.body.insertBefore(banner,wrapper);
+  const layer=doc.createElement('div');
+  layer.setAttribute('style','position:absolute;inset:0;pointer-events:none;');
+  getRequestFields(req).forEach(f=>{
+    const box=doc.createElement('div');
+    box.setAttribute('style',`position:absolute;left:${f.x*100}%;top:${f.y*100}%;width:${f.w*100}%;height:${f.h*100}%;box-sizing:border-box;border:${f.type==='signature'?'0':'1px solid rgba(13,27,42,0.25)'};background:rgba(255,255,255,0.88);border-radius:6px;display:flex;align-items:center;justify-content:center;padding:6px;overflow:hidden;text-align:center;`);
+    const val=signatureFieldValue(req,f,typedName,signatureDataUrl);
+    if(f.type==='signature'&&val){
+      const img=doc.createElement('img');
+      img.src=val;
+      img.alt='Signature';
+      img.setAttribute('style','max-width:100%;max-height:100%;object-fit:contain;');
+      box.appendChild(img);
+    }else{
+      box.textContent=val||f.label||f.type;
+      box.setAttribute('style',box.getAttribute('style')+`font:${f.type==='name'?'600 12px':'500 11px'} Arial,sans-serif;color:#0D1B2A;`);
+    }
+    layer.appendChild(box);
+  });
+  wrapper.appendChild(layer);
+  return '<!DOCTYPE html>\n'+doc.documentElement.outerHTML;
 }
 function buildSignatureCertificateHtml(req,typedName,signatureDataUrl){
   const matter=myMatters.find(m=>m.id===req.matter_id);
@@ -1925,12 +2019,23 @@ async function submitSignatureRequest(requestId,overlay){
   submitBtn.disabled=true;
   submitBtn.textContent='Saving…';
   try{
-    const base=`${SIGNATURE_ARTIFACTS_PREFIX}/${clientRecord.id}/${req.id}`;
-    const signaturePath=`${base}/signature.png`;
-    const certificatePath=`${base}/signed-record.html`;
+    const baseFolder=`client-general/${clientRecord.id}`;
+    const signaturePath=`${baseFolder}/${SIGNATURE_ARTIFACTS_PREFIX}${req.matter_id}__${req.id}__signature.png`;
+    const certificatePath=`${baseFolder}/${SIGNATURE_ARTIFACTS_PREFIX}${req.matter_id}__${req.id}__signed-record.html`;
     const {error:sigErr}=await sb.storage.from(FIRM_BUCKET).upload(signaturePath,blobFromDataUrl(signatureDataUrl),{upsert:true,contentType:'image/png'});
     if(sigErr)throw sigErr;
-    const certHtml=buildSignatureCertificateHtml(req,typedName,signatureDataUrl);
+    let certHtml=buildSignatureCertificateHtml(req,typedName,signatureDataUrl);
+    if((req.document_path||'').toLowerCase().endsWith('.html')){
+      try{
+        const {data:srcData,error:srcErr}=await sb.storage.from(FIRM_BUCKET).createSignedUrl(req.document_path,300);
+        if(srcErr)throw srcErr;
+        const resp=await fetch(srcData.signedUrl);
+        const sourceHtml=await resp.text();
+        certHtml=injectSignatureFieldsIntoHtml(sourceHtml,{...req,signed_at:new Date().toISOString()},typedName,signatureDataUrl);
+      }catch(_e){
+        // fall back to generic signed record if the source html cannot be re-rendered
+      }
+    }
     const {error:certErr}=await sb.storage.from(FIRM_BUCKET).upload(certificatePath,new Blob([certHtml],{type:'text/html;charset=utf-8'}),{upsert:true,contentType:'text/html;charset=utf-8'});
     if(certErr)throw certErr;
     const now=new Date().toISOString();
@@ -1982,6 +2087,7 @@ function openSignatureOverlay(requestId){
         <button class="pbtn view" type="button" id="sig-open-doc">👁 View document</button>
         ${req.certificate_path?'<button class="pbtn" type="button" id="sig-open-record">Open signed record</button>':''}
       </div>
+      <div id="sig-preview-mount"></div>
       ${canSign?`
       <div>
         <label class="pform-label">Full name</label>
@@ -2020,10 +2126,14 @@ function openSignatureOverlay(requestId){
   overlay.querySelector('#sig-open-doc').onclick=()=>openSignatureSourceDocument(req);
   const recBtn=overlay.querySelector('#sig-open-record');
   if(recBtn)recBtn.onclick=()=>openSignatureCertificate(req);
+  const previewMount=overlay.querySelector('#sig-preview-mount');
+  renderSignatureDocPreview(req,previewMount,req.signed_name||req.signer_name||'','');
   if(canSign){
     const pad=wireSignatureCanvas(overlay.querySelector('#sig-canvas'));
     overlay.querySelector('#sig-clear').onclick=()=>pad.clear();
     overlay.querySelector('#sig-submit').onclick=()=>submitSignatureRequest(requestId,overlay);
+    const nameInput=overlay.querySelector('#sig-full-name');
+    if(nameInput)nameInput.addEventListener('input',()=>renderSignatureDocPreview(req,previewMount,nameInput.value.trim(),''));
     if(req.status==='sent'){
       req.status='opened';
       req.opened_at=req.opened_at||new Date().toISOString();
