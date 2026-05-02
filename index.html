@@ -1312,6 +1312,17 @@ function signatureFieldValue(req,field,typedName='',signatureDataUrl=''){
   if(field.type==='signature')return signatureDataUrl||'';
   return '';
 }
+async function resolveSignaturePreviewSource(req,signatureDataUrl=''){
+  if(signatureDataUrl)return signatureDataUrl;
+  if(!req?.signature_path)return '';
+  try{
+    const {data,error}=await sb.storage.from(FIRM_BUCKET).createSignedUrl(req.signature_path,300);
+    if(error)throw error;
+    return data?.signedUrl||'';
+  }catch(_e){
+    return '';
+  }
+}
 function escapeAttr(s){return esc(s).replace(/'/g,'&#39;');}
 function toast(msg,isError=false){
   const t=document.getElementById('toast');
@@ -1812,7 +1823,7 @@ function closeSignatureOverlay(){
 function signatureCanvasData(canvas){
   return canvas?.dataset?.hasInk==='1'?canvas.toDataURL('image/png'):'';
 }
-function wireSignatureCanvas(canvas){
+function wireSignatureCanvas(canvas,onChange){
   const ratio=Math.max(window.devicePixelRatio||1,1);
   function rect(){return canvas.getBoundingClientRect();}
   function resetSurface(){
@@ -1853,6 +1864,7 @@ function wireSignatureCanvas(canvas){
     const p=point(e);
     ctx.lineTo(p.x,p.y);
     ctx.stroke();
+    if(typeof onChange==='function')onChange(signatureCanvasData(canvas));
     e.preventDefault();
   }
   function end(e){
@@ -1865,13 +1877,14 @@ function wireSignatureCanvas(canvas){
     }
     canvas.dataset.hasInk='1';
     drawing=false;
+    if(typeof onChange==='function')onChange(signatureCanvasData(canvas));
     e.preventDefault();
   }
   canvas.addEventListener('pointerdown',start);
   canvas.addEventListener('pointermove',move);
   canvas.addEventListener('pointerup',end);
   canvas.addEventListener('pointerleave',end);
-  return{clear:resetSurface};
+  return{clear:()=>{resetSurface();if(typeof onChange==='function')onChange('');}};
 }
 function openSignatureSourceDocument(req){
   if(!req||!req.document_path)return;
@@ -1904,9 +1917,10 @@ async function renderSignatureDocPreview(req,mountEl,typedName='',signatureDataU
     }else{
       base.innerHTML=`<div style="padding:48px 24px;text-align:center;color:var(--txt3)">Preview is not available for this file type, but the saved placeholders will still be used.</div>`;
     }
+    const signaturePreviewUrl=await resolveSignaturePreviewSource(req,signatureDataUrl);
     const layer=mountEl.querySelector('#sigdoc-preview-layer');
     layer.innerHTML=fields.map(f=>{
-      const val=signatureFieldValue(req,f,typedName,signatureDataUrl);
+      const val=signatureFieldValue(req,f,typedName,signaturePreviewUrl);
       const isSig=f.type==='signature';
       return `<div style="position:absolute;left:${f.x*100}%;top:${f.y*100}%;width:${f.w*100}%;height:${f.h*100}%;border:2px dashed ${isSig?'#3C3489':f.type==='name'?'#185FA5':'#854F0B'};background:rgba(255,255,255,0.82);border-radius:8px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:6px;text-align:center">
         ${isSig&&val?`<img src="${val}" alt="Signature" style="max-width:100%;max-height:100%;object-fit:contain">`:val?`<span style="font-size:${f.type==='date'?'11px':'12px'};font-weight:${f.type==='name'?'600':'500'};color:#0D1B2A">${esc(val)}</span>`:`<span style="font-size:11px;font-weight:600;color:${isSig?'#3C3489':f.type==='name'?'#185FA5':'#854F0B'}">${esc(f.label||f.type)}</span>`}
@@ -2129,11 +2143,12 @@ function openSignatureOverlay(requestId){
   const previewMount=overlay.querySelector('#sig-preview-mount');
   renderSignatureDocPreview(req,previewMount,req.signed_name||req.signer_name||'','');
   if(canSign){
-    const pad=wireSignatureCanvas(overlay.querySelector('#sig-canvas'));
+    const nameInput=overlay.querySelector('#sig-full-name');
+    const currentTypedName=()=>nameInput?.value.trim()||req.signer_name||clientRecord?.name||'';
+    const pad=wireSignatureCanvas(overlay.querySelector('#sig-canvas'),sigUrl=>renderSignatureDocPreview(req,previewMount,currentTypedName(),sigUrl));
     overlay.querySelector('#sig-clear').onclick=()=>pad.clear();
     overlay.querySelector('#sig-submit').onclick=()=>submitSignatureRequest(requestId,overlay);
-    const nameInput=overlay.querySelector('#sig-full-name');
-    if(nameInput)nameInput.addEventListener('input',()=>renderSignatureDocPreview(req,previewMount,nameInput.value.trim(),''));
+    if(nameInput)nameInput.addEventListener('input',()=>renderSignatureDocPreview(req,previewMount,nameInput.value.trim(),signatureCanvasData(overlay.querySelector('#sig-canvas'))));
     if(req.status==='sent'){
       req.status='opened';
       req.opened_at=req.opened_at||new Date().toISOString();
