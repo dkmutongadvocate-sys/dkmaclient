@@ -2012,7 +2012,7 @@ async function renderSignatureDocPreview(req,mountEl,typedName='',signatureDataU
     layer.innerHTML=fields.map(f=>{
       const val=signatureFieldValue(req,f,typedName,signaturePreviewUrl);
       const isSig=f.type==='signature';
-      return `<div style="position:absolute;left:${f.x*100}%;top:${f.y*100}%;width:${f.w*100}%;height:${f.h*100}%;border:2px dashed ${isSig?'#3C3489':f.type==='name'?'#185FA5':'#854F0B'};background:rgba(255,255,255,0.82);border-radius:8px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:6px;text-align:center">
+      return `<div style="position:absolute;left:${f.x*100}%;top:${f.y*100}%;width:${f.w*100}%;height:${f.h*100}%;border:${isSig?'0':'2px dashed '+(f.type==='name'?'#185FA5':'#854F0B')};background:${isSig?'transparent':'rgba(255,255,255,0.82)'};border-radius:8px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:6px;text-align:center">
         ${isSig&&val?`<img src="${val}" alt="Signature" style="max-width:100%;max-height:100%;object-fit:contain">`:val?`<span style="font-size:${f.type==='date'?'11px':'12px'};font-weight:${f.type==='name'?'600':'500'};color:#0D1B2A">${esc(val)}</span>`:`<span style="font-size:11px;font-weight:600;color:${isSig?'#3C3489':f.type==='name'?'#185FA5':'#854F0B'}">${esc(f.label||f.type)}</span>`}
       </div>`;
     }).join('');
@@ -2047,7 +2047,7 @@ function injectSignatureFieldsIntoHtml(sourceHtml,req,typedName,signatureDataUrl
   layer.setAttribute('style','position:absolute;inset:0;pointer-events:none;');
   getRequestFields(req).forEach(f=>{
     const box=doc.createElement('div');
-    box.setAttribute('style',`position:absolute;left:${f.x*100}%;top:${f.y*100}%;width:${f.w*100}%;height:${f.h*100}%;box-sizing:border-box;border:${f.type==='signature'?'0':'1px solid rgba(13,27,42,0.25)'};background:rgba(255,255,255,0.88);border-radius:6px;display:flex;align-items:center;justify-content:center;padding:6px;overflow:hidden;text-align:center;`);
+    box.setAttribute('style',`position:absolute;left:${f.x*100}%;top:${f.y*100}%;width:${f.w*100}%;height:${f.h*100}%;box-sizing:border-box;border:${f.type==='signature'?'0':'1px solid rgba(13,27,42,0.25)'};background:${f.type==='signature'?'transparent':'rgba(255,255,255,0.88)'};border-radius:6px;display:flex;align-items:center;justify-content:center;padding:6px;overflow:hidden;text-align:center;`);
     const val=signatureFieldValue(req,f,typedName,signatureDataUrl);
     if(f.type==='signature'&&val){
       const img=doc.createElement('img');
