@@ -1221,11 +1221,14 @@ let myEvents=[];
 let myInvoices=[];
 let sharedDocs=[];           // files from matter-documents bucket tagged with shared
 let myUploads=[];            // files from client-uploads bucket
+let mySignatureRequests=[];  // storage-backed signature request records
 let myMessages=[];           // messages from client_messages table
 let myGroup=null;            // client_groups row if this client belongs to a group
 let gazettedHolidays=[];     // ad-hoc holidays from gazetted_holidays table
 let profileEditing=false;
 let firmContact={};          // firm settings from firm_settings table
+const SIGNATURE_REQUESTS_PREFIX='signature-requests';
+const SIGNATURE_ARTIFACTS_PREFIX='signature-artifacts';
 
 // ── HELPERS ───────────────────────────────────────────────────────
 function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -1252,6 +1255,39 @@ function spill(status){
   return`<span class="spill ${map[status]||'sp-closed'}">${label}</span>`;
 }
 function categoryLabel(cat){return{pleading:'Pleading',correspondence:'Correspondence',evidence:'Evidence',contract:'Contract',id:'ID / KYC',finance:'Finance',order:'Court Order',other:'Other'}[cat]||cat||'Document';}
+function signatureStatusMeta(status){
+  const map={
+    sent:{label:'Ready to sign',bg:'#E6F1FB',fg:'#185FA5'},
+    opened:{label:'In progress',bg:'#FAEEDA',fg:'#854F0B'},
+    signed:{label:'Signed',bg:'#EAF3DE',fg:'#2D6A4F'},
+    completed:{label:'Signed',bg:'#EAF3DE',fg:'#2D6A4F'},
+    declined:{label:'Declined',bg:'#FCEBEB',fg:'#A32D2D'},
+    cancelled:{label:'Cancelled',bg:'var(--cream2)',fg:'var(--txt3)'}
+  };
+  return map[status]||{label:'Draft',bg:'var(--cream2)',fg:'var(--txt3)'};
+}
+function signaturePill(status){
+  const meta=signatureStatusMeta(status);
+  return `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:999px;background:${meta.bg};color:${meta.fg};font-size:10px;font-weight:600;white-space:nowrap">${meta.label}</span>`;
+}
+function signatureSortValue(req){
+  return new Date(req.updated_at||req.signed_at||req.opened_at||req.sent_at||req.created_at||0).getTime();
+}
+function makeSigId(){return 'sig_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);}
+function blobFromDataUrl(dataUrl){
+  const parts=(dataUrl||'').split(',');
+  const mime=((parts[0]||'').match(/data:(.*?);base64/)||[])[1]||'application/octet-stream';
+  const bin=atob(parts[1]||'');
+  const arr=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+  return new Blob([arr],{type:mime});
+}
+function signatureRequestForPath(docPath){
+  return (mySignatureRequests||[]).filter(r=>r.document_path===docPath).sort((a,b)=>signatureSortValue(b)-signatureSortValue(a))[0]||null;
+}
+function getSignatureRequest(requestId){
+  return (mySignatureRequests||[]).find(r=>r.id===requestId)||null;
+}
 function toast(msg,isError=false){
   const t=document.getElementById('toast');
   t.textContent=msg;t.className='toast'+(isError?' error':'');
@@ -1517,12 +1553,15 @@ async function launchPortal(){
 
   if(clientRecord){
     await Promise.all([loadMyMatters(),loadMyEvents(),loadMyInvoices()]);
-    await loadSharedDocs();
-    await loadMyUploads();
-    await loadMyMessages();
-    await loadGazettedHolidays();
-    await loadClientAlerts(false);
-    await loadMyGroup();
+    await Promise.all([
+      loadSharedDocs(),
+      loadMyUploads(),
+      loadMyMessages(),
+      loadGazettedHolidays(),
+      loadClientAlerts(false),
+      loadMyGroup(),
+      loadMySignatureRequests()
+    ]);
     setupMessagesRealtime();
   }
   document.getElementById('portal-loading').style.display='none';
@@ -1641,6 +1680,35 @@ async function loadMyUploads(){
   const statEl=document.getElementById('stat-docs');
   if(statEl)statEl.textContent=sharedDocs.length+myUploads.length;
 }
+async function readSignatureJson(path){
+  const {data,error}=await sb.storage.from(FIRM_BUCKET).download(path);
+  if(error)throw error;
+  return JSON.parse(await data.text());
+}
+async function writeSignatureJson(path,payload){
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const {error}=await sb.storage.from(FIRM_BUCKET).upload(path,blob,{upsert:true,contentType:'application/json'});
+  if(error)throw error;
+}
+async function loadMySignatureRequests(){
+  if(!clientRecord){mySignatureRequests=[];return;}
+  const folder=`${SIGNATURE_REQUESTS_PREFIX}/${clientRecord.id}`;
+  const {data,error}=await sb.storage.from(FIRM_BUCKET).list(folder,{limit:200,sortBy:{column:'created_at',order:'desc'}});
+  if(error){mySignatureRequests=[];return;}
+  const rows=(await Promise.all((data||[])
+    .filter(f=>f.name&&f.name.endsWith('.json'))
+    .map(async f=>{
+      try{
+        const rec=await readSignatureJson(`${folder}/${f.name}`);
+        rec._storage_path=`${folder}/${f.name}`;
+        return rec;
+      }catch(e){
+        console.warn('[DKMA Portal] signature request',f.name,e.message);
+        return null;
+      }
+    }))).filter(Boolean).sort((a,b)=>signatureSortValue(b)-signatureSortValue(a));
+  mySignatureRequests=rows;
+}
 
 async function loadGazettedHolidays(){
   const{data,error}=await sb.from('gazetted_holidays').select('*').order('date',{ascending:true});
@@ -1676,6 +1744,295 @@ async function loadMyGroup(){
       if(pdiBadge){pdiBadge.textContent=groups.length;pdiBadge.style.display='inline';}
     }
   }catch(e){myGroup=null;window._myAllGroups=[];}
+}
+
+function refreshSignatureViews(){
+  if(document.getElementById('pview-documents')?.classList.contains('active'))renderDocuments();
+  if(activeMatterDetailId&&document.getElementById('pview-matter-detail')?.classList.contains('active')&&activeMatterDetailTab==='documents'){
+    loadMatterDetailDocs(activeMatterDetailId);
+  }
+}
+function renderSignatureInbox(requests,matterId=''){
+  const rows=(requests||[]).filter(r=>!matterId||r.matter_id===matterId);
+  if(!rows.length)return'';
+  return `<div class="pcard" style="margin-bottom:14px">
+    <div class="pcard-header">
+      <div>
+        <div class="pcard-title">✍ Signature Requests</div>
+        <div class="pcard-sub">Review documents awaiting signature and reopen signed records when you need them.</div>
+      </div>
+      <span style="font-size:11px;color:var(--txt3)">${rows.length} request${rows.length!==1?'s':''}</span>
+    </div>
+    ${rows.map(r=>{
+      const matter=myMatters.find(m=>m.id===r.matter_id);
+      const canSign=r.status==='sent'||r.status==='opened';
+      return `<div class="doc-list-row">
+        <div class="doc-list-icon dt-doc">✍</div>
+        <div class="doc-list-info">
+          <div class="doc-list-name" title="${esc(r.document_name||r.request_title||'Signature Request')}">${esc(r.document_name||r.request_title||'Signature Request')}</div>
+          <div class="doc-list-meta">${matter?esc(matter.title)+' · ':''}${fmtDate(r.sent_at||r.created_at)}${r.message?' · '+esc(r.message):''}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+          ${signaturePill(r.status)}
+          <button class="pbtn ${canSign?'primary':'view'}" style="white-space:nowrap" onclick="openSignatureOverlay('${esc(r.id)}')">${canSign?'Sign now':'View record'}</button>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+function closeSignatureOverlay(){
+  const overlay=document.getElementById('signature-overlay');
+  if(overlay)overlay.remove();
+}
+function signatureCanvasData(canvas){
+  return canvas?.dataset?.hasInk==='1'?canvas.toDataURL('image/png'):'';
+}
+function wireSignatureCanvas(canvas){
+  const ratio=Math.max(window.devicePixelRatio||1,1);
+  function rect(){return canvas.getBoundingClientRect();}
+  function resetSurface(){
+    const r=rect();
+    canvas.width=Math.max(Math.floor(r.width*ratio),320);
+    canvas.height=Math.max(Math.floor(r.height*ratio),120);
+    const ctx=canvas.getContext('2d');
+    ctx.setTransform(ratio,0,0,ratio,0,0);
+    ctx.clearRect(0,0,canvas.width/ratio,canvas.height/ratio);
+    ctx.fillStyle='#fff';
+    ctx.fillRect(0,0,canvas.width/ratio,canvas.height/ratio);
+    ctx.lineWidth=2;
+    ctx.lineCap='round';
+    ctx.lineJoin='round';
+    ctx.strokeStyle='#0D1B2A';
+    canvas.dataset.hasInk='';
+  }
+  resetSurface();
+  let drawing=false;
+  let moved=false;
+  const ctx=canvas.getContext('2d');
+  function point(e){
+    const r=rect();
+    return{x:e.clientX-r.left,y:e.clientY-r.top};
+  }
+  function start(e){
+    drawing=true;
+    moved=false;
+    const p=point(e);
+    ctx.beginPath();
+    ctx.moveTo(p.x,p.y);
+    e.preventDefault();
+  }
+  function move(e){
+    if(!drawing)return;
+    moved=true;
+    canvas.dataset.hasInk='1';
+    const p=point(e);
+    ctx.lineTo(p.x,p.y);
+    ctx.stroke();
+    e.preventDefault();
+  }
+  function end(e){
+    if(!drawing)return;
+    if(!moved){
+      const p=point(e);
+      ctx.beginPath();
+      ctx.arc(p.x,p.y,1,0,Math.PI*2);
+      ctx.fill();
+    }
+    canvas.dataset.hasInk='1';
+    drawing=false;
+    e.preventDefault();
+  }
+  canvas.addEventListener('pointerdown',start);
+  canvas.addEventListener('pointermove',move);
+  canvas.addEventListener('pointerup',end);
+  canvas.addEventListener('pointerleave',end);
+  return{clear:resetSurface};
+}
+function openSignatureSourceDocument(req){
+  if(!req||!req.document_path)return;
+  const slash=req.document_path.indexOf('/');
+  if(slash===-1)return;
+  const matterId=req.document_path.slice(0,slash);
+  const storageName=req.document_path.slice(slash+1);
+  viewSharedDoc(matterId,storageName,req.document_name||'Document');
+}
+async function openSignatureCertificate(req){
+  if(!req?.certificate_path){portalToast('Signed record not available yet.',true);return;}
+  const {data,error}=await sb.storage.from(FIRM_BUCKET).createSignedUrl(req.certificate_path,300);
+  if(error){portalToast('Could not open the signed record.',true);return;}
+  const resp=await fetch(data.signedUrl);
+  const html=await resp.text();
+  const blobUrl=URL.createObjectURL(new Blob([html],{type:'text/html;charset=utf-8'}));
+  window.open(blobUrl,'_blank');
+  setTimeout(()=>URL.revokeObjectURL(blobUrl),60000);
+}
+function buildSignatureCertificateHtml(req,typedName,signatureDataUrl){
+  const matter=myMatters.find(m=>m.id===req.matter_id);
+  return `<!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Signed Record</title>
+    <style>
+      body{font-family:Arial,sans-serif;background:#f7f5ef;color:#222;margin:0;padding:32px}
+      .sheet{max-width:760px;margin:0 auto;background:#fff;border:1px solid #ddd;border-radius:14px;padding:32px}
+      h1{margin:0 0 10px;font-size:28px}
+      .sub{color:#666;font-size:14px;margin-bottom:24px}
+      .grid{display:grid;grid-template-columns:180px 1fr;gap:10px 16px;font-size:14px;margin-bottom:28px}
+      .label{color:#666;font-weight:700}
+      .sig{margin-top:18px;padding-top:18px;border-top:1px solid #ddd}
+      .sig img{max-width:320px;max-height:120px;border-bottom:1px solid #222;padding-bottom:6px}
+      .note{margin-top:28px;background:#faf6e9;border:1px solid #eadfb8;border-radius:10px;padding:16px;font-size:13px;line-height:1.6}
+      code{font-family:Consolas,monospace;font-size:12px}
+    </style>
+  </head>
+  <body>
+    <div class="sheet">
+      <h1>Signed Record</h1>
+      <div class="sub">Generated from the DKMA client portal after the client completed an internal document signature flow.</div>
+      <div class="grid">
+        <div class="label">Document</div><div>${esc(req.document_name||'Document')}</div>
+        <div class="label">Matter</div><div>${esc(matter?.title||req.matter_title||'Matter')}</div>
+        <div class="label">Signer</div><div>${esc(typedName)}</div>
+        <div class="label">Signer Email</div><div>${esc(req.signer_email||'—')}</div>
+        <div class="label">Sent</div><div>${esc(fmtDate(req.sent_at||req.created_at))}</div>
+        <div class="label">Signed</div><div>${esc(fmtDate(req.signed_at))}</div>
+        <div class="label">Request ID</div><div><code>${esc(req.id||makeSigId())}</code></div>
+        <div class="label">Source Path</div><div><code>${esc(req.document_path||'')}</code></div>
+      </div>
+      <div class="sig">
+        <div class="label" style="margin-bottom:8px">Captured Signature</div>
+        <img src="${signatureDataUrl}" alt="Signature">
+        <div style="margin-top:10px;font-size:14px">${esc(typedName)}</div>
+      </div>
+      <div class="note">
+        This record confirms that the named client signed the referenced document inside the portal. The original file remains stored separately in the firm's document vault.
+      </div>
+    </div>
+  </body>
+  </html>`;
+}
+async function submitSignatureRequest(requestId,overlay){
+  const req=getSignatureRequest(requestId);
+  if(!req){portalToast('Signature request not found.',true);return;}
+  const typedName=overlay.querySelector('#sig-full-name').value.trim();
+  if(!typedName){portalToast('Type your full name before signing.',true);return;}
+  if(!overlay.querySelector('#sig-consent').checked){portalToast('Please confirm the signing statement first.',true);return;}
+  const signatureDataUrl=signatureCanvasData(overlay.querySelector('#sig-canvas'));
+  if(!signatureDataUrl){portalToast('Draw your signature in the box first.',true);return;}
+  const submitBtn=overlay.querySelector('#sig-submit');
+  submitBtn.disabled=true;
+  submitBtn.textContent='Saving…';
+  try{
+    const base=`${SIGNATURE_ARTIFACTS_PREFIX}/${clientRecord.id}/${req.id}`;
+    const signaturePath=`${base}/signature.png`;
+    const certificatePath=`${base}/signed-record.html`;
+    const {error:sigErr}=await sb.storage.from(FIRM_BUCKET).upload(signaturePath,blobFromDataUrl(signatureDataUrl),{upsert:true,contentType:'image/png'});
+    if(sigErr)throw sigErr;
+    const certHtml=buildSignatureCertificateHtml(req,typedName,signatureDataUrl);
+    const {error:certErr}=await sb.storage.from(FIRM_BUCKET).upload(certificatePath,new Blob([certHtml],{type:'text/html;charset=utf-8'}),{upsert:true,contentType:'text/html;charset=utf-8'});
+    if(certErr)throw certErr;
+    const now=new Date().toISOString();
+    Object.assign(req,{
+      status:'signed',
+      signed_at:now,
+      updated_at:now,
+      opened_at:req.opened_at||now,
+      signed_name:typedName,
+      signed_by_user_id:currentUser?.id||null,
+      signature_path:signaturePath,
+      certificate_path:certificatePath,
+      user_agent:navigator.userAgent||''
+    });
+    await writeSignatureJson(req._storage_path,req);
+    mySignatureRequests=mySignatureRequests.map(r=>r.id===req.id?req:r).sort((a,b)=>signatureSortValue(b)-signatureSortValue(a));
+    portalToast('Document signed successfully.');
+    closeSignatureOverlay();
+    refreshSignatureViews();
+  }catch(e){
+    portalToast('Could not save the signature: '+e.message,true);
+    submitBtn.disabled=false;
+    submitBtn.textContent='Confirm Signature';
+  }
+}
+function openSignatureOverlay(requestId){
+  const req=getSignatureRequest(requestId);
+  if(!req){portalToast('Signature request not found.',true);return;}
+  closeSignatureOverlay();
+  const canSign=req.status==='sent'||req.status==='opened';
+  const matter=myMatters.find(m=>m.id===req.matter_id);
+  const overlay=document.createElement('div');
+  overlay.id='signature-overlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(13,27,42,0.76);z-index:3200;display:flex;align-items:flex-end;justify-content:center;padding:0';
+  overlay.innerHTML=`<div style="background:#fff;border-radius:16px 16px 0 0;width:min(760px,100%);max-height:94dvh;overflow:auto">
+    <div style="padding:18px 22px;border-bottom:1px solid var(--brd);display:flex;align-items:center;gap:12px">
+      <div style="flex:1;min-width:0">
+        <div style="font-family:'Playfair Display',serif;font-size:19px;color:var(--txt)">${canSign?'Sign Document':'Signed Record'}</div>
+        <div style="font-size:12px;color:var(--txt3);margin-top:4px">${esc(req.document_name||'Document')}${matter?' • '+esc(matter.title):''}</div>
+      </div>
+      ${signaturePill(req.status)}
+      <button type="button" id="sig-close" style="background:none;border:none;font-size:24px;line-height:1;color:var(--txt3);cursor:pointer">×</button>
+    </div>
+    <div style="padding:20px 22px;display:grid;gap:16px">
+      <div style="background:var(--cream);border:1px solid var(--brd);border-radius:10px;padding:14px 16px;font-size:12px;color:var(--txt2);line-height:1.6">
+        ${esc(req.message||'Review the document and sign once you are satisfied with its contents.')}
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="pbtn view" type="button" id="sig-open-doc">👁 View document</button>
+        ${req.certificate_path?'<button class="pbtn" type="button" id="sig-open-record">Open signed record</button>':''}
+      </div>
+      ${canSign?`
+      <div>
+        <label class="pform-label">Full name</label>
+        <input class="pform-input" id="sig-full-name" value="${esc(req.signer_name||clientRecord?.name||'')}" placeholder="Type your full legal name">
+      </div>
+      <div>
+        <label class="pform-label">Draw your signature</label>
+        <div style="border:1px solid var(--brd);border-radius:12px;background:#fff;padding:10px">
+          <canvas id="sig-canvas" style="display:block;width:100%;height:160px;background:#fff;border-radius:8px;touch-action:none"></canvas>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:8px">
+          <button class="pbtn" type="button" id="sig-clear">Clear</button>
+        </div>
+      </div>
+      <label style="display:flex;align-items:flex-start;gap:10px;font-size:12px;color:var(--txt2);line-height:1.6">
+        <input type="checkbox" id="sig-consent" style="margin-top:3px">
+        <span>I confirm that I have reviewed this document and that this electronic signature is mine.</span>
+      </label>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="pbtn" type="button" id="sig-cancel">Cancel</button>
+        <button class="pbtn primary" type="button" id="sig-submit">Confirm Signature</button>
+      </div>`:`
+      <div style="font-size:13px;color:var(--txt2);line-height:1.7">
+        This document has already been signed${req.signed_at?' on '+fmtDate(req.signed_at):''}.
+      </div>
+      <div style="display:flex;justify-content:flex-end">
+        <button class="pbtn" type="button" id="sig-cancel">Close</button>
+      </div>`}
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click',e=>{if(e.target===overlay)closeSignatureOverlay();});
+  overlay.querySelector('#sig-close').onclick=closeSignatureOverlay;
+  const cancelBtn=overlay.querySelector('#sig-cancel');
+  if(cancelBtn)cancelBtn.onclick=closeSignatureOverlay;
+  overlay.querySelector('#sig-open-doc').onclick=()=>openSignatureSourceDocument(req);
+  const recBtn=overlay.querySelector('#sig-open-record');
+  if(recBtn)recBtn.onclick=()=>openSignatureCertificate(req);
+  if(canSign){
+    const pad=wireSignatureCanvas(overlay.querySelector('#sig-canvas'));
+    overlay.querySelector('#sig-clear').onclick=()=>pad.clear();
+    overlay.querySelector('#sig-submit').onclick=()=>submitSignatureRequest(requestId,overlay);
+    if(req.status==='sent'){
+      req.status='opened';
+      req.opened_at=req.opened_at||new Date().toISOString();
+      req.updated_at=new Date().toISOString();
+      writeSignatureJson(req._storage_path,req).catch(()=>{});
+      mySignatureRequests=mySignatureRequests.map(r=>r.id===req.id?req:r).sort((a,b)=>signatureSortValue(b)-signatureSortValue(a));
+      refreshSignatureViews();
+    }
+  }
 }
 
 // ── RENDER: OVERVIEW ─────────────────────────────────────────────
@@ -1987,12 +2344,15 @@ async function loadMatterDetailDocs(matterId){
     return parts.length>=4 && parts[2]===matterId;
   }) : [];
 
-  if(!firmDocs.length && !clientUploads.length){
+  const matterSignatureMarkup=renderSignatureInbox(mySignatureRequests.filter(r=>r.matter_id===matterId&&r.status!=='cancelled'&&r.status!=='declined'),matterId);
+
+  if(!firmDocs.length && !clientUploads.length && !matterSignatureMarkup){
     container.innerHTML=`<div class="pcard">${empty('📂','No documents yet','Documents shared by the firm and your uploads for this matter will appear here.')}</div>`;
     return;
   }
 
   let html='';
+  html+=matterSignatureMarkup;
 
   // Firm docs section
   if(firmDocs.length){
@@ -2085,8 +2445,9 @@ function renderDocuments(){
   const totalFirm=sharedDocs.length;
   const totalMine=myUploads.length;
   const total=totalFirm+totalMine;
+  const pendingMarkup=renderSignatureInbox(mySignatureRequests.filter(r=>r.status!=='cancelled'&&r.status!=='declined'));
 
-  if(!total){
+  if(!total&&!pendingMarkup){
     c.innerHTML=`<div class="pcard">${empty('📂','No documents yet','Documents shared by the firm and files you upload will both appear here.')}</div>`;return;
   }
 
@@ -2144,7 +2505,7 @@ function renderDocuments(){
     }).join('');
   }
 
-  c.innerHTML=tabHtml+panelHtml;
+  c.innerHTML=(pendingMarkup||'')+tabHtml+panelHtml;
 }
 
 function docCardGeneral(f, source){
@@ -2160,10 +2521,12 @@ function docCardGeneral(f, source){
   const{icon}=docIcon(displayName);
   const meta=f.metadata||{};
   const sizeStr=fmtFileSize(meta.size);
+  const matterId=f.matterId||f._matterId||'';
+  const sigReq=source==='firm'?signatureRequestForPath(`${matterId}/${f.name}`):null;
+  const canSign=sigReq&&(sigReq.status==='sent'||sigReq.status==='opened');
   const sourceBadge=source==='firm'
     ?`<span style="background:#EAF3DE;color:#2D6A4F;font-size:9px;padding:1px 6px;border-radius:6px;font-weight:600">📁 Firm</span>`
     :`<span style="background:#E6F1FB;color:#185FA5;font-size:9px;padding:1px 6px;border-radius:6px;font-weight:600">📤 You</span>`;
-  const matterId=f.matterId||f._matterId||'';
   const folder=f._folder||matterId;
   const viewFn=source==='firm'
     ?`viewSharedDoc('${esc(matterId)}','${esc(f.name)}','${esc(displayName)}')`
@@ -2240,15 +2603,18 @@ function sharedDocRow(f){
   const{icon,cls}=docIcon(displayName);
   const meta=f.metadata||{};
   const dateStr=f.created_at?new Date(f.created_at).toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'}):'';
+  const sigReq=signatureRequestForPath(`${f.matterId}/${f.name}`);
+  const canSign=sigReq&&(sigReq.status==='sent'||sigReq.status==='opened');
   return`<div class="doc-list-row">
     <div class="doc-list-icon ${cls}">${icon}</div>
     <div class="doc-list-info">
-      <div class="doc-list-name" title="${esc(displayName)}">${esc(displayName)}</div>
+      <div class="doc-list-name" title="${esc(displayName)}">${esc(displayName)} ${sigReq?signaturePill(sigReq.status):''}</div>
       <div class="doc-list-meta">${category?categoryLabel(category)+' · ':''}${fmtFileSize(meta.size)}${dateStr?' · '+dateStr:''}${description?' · '+esc(description):''}</div>
     </div>
     <div class="doc-list-actions">
       <button class="pbtn view" onclick="viewSharedDoc('${esc(f.matterId)}','${esc(f.name)}','${esc(displayName)}')">👁 View</button>
       <button class="pbtn" onclick="downloadSharedDoc('${esc(f.matterId)}','${esc(f.name)}','${esc(displayName)}')">⬇</button>
+      ${sigReq?`<button class="pbtn ${canSign?'primary':'view'}" onclick="openSignatureOverlay('${esc(sigReq.id)}')">${canSign?'✍ Sign':'Signed'}</button>`:''}
     </div>
   </div>`;
 }
