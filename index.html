@@ -1923,10 +1923,15 @@ async function renderSignatureDocPreview(req,mountEl,typedName='',signatureDataU
     if(error)throw error;
     const url=data.signedUrl;
     const fields=getRequestFields(req);
-    mountEl.innerHTML=`<div style="font-size:11px;color:var(--txt3);margin-bottom:8px">Signing Preview</div>
-      <div style="position:relative;background:#fff;border:1px solid var(--brd);border-radius:12px;overflow:hidden;min-height:420px">
-        <div id="sigdoc-preview-base"></div>
-        <div id="sigdoc-preview-layer" style="position:absolute;inset:0;pointer-events:none"></div>
+    mountEl.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px">
+        <div style="font-size:11px;color:var(--txt3);text-transform:uppercase;letter-spacing:.4px">Signing Preview</div>
+        <div style="font-size:11px;color:var(--txt3)">Scroll to review the document before signing</div>
+      </div>
+      <div style="border:1px solid var(--brd);border-radius:16px;background:#F7F4EC;padding:12px;max-height:min(60vh,760px);overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch">
+        <div style="position:relative;background:#fff;border:1px solid rgba(13,27,42,0.08);border-radius:12px;overflow:hidden;min-height:420px;box-shadow:0 2px 16px rgba(13,27,42,0.05)">
+          <div id="sigdoc-preview-base"></div>
+          <div id="sigdoc-preview-layer" style="position:absolute;inset:0;pointer-events:none"></div>
+        </div>
       </div>`;
     const base=mountEl.querySelector('#sigdoc-preview-base');
     async function ensurePdfJs(){
@@ -2165,18 +2170,18 @@ function openSignatureOverlay(requestId){
   const matter=myMatters.find(m=>m.id===req.matter_id);
   const overlay=document.createElement('div');
   overlay.id='signature-overlay';
-  overlay.style.cssText='position:fixed;inset:0;background:rgba(13,27,42,0.76);z-index:3200;display:flex;align-items:flex-end;justify-content:center;padding:0';
-  overlay.innerHTML=`<div style="background:#fff;border-radius:16px 16px 0 0;width:min(760px,100%);max-height:94dvh;overflow:auto">
-    <div style="padding:18px 22px;border-bottom:1px solid var(--brd);display:flex;align-items:center;gap:12px">
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(13,27,42,0.76);z-index:3200;display:flex;align-items:center;justify-content:center;padding:22px';
+  overlay.innerHTML=`<div style="background:#fff;border-radius:22px;width:min(1120px,100%);max-height:94dvh;overflow:hidden;box-shadow:0 30px 90px rgba(13,27,42,0.28)">
+    <div style="padding:20px 24px;border-bottom:1px solid var(--brd);display:flex;align-items:flex-start;gap:14px;background:linear-gradient(180deg,#FFFFFF 0%,#FBF8F1 100%)">
       <div style="flex:1;min-width:0">
-        <div style="font-family:'Playfair Display',serif;font-size:19px;color:var(--txt)">${canSign?'Sign Document':'Signed Record'}</div>
+        <div style="font-family:'Playfair Display',serif;font-size:24px;color:var(--txt)">${canSign?'Sign Document':'Signed Record'}</div>
         <div style="font-size:12px;color:var(--txt3);margin-top:4px">${esc(req.document_name||'Document')}${matter?' • '+esc(matter.title):''}</div>
       </div>
       ${signaturePill(req.status)}
       <button type="button" id="sig-close" style="background:none;border:none;font-size:24px;line-height:1;color:var(--txt3);cursor:pointer">×</button>
     </div>
-    <div style="padding:20px 22px;display:grid;gap:16px">
-      <div style="background:var(--cream);border:1px solid var(--brd);border-radius:10px;padding:14px 16px;font-size:12px;color:var(--txt2);line-height:1.6">
+    <div style="padding:22px;display:grid;gap:18px;max-height:calc(94dvh - 95px);overflow:auto;background:#fff">
+      <div style="background:var(--cream);border:1px solid var(--brd);border-radius:14px;padding:14px 16px;font-size:12px;color:var(--txt2);line-height:1.7">
         ${esc(req.message||'Review the document and sign once you are satisfied with its contents.')}
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -2185,27 +2190,27 @@ function openSignatureOverlay(requestId){
       </div>
       <div id="sig-preview-mount"></div>
       ${canSign?`
-      <div>
+      <div style="display:grid;gap:8px">
         <label class="pform-label">Full name</label>
         <input class="pform-input" id="sig-full-name" value="${esc(req.signer_name||clientRecord?.name||'')}" placeholder="Type your full legal name">
       </div>
-      <div>
-        <label class="pform-label">Draw your signature</label>
-        <div style="border:1px solid var(--brd);border-radius:12px;background:#fff;padding:10px">
-          <canvas id="sig-canvas" style="display:block;width:100%;height:160px;background:#fff;border-radius:8px;touch-action:none"></canvas>
-        </div>
-        <div style="display:flex;justify-content:flex-end;margin-top:8px">
+      <div style="display:grid;gap:8px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <label class="pform-label" style="margin:0">Draw your signature</label>
           <button class="pbtn" type="button" id="sig-clear">Clear</button>
         </div>
+        <div style="border:1px solid var(--brd);border-radius:14px;background:#fff;padding:10px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.7)">
+          <canvas id="sig-canvas" style="display:block;width:100%;height:180px;background:#fff;border-radius:10px;touch-action:none"></canvas>
+        </div>
       </div>
-      <label style="display:flex;align-items:flex-start;gap:10px;font-size:12px;color:var(--txt2);line-height:1.6">
+      <label style="display:flex;align-items:flex-start;gap:10px;font-size:12px;color:var(--txt2);line-height:1.7;background:#FBF8F1;border:1px solid var(--brd);border-radius:12px;padding:12px 13px">
         <input type="checkbox" id="sig-consent" style="margin-top:3px">
         <span>I confirm that I have reviewed this document and that this electronic signature is mine.</span>
       </label>
-      <div style="display:flex;gap:10px;justify-content:flex-end">
+      <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;padding-top:4px">
         <button class="pbtn" type="button" id="sig-cancel">Cancel</button>
         <button class="pbtn primary" type="button" id="sig-submit">Confirm Signature</button>
-      </div>`:`
+      </div>`:` 
       <div style="font-size:13px;color:var(--txt2);line-height:1.7">
         This document has already been signed${req.signed_at?' on '+fmtDate(req.signed_at):''}.
       </div>
