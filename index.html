@@ -1299,6 +1299,58 @@ function getRequestFields(req){
   if(Array.isArray(req?.fields)&&req.fields.length)return req.fields;
   return [];
 }
+function getRequestSigners(req){
+  if(Array.isArray(req?.signers)&&req.signers.length){
+    return req.signers.map((s,i)=>({
+      id:s.id||`${req.id||'sig'}__${i+1}`,
+      name:s.name||'',
+      email:(s.email||'').trim(),
+      delivery:s.delivery==='email_link'?'email_link':'portal',
+      order:Math.max(1,Number(s.order)||i+1),
+      role:s.role||'Signer',
+      client_id:s.client_id||null,
+      party_id:s.party_id||null,
+      status:s.status||'sent',
+      signed_at:s.signed_at||null,
+      signed_name:s.signed_name||'',
+      signature_path:s.signature_path||''
+    })).sort((a,b)=>(a.order||0)-(b.order||0));
+  }
+  return [{
+    id:`${req?.id||'sig'}__primary`,
+    name:req?.signer_name||'',
+    email:(req?.signer_email||'').trim(),
+    delivery:'portal',
+    order:1,
+    role:'Client',
+    client_id:req?.client_id||null,
+    party_id:null,
+    status:req?.status||'sent',
+    signed_at:req?.signed_at||null,
+    signed_name:req?.signed_name||'',
+    signature_path:req?.signature_path||''
+  }];
+}
+function getPortalSignerState(req){
+  const signers=getRequestSigners(req);
+  const realEmail=((clientRecord?.email||currentUser?.email||'').replace('+portal@','@')).trim().toLowerCase();
+  const signer=signers.find(s=>s.delivery==='portal'&&(
+    (s.client_id&&clientRecord&&String(s.client_id)===String(clientRecord.id))||
+    (s.email&&s.email.trim().toLowerCase()===realEmail)
+  ))||null;
+  if(!signer)return{signer:null,signers,canSign:false,reason:'not_assigned'};
+  if(signer.status==='signed')return{signer,signers,canSign:false,reason:'signed'};
+  if(req?.signing_order_enabled){
+    const blocked=signers.some(s=>(s.order||0)<(signer.order||0)&&s.status!=='signed');
+    if(blocked)return{signer,signers,canSign:false,reason:'waiting_turn'};
+  }
+  return{signer,signers,canSign:true,reason:'ready'};
+}
+function deriveSignatureRequestStatus(signers){
+  if((signers||[]).length&&(signers||[]).every(s=>s.status==='signed'))return'signed';
+  if((signers||[]).some(s=>s.status==='opened'||s.status==='signed'))return'in_progress';
+  return'sent';
+}
 function signatureFieldValue(req,field,typedName='',signatureDataUrl=''){
   if(field.type==='name')return typedName||req.signed_name||req.signer_name||'';
   if(field.type==='date'){
@@ -1852,6 +1904,39 @@ function renderSignatureInbox(requests,matterId=''){
     }).join('')}
   </div>`;
 }
+renderSignatureInbox=function(requests,matterId=''){
+  const rows=(requests||[]).filter(r=>{
+    if(matterId&&r.matter_id!==matterId)return false;
+    return !!getPortalSignerState(r).signer;
+  });
+  if(!rows.length)return'';
+  return `<div class="pcard" style="margin-bottom:14px">
+    <div class="pcard-header">
+      <div>
+        <div class="pcard-title">âœ Signature Requests</div>
+        <div class="pcard-sub">Review documents awaiting signature and reopen signed records when you need them.</div>
+      </div>
+      <span style="font-size:11px;color:var(--txt3)">${rows.length} request${rows.length!==1?'s':''}</span>
+    </div>
+    ${rows.map(r=>{
+      const matter=myMatters.find(m=>m.id===r.matter_id);
+      const signerState=getPortalSignerState(r);
+      const canSign=signerState.canSign;
+      const cta=signerState.reason==='waiting_turn'?'Waiting turn':(canSign?'Sign now':'View record');
+      return `<div class="doc-list-row">
+        <div class="doc-list-icon dt-doc">âœ</div>
+        <div class="doc-list-info">
+          <div class="doc-list-name" title="${esc(r.document_name||r.request_title||'Signature Request')}">${esc(r.document_name||r.request_title||'Signature Request')}</div>
+          <div class="doc-list-meta">${matter?esc(matter.title)+' Â· ':''}${fmtDate(r.sent_at||r.created_at)}${r.message?' Â· '+esc(r.message):''}${signerState.reason==='waiting_turn'?' Â· Another signer goes first':''}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+          ${signaturePill(r.status)}
+          <button class="pbtn ${canSign?'primary':'view'}" style="white-space:nowrap" onclick="openSignatureOverlay('${esc(r.id)}')">${cta}</button>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
 function closeSignatureOverlay(){
   const overlay=document.getElementById('signature-overlay');
   if(overlay)overlay.remove();
@@ -2271,6 +2356,170 @@ function openSignatureOverlay(requestId){
 }
 
 // ── RENDER: OVERVIEW ─────────────────────────────────────────────
+submitSignatureRequest=async function(requestId,overlay){
+  const req=getSignatureRequest(requestId);
+  if(!req){portalToast('Signature request not found.',true);return;}
+  const state=getPortalSignerState(req);
+  if(!state.signer){portalToast('This request is not assigned to your portal account.',true);return;}
+  if(!state.canSign){portalToast(state.reason==='waiting_turn'?'Another signer needs to sign first.':'This request is not ready for signing.',true);return;}
+  const typedName=overlay.querySelector('#sig-full-name').value.trim();
+  if(!typedName){portalToast('Type your full name before signing.',true);return;}
+  if(!overlay.querySelector('#sig-consent').checked){portalToast('Please confirm the signing statement first.',true);return;}
+  const signatureDataUrl=signatureCanvasData(overlay.querySelector('#sig-canvas'));
+  if(!signatureDataUrl){portalToast('Draw your signature in the box first.',true);return;}
+  const submitBtn=overlay.querySelector('#sig-submit');
+  submitBtn.disabled=true;
+  submitBtn.textContent='Saving...';
+  try{
+    const now=new Date().toISOString();
+    const baseFolder=req.matter_id;
+    const signerKey=`${req.id}__${state.signer.id}`;
+    const signaturePath=`${baseFolder}/${SIGNATURE_ARTIFACTS_PREFIX}${signerKey}__signature.png`;
+    const {error:sigErr}=await sb.storage.from(FIRM_BUCKET).upload(signaturePath,blobFromDataUrl(signatureDataUrl),{upsert:true,contentType:'image/png'});
+    if(sigErr)throw sigErr;
+    const signers=getRequestSigners(req).map(s=>s.id===state.signer.id?{...s,status:'signed',signed_at:now,signed_name:typedName,signature_path:signaturePath}:s);
+    const overallStatus=deriveSignatureRequestStatus(signers);
+    let certificatePath=req.certificate_path||'';
+    if(signers.length===1&&overallStatus==='signed'){
+      certificatePath=`${baseFolder}/${SIGNATURE_ARTIFACTS_PREFIX}${req.id}__signed-record.html`;
+      let certHtml=buildSignatureCertificateHtml(req,typedName,signatureDataUrl);
+      if((req.document_path||'').toLowerCase().endsWith('.html')){
+        try{
+          const {data:srcData,error:srcErr}=await sb.storage.from(FIRM_BUCKET).createSignedUrl(req.document_path,300);
+          if(srcErr)throw srcErr;
+          const resp=await fetch(srcData.signedUrl);
+          const sourceHtml=await resp.text();
+          certHtml=injectSignatureFieldsIntoHtml(sourceHtml,{...req,signed_at:now},typedName,signatureDataUrl);
+        }catch(_e){}
+      }
+      const {error:certErr}=await sb.storage.from(FIRM_BUCKET).upload(certificatePath,new Blob([certHtml],{type:'text/html;charset=utf-8'}),{upsert:true,contentType:'text/html;charset=utf-8'});
+      if(certErr)throw certErr;
+    }
+    Object.assign(req,{
+      signers,
+      status:overallStatus,
+      signed_at:signers.length===1&&overallStatus==='signed'?now:req.signed_at||null,
+      updated_at:now,
+      opened_at:req.opened_at||now,
+      signed_name:signers.length===1&&overallStatus==='signed'?typedName:(req.signed_name||''),
+      signed_by_user_id:currentUser?.id||null,
+      signature_path:signers.length===1?signaturePath:(req.signature_path||''),
+      certificate_path:certificatePath,
+      user_agent:navigator.userAgent||''
+    });
+    await writeSignatureResponse(req,{
+      request_id:req.id,
+      matter_id:req.matter_id,
+      client_id:req.client_id||clientRecord.id,
+      status:req.status,
+      signed_at:req.signed_at,
+      updated_at:req.updated_at,
+      opened_at:req.opened_at,
+      signed_name:req.signed_name,
+      signed_by_user_id:req.signed_by_user_id,
+      signature_path:req.signature_path,
+      certificate_path:req.certificate_path,
+      user_agent:req.user_agent,
+      signers:req.signers
+    });
+    mySignatureRequests=mySignatureRequests.map(r=>r.id===req.id?req:r).sort((a,b)=>signatureSortValue(b)-signatureSortValue(a));
+    portalToast(overallStatus==='signed'?'Document signed successfully.':'Your signature has been saved.');
+    closeSignatureOverlay();
+    refreshSignatureViews();
+  }catch(e){
+    portalToast('Could not save the signature: '+e.message,true);
+    submitBtn.disabled=false;
+    submitBtn.textContent='Confirm Signature';
+  }
+}
+openSignatureOverlay=function(requestId){
+  const req=getSignatureRequest(requestId);
+  if(!req){portalToast('Signature request not found.',true);return;}
+  const state=getPortalSignerState(req);
+  if(!state.signer){portalToast('This request is not assigned to your portal account.',true);return;}
+  closeSignatureOverlay();
+  const canSign=state.canSign;
+  const matter=myMatters.find(m=>m.id===req.matter_id);
+  const signedAlready=state.reason==='signed';
+  const waitingTurn=state.reason==='waiting_turn';
+  const overlay=document.createElement('div');
+  overlay.id='signature-overlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(13,27,42,0.76);z-index:3200;display:flex;align-items:center;justify-content:center;padding:22px';
+  overlay.innerHTML=`<div style="background:#fff;border-radius:22px;width:min(1120px,100%);max-height:94dvh;overflow:hidden;box-shadow:0 30px 90px rgba(13,27,42,0.28)">
+    <div style="padding:20px 24px;border-bottom:1px solid var(--brd);display:flex;align-items:flex-start;gap:14px;background:linear-gradient(180deg,#FFFFFF 0%,#FBF8F1 100%)">
+      <div style="flex:1;min-width:0">
+        <div style="font-family:'Playfair Display',serif;font-size:24px;color:var(--txt)">${canSign?'Sign Document':(signedAlready?'Signed Record':'Signature Status')}</div>
+        <div style="font-size:12px;color:var(--txt3);margin-top:4px">${esc(req.document_name||'Document')}${matter?' â€¢ '+esc(matter.title):''}</div>
+      </div>
+      ${signaturePill(req.status)}
+      <button type="button" id="sig-close" style="background:none;border:none;font-size:24px;line-height:1;color:var(--txt3);cursor:pointer">Ã—</button>
+    </div>
+    <div style="padding:22px;display:grid;gap:18px;max-height:calc(94dvh - 95px);overflow:auto;background:#fff">
+      <div style="background:var(--cream);border:1px solid var(--brd);border-radius:14px;padding:14px 16px;font-size:12px;color:var(--txt2);line-height:1.7">
+        ${waitingTurn?'Another signer must complete their step before this document opens for your signature.<br><br>':''}${esc(req.message||'Review the document and sign once you are satisfied with its contents.')}
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="pbtn view" type="button" id="sig-open-doc">ðŸ‘ View document</button>
+        ${req.certificate_path?'<button class="pbtn" type="button" id="sig-open-record">Open signed record</button>':''}
+      </div>
+      <div id="sig-preview-mount"></div>
+      ${canSign?`
+      <div style="display:grid;gap:8px">
+        <label class="pform-label">Full name</label>
+        <input class="pform-input" id="sig-full-name" value="${esc(state.signer.signed_name||state.signer.name||clientRecord?.name||'')}" placeholder="Type your full legal name">
+      </div>
+      <div style="display:grid;gap:8px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <label class="pform-label" style="margin:0">Draw your signature</label>
+          <button class="pbtn" type="button" id="sig-clear">Clear</button>
+        </div>
+        <div style="border:1px solid var(--brd);border-radius:14px;background:#fff;padding:10px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.7)">
+          <canvas id="sig-canvas" style="display:block;width:100%;height:180px;background:#fff;border-radius:10px;touch-action:none"></canvas>
+        </div>
+      </div>
+      <label style="display:flex;align-items:flex-start;gap:10px;font-size:12px;color:var(--txt2);line-height:1.7;background:#FBF8F1;border:1px solid var(--brd);border-radius:12px;padding:12px 13px">
+        <input type="checkbox" id="sig-consent" style="margin-top:3px">
+        <span>I confirm that I have reviewed this document and that this electronic signature is mine.</span>
+      </label>
+      <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;padding-top:4px">
+        <button class="pbtn" type="button" id="sig-cancel">Cancel</button>
+        <button class="pbtn primary" type="button" id="sig-submit">Confirm Signature</button>
+      </div>`:`
+      <div style="font-size:13px;color:var(--txt2);line-height:1.7">
+        ${signedAlready?`This document has already been signed by you${state.signer.signed_at?' on '+fmtDate(state.signer.signed_at):''}.`:'This document will unlock for your signature once the earlier signer completes their step.'}
+      </div>
+      <div style="display:flex;justify-content:flex-end">
+        <button class="pbtn" type="button" id="sig-cancel">Close</button>
+      </div>`}
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click',e=>{if(e.target===overlay)closeSignatureOverlay();});
+  overlay.querySelector('#sig-close').onclick=closeSignatureOverlay;
+  const cancelBtn=overlay.querySelector('#sig-cancel');
+  if(cancelBtn)cancelBtn.onclick=closeSignatureOverlay;
+  overlay.querySelector('#sig-open-doc').onclick=()=>openSignatureSourceDocument(req);
+  const recBtn=overlay.querySelector('#sig-open-record');
+  if(recBtn)recBtn.onclick=()=>openSignatureCertificate(req);
+  const previewMount=overlay.querySelector('#sig-preview-mount');
+  renderSignatureDocPreview(req,previewMount,state.signer.signed_name||state.signer.name||'','');
+  if(canSign){
+    const nameInput=overlay.querySelector('#sig-full-name');
+    const currentTypedName=()=>nameInput?.value.trim()||state.signer.name||clientRecord?.name||'';
+    const pad=wireSignatureCanvas(overlay.querySelector('#sig-canvas'),sigUrl=>renderSignatureDocPreview(req,previewMount,currentTypedName(),sigUrl));
+    overlay.querySelector('#sig-clear').onclick=()=>pad.clear();
+    overlay.querySelector('#sig-submit').onclick=()=>submitSignatureRequest(requestId,overlay);
+    if(nameInput)nameInput.addEventListener('input',()=>renderSignatureDocPreview(req,previewMount,nameInput.value.trim(),signatureCanvasData(overlay.querySelector('#sig-canvas'))));
+    if(state.signer.status==='sent'){
+      const now=new Date().toISOString();
+      const signers=getRequestSigners(req).map(s=>s.id===state.signer.id?{...s,status:'opened'}:s);
+      Object.assign(req,{signers,status:deriveSignatureRequestStatus(signers),opened_at:req.opened_at||now,updated_at:now});
+      writeSignatureResponse(req,{request_id:req.id,matter_id:req.matter_id,client_id:req.client_id||clientRecord.id,status:req.status,opened_at:req.opened_at,updated_at:req.updated_at,signers:req.signers}).catch(()=>{});
+      mySignatureRequests=mySignatureRequests.map(r=>r.id===req.id?req:r).sort((a,b)=>signatureSortValue(b)-signatureSortValue(a));
+      refreshSignatureViews();
+    }
+  }
+}
 function renderOverview(){
   if(!clientRecord){
     document.getElementById('pview-overview').innerHTML=`
