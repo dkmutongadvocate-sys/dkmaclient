@@ -1724,7 +1724,7 @@ async function writeSignatureJson(path,payload){
   if(error)throw error;
 }
 function signatureResponsePath(req){
-  return `client-general/${clientRecord.id}/${SIGNATURE_RESPONSE_PREFIX}${req.matter_id}__${req.id}.json`;
+  return `${req.matter_id}/${SIGNATURE_RESPONSE_PREFIX}${req.id}.json`;
 }
 async function writeSignatureResponse(req,payload){
   const path=req._response_path||signatureResponsePath(req);
@@ -1755,6 +1755,26 @@ async function loadMySignatureRequests(){
         console.warn('[DKMA Portal] signature record',f.name,e.message);
       }
     }));
+  const matterIds=[...new Set(requestRows.map(r=>r.matter_id).filter(Boolean))];
+  await Promise.all(matterIds.map(async matterId=>{
+    try{
+      const {data:matterData,error:matterErr}=await sb.storage.from(FIRM_BUCKET).list(matterId,{limit:200,sortBy:{column:'created_at',order:'desc'}});
+      if(matterErr||!matterData)return;
+      await Promise.all(matterData
+        .filter(f=>f.name&&f.name.endsWith('.json')&&f.name.startsWith(SIGNATURE_RESPONSE_PREFIX))
+        .map(async f=>{
+          try{
+            const rec=await readSignatureJson(`${matterId}/${f.name}`);
+            if(rec?.request_id){
+              rec._response_path=`${matterId}/${f.name}`;
+              responseByRequestId[rec.request_id]=rec;
+            }
+          }catch(e){
+            console.warn('[DKMA Portal] signature response',f.name,e.message);
+          }
+        }));
+    }catch(_e){}
+  }));
   const rows=requestRows.map(rec=>{
     const response=responseByRequestId[rec.id];
     return response?{...rec,...response,_storage_path:rec._storage_path,_response_path:response._response_path}:rec;
@@ -2103,9 +2123,9 @@ async function submitSignatureRequest(requestId,overlay){
   submitBtn.disabled=true;
   submitBtn.textContent='Saving…';
   try{
-    const baseFolder=`client-general/${clientRecord.id}`;
-    const signaturePath=`${baseFolder}/${SIGNATURE_ARTIFACTS_PREFIX}${req.matter_id}__${req.id}__signature.png`;
-    const certificatePath=`${baseFolder}/${SIGNATURE_ARTIFACTS_PREFIX}${req.matter_id}__${req.id}__signed-record.html`;
+    const baseFolder=req.matter_id;
+    const signaturePath=`${baseFolder}/${SIGNATURE_ARTIFACTS_PREFIX}${req.id}__signature.png`;
+    const certificatePath=`${baseFolder}/${SIGNATURE_ARTIFACTS_PREFIX}${req.id}__signed-record.html`;
     const {error:sigErr}=await sb.storage.from(FIRM_BUCKET).upload(signaturePath,blobFromDataUrl(signatureDataUrl),{upsert:true,contentType:'image/png'});
     if(sigErr)throw sigErr;
     let certHtml=buildSignatureCertificateHtml(req,typedName,signatureDataUrl);
