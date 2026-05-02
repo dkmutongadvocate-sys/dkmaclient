@@ -1293,15 +1293,11 @@ function isSignatureSystemFile(name){
   return !!name&&(name.startsWith(SIGNATURE_REQUESTS_PREFIX)||name.startsWith(SIGNATURE_RESPONSE_PREFIX)||name.startsWith(SIGNATURE_ARTIFACTS_PREFIX));
 }
 function defaultSignatureFields(){
-  return[
-    {id:'sig_default_signature',type:'signature',x:0.58,y:0.72,w:0.26,h:0.1,label:'Signature'},
-    {id:'sig_default_name',type:'name',x:0.18,y:0.72,w:0.26,h:0.08,label:'Full Name'},
-    {id:'sig_default_date',type:'date',x:0.72,y:0.84,w:0.18,h:0.07,label:'Date'}
-  ];
+  return[];
 }
 function getRequestFields(req){
   if(Array.isArray(req?.fields)&&req.fields.length)return req.fields;
-  return defaultSignatureFields();
+  return [];
 }
 function signatureFieldValue(req,field,typedName='',signatureDataUrl=''){
   if(field.type==='name')return typedName||req.signed_name||req.signer_name||'';
