@@ -2535,12 +2535,12 @@ function buildPortalSignedPdfPreviewHtml(req,originalUrl,fields,signatureMap){
     .bar strong{display:block;font-size:14px}
     .bar span{display:block;font-size:12px;opacity:.85;margin-top:3px}
     .frame{padding:20px}
-    .sheet{position:relative;max-width:960px;margin:0 auto;background:#F8F6EF;border:1px solid rgba(13,27,42,.08);border-radius:16px;padding:14px}
+    #preview-shell{position:relative;max-width:960px;margin:0 auto}
     #preview-base{position:relative;z-index:1}
-    #preview-layer{position:absolute;inset:14px;z-index:2;pointer-events:none}
+    #preview-layer{position:absolute;inset:0;z-index:2;pointer-events:none}
     .pdf-stack{position:relative;display:flex;flex-direction:column;gap:14px}
     .pdf-page{position:relative;margin:0 auto;width:fit-content;max-width:100%}
-    .pdf-page canvas{display:block;max-width:100%;height:auto;background:#fff;border:1px solid rgba(13,27,42,.12);border-radius:8px;box-shadow:0 2px 10px rgba(13,27,42,.06)}
+    .pdf-page canvas{display:block;max-width:100%;height:auto;background:#fff}
     .sig-box{position:absolute;box-sizing:border-box;border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:6px;text-align:center}
     .sig-box img{max-width:100%;max-height:100%;object-fit:contain}
     .nopreview{padding:48px 24px;text-align:center;color:#5E6472}
@@ -2552,7 +2552,7 @@ function buildPortalSignedPdfPreviewHtml(req,originalUrl,fields,signatureMap){
     <span>Finalized on ${esc(fmtAuditDateTime(req.signed_at||new Date().toISOString(),req.signed_timezone||''))}</span>
   </div>
   <div class="frame">
-    <div class="sheet" data-dkma-export-root="1">
+    <div id="preview-shell" data-dkma-export-root="1">
       <div id="preview-base"></div>
       <div id="preview-layer"></div>
     </div>
@@ -2616,7 +2616,7 @@ async function createPortalSignedDocumentPreviewUrl(req){
   }else if(docPath.endsWith('.pdf')){
     html=buildPortalSignedPdfPreviewHtml(req,origData.signedUrl,fields,signatureMap);
   }else if(['.png','.jpg','.jpeg','.gif','.webp'].some(ext=>docPath.endsWith(ext))){
-    html=`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(req.document_name||'Signed document')}</title><style>body{margin:0;background:#F5F2EA;color:#0D1B2A;font:14px Inter,Arial,sans-serif}.bar{position:sticky;top:0;background:#0D1B2A;color:#fff;padding:12px 18px}.frame{padding:20px}.sheet{position:relative;max-width:960px;margin:0 auto;background:#fff;border:1px solid rgba(13,27,42,.08);border-radius:16px;overflow:hidden}.sheet img.base{display:block;width:100%;height:auto}.layer{position:absolute;inset:0;pointer-events:none}.box{position:absolute;box-sizing:border-box;border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:6px;text-align:center}.box img{max-width:100%;max-height:100%;object-fit:contain}</style></head><body><div class="bar" data-dkma-export-hide="1"><strong>Signed Document</strong><span>Finalized on ${esc(fmtAuditDateTime(req.signed_at||new Date().toISOString(),req.signed_timezone||''))}</span></div><div class="frame"><div class="sheet" data-dkma-export-root="1"><img class="base" src="${escapeAttr(origData.signedUrl)}" alt="${escapeAttr(req.document_name||'Signed document')}"><div class="layer">${fields.map(f=>{const val=signatureFieldValue(req,f,'',signatureMap,'');return `<div class="box" style="left:${f.x*100}%;top:${f.y*100}%;width:${f.w*100}%;height:${f.h*100}%;border:${f.type==='signature'?'0':'1px solid rgba(13,27,42,.24)'};background:${f.type==='signature'?'transparent':'rgba(255,255,255,.84)'}">${f.type==='signature'&&val?`<img src="${escapeAttr(val)}" alt="Signature">`:val?`<span style="font-size:${f.type==='date'?'11px':'12px'};font-weight:${f.type==='name'?'600':'500'};color:#0D1B2A">${esc(val)}</span>`:''}</div>`;}).join('')}</div></div></div></body></html>`;
+    html=`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(req.document_name||'Signed document')}</title><style>body{margin:0;background:#F5F2EA;color:#0D1B2A;font:14px Inter,Arial,sans-serif}.bar{position:sticky;top:0;background:#0D1B2A;color:#fff;padding:12px 18px}.frame{padding:20px}#preview-shell{position:relative;max-width:960px;margin:0 auto}.base{display:block;width:100%;height:auto}.layer{position:absolute;inset:0;pointer-events:none}.box{position:absolute;box-sizing:border-box;border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:6px;text-align:center}.box img{max-width:100%;max-height:100%;object-fit:contain}</style></head><body><div class="bar" data-dkma-export-hide="1"><strong>Signed Document</strong><span>Finalized on ${esc(fmtAuditDateTime(req.signed_at||new Date().toISOString(),req.signed_timezone||''))}</span></div><div class="frame"><div id="preview-shell" data-dkma-export-root="1"><img class="base" src="${escapeAttr(origData.signedUrl)}" alt="${escapeAttr(req.document_name||'Signed document')}"><div class="layer">${fields.map(f=>{const val=signatureFieldValue(req,f,'',signatureMap,'');return `<div class="box" style="left:${f.x*100}%;top:${f.y*100}%;width:${f.w*100}%;height:${f.h*100}%;border:${f.type==='signature'?'0':'1px solid rgba(13,27,42,.24)'};background:${f.type==='signature'?'transparent':'rgba(255,255,255,.84)'}">${f.type==='signature'&&val?`<img src="${escapeAttr(val)}" alt="Signature">`:val?`<span style="font-size:${f.type==='date'?'11px':'12px'};font-weight:${f.type==='name'?'600':'500'};color:#0D1B2A">${esc(val)}</span>`:''}</div>`;}).join('')}</div></div></div></body></html>`;
   }else{
     html=`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(req.document_name||'Signed document')}</title><style>body{font-family:Arial,sans-serif;background:#f7f5ef;color:#222;margin:0;padding:32px}.sheet{max-width:760px;margin:0 auto;background:#fff;border:1px solid #ddd;border-radius:14px;padding:32px}h1{margin:0 0 10px;font-size:28px}.sub{color:#666;font-size:14px;margin-bottom:24px}</style></head><body><div class="sheet"><h1>Signed Document</h1><div class="sub">Preview is not available for this file type. Use the source document button to review the original file.</div></div></body></html>`;
   }
@@ -2718,6 +2718,11 @@ async function createSignedRecordBlobUrl(bucket,path){
   const resp=await fetch(data.signedUrl);
   if(!resp.ok)throw new Error('Could not load saved record');
   const html=await resp.text();
+  const blobUrl=URL.createObjectURL(new Blob([html],{type:'text/html;charset=utf-8'}));
+  setTimeout(()=>URL.revokeObjectURL(blobUrl),300000);
+  return blobUrl;
+}
+function createHtmlBlobUrl(html){
   const blobUrl=URL.createObjectURL(new Blob([html],{type:'text/html;charset=utf-8'}));
   setTimeout(()=>URL.revokeObjectURL(blobUrl),300000);
   return blobUrl;
@@ -2931,7 +2936,8 @@ async function openSignatureCertificate(req){
   overlay.querySelector('#sig-record-download-html')?.addEventListener('click',async()=>{
     const base=(req.document_name||'signed-record').replace(/\.[^.]+$/,'').replace(/[\\/:*?"<>|]+/g,' ').trim()||'signed-record';
     try{
-      const blobUrl=await createSignedRecordBlobUrl(FIRM_BUCKET,req.certificate_path);
+      const auditHtml=buildSignatureCertificateHtml(req,req.signed_name||req.signer_name||'', '');
+      const blobUrl=createHtmlBlobUrl(auditHtml);
       await downloadRenderableUrlAsPdf(blobUrl,`${base} - audit-record.pdf`);
       portalToast('Audit record downloaded.');
     }catch(e){
