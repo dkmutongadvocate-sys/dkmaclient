@@ -1262,6 +1262,46 @@ function fmtMoney(n){
   return 'KES '+n.toLocaleString('en-KE',{minimumFractionDigits:hasDecimals?2:0,maximumFractionDigits:2});
 }
 function fmtDate(d){if(!d)return'-';const dt=new Date(d);return isNaN(dt)?d:dt.toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'});}
+function getUserTimeZone(){try{return Intl.DateTimeFormat().resolvedOptions().timeZone||'';}catch(_e){return '';}}
+function fmtAuditDateTime(d,timeZone=''){
+  if(!d)return'-';
+  const dt=new Date(d);
+  if(isNaN(dt))return d;
+  const opts={day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit',timeZoneName:'short'};
+  if(timeZone)opts.timeZone=timeZone;
+  return dt.toLocaleString('en-KE',opts);
+}
+function signerAuditOrigin(signer){
+  const bits=[];
+  if(signer?.signed_via)bits.push(signer.signed_via);
+  if(signer?.signed_timezone)bits.push(signer.signed_timezone);
+  if(signer?.signed_ip)bits.push(signer.signed_ip);
+  return bits.join(' - ')||'-';
+}
+function getAuditSigners(req,fallbackName='',fallbackSignature=''){
+  const signers=getRequestSigners(req);
+  if(signers.length){
+    return signers.map((s,i)=>({
+      ...s,
+      display_name:s.signed_name||s.name||`Signer ${i+1}`,
+      display_email:s.email||'-',
+      preview_signature:(!s.signature_path&&fallbackSignature&&i===signers.length-1)?fallbackSignature:''
+    }));
+  }
+  return [{
+    id:req?.id||'sig',
+    order:1,
+    role:'Signer',
+    status:normalizeSignatureStatus(req?.status||'signed'),
+    display_name:fallbackName||req?.signed_name||req?.signer_name||'Signer',
+    display_email:req?.signer_email||'-',
+    signed_at:req?.signed_at||null,
+    signed_timezone:req?.signed_timezone||'',
+    signed_via:req?.signed_via||'Client Portal',
+    signed_ip:req?.signed_ip||'',
+    preview_signature:fallbackSignature||''
+  }];
+}
 function parseDateLocal(s){if(!s)return new Date(NaN);const[y,m,d]=(s+'').split('-').map(Number);return new Date(y,m-1,d);}
 function fmtFileSize(b){if(!b)return'-';if(b<1024)return b+'B';if(b<1048576)return(b/1024).toFixed(0)+'KB';return(b/1048576).toFixed(1)+'MB';}
 function portalIcon(name){
@@ -2489,7 +2529,7 @@ async function submitPublicSignatureLink(){
   const btn=shell.querySelector('#public-sign-submit');
   if(btn){btn.disabled=true;btn.textContent='Saving...';}
   try{
-    const result=await callPublicSignatureFunction('complete-signature-link',{token:publicSignToken,fullName,signatureDataUrl});
+    const result=await callPublicSignatureFunction('complete-signature-link',{token:publicSignToken,fullName,signatureDataUrl,timeZone:getUserTimeZone()});
     publicSignSession.request.signers=Array.isArray(result?.signers)&&result.signers.length
       ? result.signers
       : (publicSignSession.request.signers||[]).map(s=>s.id===publicSignSession.signer.id?{...s,status:'signed',signed_at:new Date().toISOString(),signed_name:fullName}:s);
@@ -2601,14 +2641,71 @@ async function initPublicSignatureLinkFlow(token){
   }
 }
 async function openSignatureCertificate(req){
-  if(!req?.certificate_path){portalToast('Signed record not available yet.',true);return;}
-  const {data,error}=await sb.storage.from(FIRM_BUCKET).createSignedUrl(req.certificate_path,300);
-  if(error){portalToast('Could not open the signed record.',true);return;}
-  const resp=await fetch(data.signedUrl);
-  const html=await resp.text();
-  const blobUrl=URL.createObjectURL(new Blob([html],{type:'text/html;charset=utf-8'}));
-  window.open(blobUrl,'_blank');
-  setTimeout(()=>URL.revokeObjectURL(blobUrl),60000);
+  if(!req?.document_path&&!req?.certificate_path){portalToast('Signed record not available yet.',true);return;}
+  const matter=myMatters.find(m=>m.id===req.matter_id);
+  const signers=getAuditSigners(req,req.signed_name||req.signer_name||'');
+  const old=document.getElementById('signature-record-overlay');
+  if(old)old.remove();
+  const overlay=document.createElement('div');
+  overlay.id='signature-record-overlay';
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(13,27,42,0.78);z-index:3400;display:flex;align-items:center;justify-content:center;padding:22px';
+  overlay.innerHTML=`<div style="background:#fff;border-radius:22px;width:min(1240px,100%);max-height:94dvh;overflow:hidden;box-shadow:0 30px 90px rgba(13,27,42,0.28)">
+    <div style="padding:20px 24px;border-bottom:1px solid var(--brd);display:flex;align-items:flex-start;gap:14px;background:linear-gradient(180deg,#FFFFFF 0%,#FBF8F1 100%)">
+      <div style="flex:1;min-width:0">
+        <div style="font-family:'Playfair Display',serif;font-size:24px;color:var(--txt)">Signed Document Record</div>
+        <div style="font-size:12px;color:var(--txt3);margin-top:4px;overflow-wrap:anywhere">${esc(req.document_name||'Document')}${matter?' - '+esc(matter.title):''}</div>
+      </div>
+      ${signaturePill(deriveSignatureRequestStatus(getRequestSigners(req)))}
+      <button type="button" id="sig-record-close" style="background:none;border:none;font-size:24px;line-height:1;color:var(--txt3);cursor:pointer">x</button>
+    </div>
+    <div style="display:grid;grid-template-columns:minmax(0,1.4fr) minmax(320px,380px);max-height:calc(94dvh - 84px)">
+      <div style="min-height:0;overflow:auto;padding:20px 24px;background:#fff">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+          <button class="pbtn view" type="button" id="sig-record-open-doc">View source document</button>
+          ${req.certificate_path?'<button class="pbtn" type="button" id="sig-record-open-html">Open saved HTML record</button>':''}
+        </div>
+        <div id="sig-record-preview"></div>
+      </div>
+      <aside style="min-height:0;overflow:auto;padding:20px 22px;border-left:1px solid var(--brd);background:#FBF8F1">
+        <div style="font-family:'Playfair Display',serif;font-size:20px;color:var(--txt);margin-bottom:14px">Audit Trail</div>
+        <div style="display:grid;grid-template-columns:120px minmax(0,1fr);gap:10px 14px;font-size:13px;line-height:1.6">
+          <div style="color:var(--txt3);font-weight:600">Document</div><div style="min-width:0;overflow-wrap:anywhere">${esc(req.document_name||'Document')}</div>
+          <div style="color:var(--txt3);font-weight:600">Matter</div><div style="min-width:0;overflow-wrap:anywhere">${esc(matter?.title||req.matter_title||'-')}</div>
+          <div style="color:var(--txt3);font-weight:600">Sent</div><div>${esc(fmtAuditDateTime(req.sent_at||req.created_at,req.signed_timezone||''))}</div>
+          <div style="color:var(--txt3);font-weight:600">Finalized</div><div>${esc(fmtAuditDateTime(req.signed_at||'',req.signed_timezone||''))}</div>
+          <div style="color:var(--txt3);font-weight:600">Request ID</div><div style="min-width:0"><code style="font-size:11px;white-space:pre-wrap;overflow-wrap:anywhere">${esc(req.id||'-')}</code></div>
+          <div style="color:var(--txt3);font-weight:600">Source Path</div><div style="min-width:0"><code style="font-size:11px;white-space:pre-wrap;overflow-wrap:anywhere">${esc(req.document_path||'-')}</code></div>
+        </div>
+        <div style="margin-top:20px;display:grid;gap:12px">
+          ${signers.map((signer,idx)=>`
+            <div style="border:1px solid var(--brd);border-radius:14px;background:#fff;padding:14px 16px">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+                <div style="min-width:0">
+                  <div style="font-size:14px;font-weight:600;color:var(--txt);overflow-wrap:anywhere">${esc(signer.display_name)}</div>
+                  <div style="font-size:11px;color:var(--txt3);margin-top:3px">${esc(signer.role||`Signer ${idx+1}`)}${signer.display_email&&signer.display_email!=='-'?' - '+esc(signer.display_email):''}</div>
+                </div>
+                ${signaturePill(normalizeSignatureStatus(signer.status||'sent'))}
+              </div>
+              <div style="display:grid;grid-template-columns:88px minmax(0,1fr);gap:6px 10px;margin-top:12px;font-size:12px;line-height:1.55">
+                <div style="color:var(--txt3);font-weight:600">Signed</div><div style="min-width:0;overflow-wrap:anywhere">${esc(fmtAuditDateTime(signer.signed_at||'',signer.signed_timezone||''))}</div>
+                <div style="color:var(--txt3);font-weight:600">Origin</div><div style="min-width:0;overflow-wrap:anywhere">${esc(signerAuditOrigin(signer))}</div>
+                ${signer.signed_location?`<div style="color:var(--txt3);font-weight:600">Location</div><div style="min-width:0;overflow-wrap:anywhere">${esc(signer.signed_location)}</div>`:''}
+              </div>
+            </div>`).join('')}
+        </div>
+      </aside>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove();});
+  overlay.querySelector('#sig-record-close').onclick=()=>overlay.remove();
+  overlay.querySelector('#sig-record-open-doc').onclick=()=>openSignatureSourceDocument(req);
+  overlay.querySelector('#sig-record-open-html')?.addEventListener('click',async()=>{
+    const {data,error}=await sb.storage.from(FIRM_BUCKET).createSignedUrl(req.certificate_path,300);
+    if(error||!data?.signedUrl){portalToast('Could not open the saved record.',true);return;}
+    window.open(data.signedUrl,'_blank','noopener');
+  });
+  await renderSignatureDocPreview(req,overlay.querySelector('#sig-record-preview'),req.signed_name||req.signer_name||'','');
 }
 function injectSignatureFieldsIntoHtml(sourceHtml,req,typedName,signatureMap={},activeSignerId=''){
   const parser=new DOMParser();
@@ -2646,6 +2743,7 @@ function injectSignatureFieldsIntoHtml(sourceHtml,req,typedName,signatureMap={},
 }
 function buildSignatureCertificateHtml(req,typedName,signatureDataUrl){
   const matter=myMatters.find(m=>m.id===req.matter_id);
+  const signers=getAuditSigners(req,typedName,signatureDataUrl);
   return `<!DOCTYPE html>
   <html lang="en">
   <head>
@@ -2654,15 +2752,23 @@ function buildSignatureCertificateHtml(req,typedName,signatureDataUrl){
     <title>Signed Record</title>
     <style>
       body{font-family:Arial,sans-serif;background:#f7f5ef;color:#222;margin:0;padding:32px}
-      .sheet{max-width:760px;margin:0 auto;background:#fff;border:1px solid #ddd;border-radius:14px;padding:32px}
+      .sheet{max-width:900px;margin:0 auto;background:#fff;border:1px solid #ddd;border-radius:14px;padding:32px}
       h1{margin:0 0 10px;font-size:28px}
       .sub{color:#666;font-size:14px;margin-bottom:24px}
-      .grid{display:grid;grid-template-columns:180px 1fr;gap:10px 16px;font-size:14px;margin-bottom:28px}
+      .grid{display:grid;grid-template-columns:180px minmax(0,1fr);gap:10px 16px;font-size:14px;margin-bottom:28px}
       .label{color:#666;font-weight:700}
-      .sig{margin-top:18px;padding-top:18px;border-top:1px solid #ddd}
-      .sig img{max-width:320px;max-height:120px;border-bottom:1px solid #222;padding-bottom:6px}
+      .sig-list{display:grid;gap:14px;margin-top:18px}
+      .sig-card{border:1px solid #ddd;border-radius:12px;padding:16px}
+      .sig-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+      .sig-name{font-size:15px;font-weight:700;overflow-wrap:anywhere}
+      .sig-meta{font-size:12px;color:#666;margin-top:4px;overflow-wrap:anywhere}
+      .sig-grid{display:grid;grid-template-columns:100px minmax(0,1fr);gap:6px 10px;margin-top:12px;font-size:12px;line-height:1.55}
+      .sig-preview{margin-top:14px;padding-top:14px;border-top:1px solid #eee}
+      .sig-preview img{max-width:320px;max-height:120px;border-bottom:1px solid #222;padding-bottom:6px}
       .note{margin-top:28px;background:#faf6e9;border:1px solid #eadfb8;border-radius:10px;padding:16px;font-size:13px;line-height:1.6}
-      code{font-family:Consolas,monospace;font-size:12px}
+      code{font-family:Consolas,monospace;font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere;word-break:break-word}
+      .value{min-width:0;overflow-wrap:anywhere;word-break:break-word}
+      .pill{display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;background:#EAF3DE;color:#2D6A4F}
     </style>
   </head>
   <body>
@@ -2670,22 +2776,33 @@ function buildSignatureCertificateHtml(req,typedName,signatureDataUrl){
       <h1>Signed Record</h1>
       <div class="sub">Generated from the DKMA client portal after the client completed an internal document signature flow.</div>
       <div class="grid">
-        <div class="label">Document</div><div>${esc(req.document_name||'Document')}</div>
-        <div class="label">Matter</div><div>${esc(matter?.title||req.matter_title||'Matter')}</div>
-        <div class="label">Signer</div><div>${esc(typedName)}</div>
-        <div class="label">Signer Email</div><div>${esc(req.signer_email||'-')}</div>
-        <div class="label">Sent</div><div>${esc(fmtDate(req.sent_at||req.created_at))}</div>
-        <div class="label">Signed</div><div>${esc(fmtDate(req.signed_at))}</div>
-        <div class="label">Request ID</div><div><code>${esc(req.id||makeSigId())}</code></div>
-        <div class="label">Source Path</div><div><code>${esc(req.document_path||'')}</code></div>
+        <div class="label">Document</div><div class="value">${esc(req.document_name||'Document')}</div>
+        <div class="label">Matter</div><div class="value">${esc(matter?.title||req.matter_title||'Matter')}</div>
+        <div class="label">Sent</div><div class="value">${esc(fmtAuditDateTime(req.sent_at||req.created_at,req.signed_timezone||''))}</div>
+        <div class="label">Finalized</div><div class="value">${esc(fmtAuditDateTime(req.signed_at,req.signed_timezone||''))}</div>
+        <div class="label">Request ID</div><div class="value"><code>${esc(req.id||makeSigId())}</code></div>
+        <div class="label">Source Path</div><div class="value"><code>${esc(req.document_path||'')}</code></div>
       </div>
-      <div class="sig">
-        <div class="label" style="margin-bottom:8px">Captured Signature</div>
-        <img src="${signatureDataUrl}" alt="Signature">
-        <div style="margin-top:10px;font-size:14px">${esc(typedName)}</div>
+      <div class="label" style="margin-bottom:10px">Signers</div>
+      <div class="sig-list">
+        ${signers.map((signer,idx)=>`<div class="sig-card">
+          <div class="sig-head">
+            <div>
+              <div class="sig-name">${esc(signer.display_name)}</div>
+              <div class="sig-meta">${esc(signer.role||`Signer ${idx+1}`)}${signer.display_email&&signer.display_email!=='-'?' - '+esc(signer.display_email):''}</div>
+            </div>
+            <span class="pill">${esc((signatureStatusMeta(normalizeSignatureStatus(signer.status||'sent'))||{}).label||'Sent')}</span>
+          </div>
+          <div class="sig-grid">
+            <div class="label">Signed</div><div class="value">${esc(fmtAuditDateTime(signer.signed_at||'',signer.signed_timezone||''))}</div>
+            <div class="label">Origin</div><div class="value">${esc(signerAuditOrigin(signer))}</div>
+            ${signer.signed_location?`<div class="label">Location</div><div class="value">${esc(signer.signed_location)}</div>`:''}
+          </div>
+          ${signer.preview_signature?`<div class="sig-preview"><div class="label" style="margin-bottom:8px">Captured Signature</div><img src="${signer.preview_signature}" alt="Signature"></div>`:''}
+        </div>`).join('')}
       </div>
       <div class="note">
-        This record confirms that the named client signed the referenced document inside the portal. The original file remains stored separately in the firm's document vault.
+        This record confirms that the referenced document was signed through DKMA's signing workflow. The original file remains stored separately in the firm's document vault.
       </div>
     </div>
   </body>
@@ -2743,6 +2860,8 @@ async function submitSignatureRequest(requestId,overlay){
       updated_at:req.updated_at,
       opened_at:req.opened_at,
       signed_name:req.signed_name,
+      signed_timezone:req.signed_timezone,
+      signed_via:req.signed_via,
       signed_by_user_id:req.signed_by_user_id,
       signature_path:req.signature_path,
       certificate_path:req.certificate_path,
@@ -2866,17 +2985,18 @@ submitSignatureRequest=async function(requestId,overlay){
   submitBtn.textContent='Saving...';
   try{
     const now=new Date().toISOString();
+    const signerTimeZone=getUserTimeZone();
     const baseFolder=req.matter_id;
     const signerKey=`${req.id}__${state.signer.id}`;
     const signaturePath=`${baseFolder}/${SIGNATURE_ARTIFACTS_PREFIX}${signerKey}__signature.png`;
     const {error:sigErr}=await sb.storage.from(FIRM_BUCKET).upload(signaturePath,blobFromDataUrl(signatureDataUrl),{upsert:true,contentType:'image/png'});
     if(sigErr)throw sigErr;
-    const signers=getRequestSigners(req).map(s=>s.id===state.signer.id?{...s,status:'signed',signed_at:now,signed_name:typedName,signature_path:signaturePath}:s);
+    const signers=getRequestSigners(req).map(s=>s.id===state.signer.id?{...s,status:'signed',signed_at:now,signed_name:typedName,signature_path:signaturePath,signed_timezone:signerTimeZone,signed_via:'Client Portal'}:s);
     const overallStatus=deriveSignatureRequestStatus(signers);
     let certificatePath=req.certificate_path||'';
     if(overallStatus==='signed'){
       certificatePath=`${baseFolder}/${SIGNATURE_ARTIFACTS_PREFIX}${req.id}__signed-record.html`;
-      let certHtml=buildSignatureCertificateHtml(req,typedName,signatureDataUrl);
+      let certHtml=buildSignatureCertificateHtml({...req,signers,status:overallStatus,signed_at:now,signed_timezone:signerTimeZone},typedName,signatureDataUrl);
       if((req.document_path||'').toLowerCase().endsWith('.html')){
         try{
           const {data:srcData,error:srcErr}=await sb.storage.from(FIRM_BUCKET).createSignedUrl(req.document_path,300);
@@ -2898,6 +3018,8 @@ submitSignatureRequest=async function(requestId,overlay){
       updated_at:now,
       opened_at:req.opened_at||now,
       signed_name:overallStatus==='signed'?typedName:(req.signed_name||''),
+      signed_timezone:overallStatus==='signed'?signerTimeZone:(req.signed_timezone||''),
+      signed_via:overallStatus==='signed'?'Client Portal':(req.signed_via||''),
       signed_by_user_id:currentUser?.id||null,
       signature_path:overallStatus==='signed'?signaturePath:(req.signature_path||''),
       certificate_path:certificatePath,
