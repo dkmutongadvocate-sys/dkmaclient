@@ -1482,27 +1482,64 @@ function assignedFieldLabel(req,field){
   const signer=field?.signer_id?getRequestSigners(req).find(s=>s.id===field.signer_id):null;
   return signer?.name?`${signer.name} - ${field.label||field.type}`:(field.label||field.type);
 }
-function signatureFieldValue(req,field,typedName='',signatureDataUrl='',activeSignerId=''){
-  if(field?.signer_id&&activeSignerId&&field.signer_id!==activeSignerId)return'';
-  if(field.type==='name')return typedName||req.signed_name||req.signer_name||'';
-  if(field.type==='date'){
-    const raw=req.signed_at||new Date().toISOString();
-    const dt=new Date(raw);
-    return isNaN(dt)?'':dt.toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'});
+function signatureFieldValue(req,field,typedName='',signatureMap={},activeSignerId=''){
+  const signer=field?.signer_id?getRequestSigners(req).find(s=>s.id===field.signer_id):null;
+  const active=!!(signer&&activeSignerId&&signer.id===activeSignerId);
+  if(field.type==='name'){
+    if(signer)return active?(typedName||signer.signed_name||signer.name||''):(signer.signed_name||signer.name||'');
+    return typedName||req.signed_name||req.signer_name||'';
   }
-  if(field.type==='signature')return signatureDataUrl||'';
+  if(field.type==='date'){
+    let raw='';
+    if(signer){
+      raw=signer.signed_at||'';
+      if(active&&!raw&&(typedName||signatureMap[signer.id]))raw=new Date().toISOString();
+    }else{
+      raw=req.signed_at||'';
+      if(activeSignerId&&!raw&&(typedName||Object.keys(signatureMap||{}).length))raw=new Date().toISOString();
+    }
+    const dt=new Date(raw);
+    return !raw||isNaN(dt)?'':dt.toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'});
+  }
+  if(field.type==='signature'){
+    if(signer)return signatureMap?.[signer.id]||'';
+    return activeSignerId?(signatureMap?.[activeSignerId]||''):'';
+  }
   return '';
 }
-async function resolveSignaturePreviewSource(req,signatureDataUrl=''){
-  if(signatureDataUrl)return signatureDataUrl;
-  if(!req?.signature_path)return '';
-  try{
-    const {data,error}=await sb.storage.from(FIRM_BUCKET).createSignedUrl(req.signature_path,300);
-    if(error)throw error;
-    return data?.signedUrl||'';
-  }catch(_e){
-    return '';
-  }
+function blobToDataUrl(blob){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(reader.result||'');
+    reader.onerror=()=>reject(reader.error||new Error('Could not read signature image.'));
+    reader.readAsDataURL(blob);
+  });
+}
+async function buildSignatureImageMap(req,activeSignerId='',activeSignatureDataUrl='',embedDataUrls=false){
+  const signers=getRequestSigners(req);
+  const map={};
+  await Promise.all(signers.map(async signer=>{
+    if(!signer?.id)return;
+    if(activeSignerId&&signer.id===activeSignerId&&activeSignatureDataUrl){
+      map[signer.id]=activeSignatureDataUrl;
+      return;
+    }
+    const path=signer.signature_path||((signers.length===1&&req?.signature_path)?req.signature_path:'');
+    if(!path)return;
+    try{
+      const {data,error}=await sb.storage.from(FIRM_BUCKET).createSignedUrl(path,300);
+      if(error||!data?.signedUrl)throw error||new Error('Could not create signature URL');
+      if(embedDataUrls){
+        const resp=await fetch(data.signedUrl);
+        const blob=await resp.blob();
+        map[signer.id]=await blobToDataUrl(blob);
+      }else{
+        map[signer.id]=data.signedUrl;
+      }
+    }catch(_e){}
+  }));
+  if(activeSignerId&&activeSignatureDataUrl&&!map[activeSignerId])map[activeSignerId]=activeSignatureDataUrl;
+  return map;
 }
 function escapeAttr(s){return esc(s).replace(/'/g,'&#39;');}
 function toast(msg,isError=false){
@@ -2294,10 +2331,10 @@ async function renderSignatureDocPreview(req,mountEl,typedName='',signatureDataU
     }else{
       base.innerHTML=`<div style="padding:48px 24px;text-align:center;color:var(--txt3)">Preview is not available for this file type, but the saved placeholders will still be used.</div>`;
     }
-    const signaturePreviewUrl=await resolveSignaturePreviewSource(req,signatureDataUrl);
+    const signatureMap=await buildSignatureImageMap(req,activeSignerId,signatureDataUrl,false);
     const layer=mountEl.querySelector('#sigdoc-preview-layer');
     layer.innerHTML=fields.map(f=>{
-      const val=signatureFieldValue(req,f,typedName,signaturePreviewUrl,activeSignerId);
+      const val=signatureFieldValue(req,f,typedName,signatureMap,activeSignerId);
       const isSig=f.type==='signature';
       return `<div style="position:absolute;left:${f.x*100}%;top:${f.y*100}%;width:${f.w*100}%;height:${f.h*100}%;border:${isSig?'0':'2px dashed '+(f.type==='name'?'#185FA5':'#854F0B')};background:${isSig?'transparent':'rgba(255,255,255,0.82)'};border-radius:8px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:6px;text-align:center">
         ${isSig&&val?`<img src="${val}" alt="Signature" style="max-width:100%;max-height:100%;object-fit:contain">`:val?`<span style="font-size:${f.type==='date'?'11px':'12px'};font-weight:${f.type==='name'?'600':'500'};color:#0D1B2A">${esc(val)}</span>`:`<span style="font-size:11px;font-weight:600;color:${isSig?'#3C3489':f.type==='name'?'#185FA5':'#854F0B'}">${esc(assignedFieldLabel(req,f))}</span>`}
@@ -2380,9 +2417,10 @@ async function renderSignatureDocPreviewFromUrl(req,documentUrl,mountEl,typedNam
     }else{
       base.innerHTML=`<div style="padding:48px 24px;text-align:center;color:var(--txt3)">Preview is not available for this file type, but the saved placeholders will still be used.</div>`;
     }
+    const signatureMap=await buildSignatureImageMap(req,activeSignerId,signatureDataUrl,false);
     const layer=mountEl.querySelector('#sigdoc-preview-layer');
     layer.innerHTML=fields.map(f=>{
-      const val=signatureFieldValue(req,f,typedName,signatureDataUrl,activeSignerId);
+      const val=signatureFieldValue(req,f,typedName,signatureMap,activeSignerId);
       const isSig=f.type==='signature';
       return `<div style="position:absolute;left:${f.x*100}%;top:${f.y*100}%;width:${f.w*100}%;height:${f.h*100}%;border:${isSig?'0':'2px dashed '+(f.type==='name'?'#185FA5':'#854F0B')};background:${isSig?'transparent':'rgba(255,255,255,0.82)'};border-radius:8px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:6px;text-align:center">
         ${isSig&&val?`<img src="${val}" alt="Signature" style="max-width:100%;max-height:100%;object-fit:contain">`:val?`<span style="font-size:${f.type==='date'?'11px':'12px'};font-weight:${f.type==='name'?'600':'500'};color:#0D1B2A">${esc(val)}</span>`:`<span style="font-size:11px;font-weight:600;color:${isSig?'#3C3489':f.type==='name'?'#185FA5':'#854F0B'}">${esc(assignedFieldLabel(req,f))}</span>`}
@@ -2452,9 +2490,12 @@ async function submitPublicSignatureLink(){
   if(btn){btn.disabled=true;btn.textContent='Saving...';}
   try{
     const result=await callPublicSignatureFunction('complete-signature-link',{token:publicSignToken,fullName,signatureDataUrl});
-    publicSignSession.request.signers=(publicSignSession.request.signers||[]).map(s=>s.id===publicSignSession.signer.id?{...s,status:'signed',signed_at:new Date().toISOString(),signed_name:fullName}:s);
-    publicSignSession.signer={...publicSignSession.signer,status:'signed',signed_name:fullName,signed_at:new Date().toISOString()};
+    publicSignSession.request.signers=Array.isArray(result?.signers)&&result.signers.length
+      ? result.signers
+      : (publicSignSession.request.signers||[]).map(s=>s.id===publicSignSession.signer.id?{...s,status:'signed',signed_at:new Date().toISOString(),signed_name:fullName}:s);
+    publicSignSession.signer=(publicSignSession.request.signers||[]).find(s=>s.id===publicSignSession.signer.id)||{...publicSignSession.signer,status:'signed',signed_name:fullName,signed_at:new Date().toISOString()};
     publicSignSession.request.status=result.status||'signed';
+    publicSignSession.request.signed_at=result.signed_at||publicSignSession.request.signed_at||null;
     publicSignSession.certificate_url=result.certificate_url||publicSignSession.certificate_url||null;
     renderPublicSignatureLink();
     portalToast('Document signed successfully.');
@@ -2569,10 +2610,10 @@ async function openSignatureCertificate(req){
   window.open(blobUrl,'_blank');
   setTimeout(()=>URL.revokeObjectURL(blobUrl),60000);
 }
-function injectSignatureFieldsIntoHtml(sourceHtml,req,typedName,signatureDataUrl){
+function injectSignatureFieldsIntoHtml(sourceHtml,req,typedName,signatureMap={},activeSignerId=''){
   const parser=new DOMParser();
   const doc=parser.parseFromString(sourceHtml,'text/html');
-  if(!doc?.body)return buildSignatureCertificateHtml(req,typedName,signatureDataUrl);
+  if(!doc?.body)return buildSignatureCertificateHtml(req,typedName,signatureMap?.[activeSignerId]||'');
   const wrapper=doc.createElement('div');
   wrapper.id='dkma-sign-wrap';
   wrapper.setAttribute('style','position:relative;min-height:100vh;');
@@ -2587,7 +2628,7 @@ function injectSignatureFieldsIntoHtml(sourceHtml,req,typedName,signatureDataUrl
   getRequestFields(req).forEach(f=>{
     const box=doc.createElement('div');
     box.setAttribute('style',`position:absolute;left:${f.x*100}%;top:${f.y*100}%;width:${f.w*100}%;height:${f.h*100}%;box-sizing:border-box;border:${f.type==='signature'?'0':'1px solid rgba(13,27,42,0.25)'};background:${f.type==='signature'?'transparent':'rgba(255,255,255,0.88)'};border-radius:6px;display:flex;align-items:center;justify-content:center;padding:6px;overflow:hidden;text-align:center;`);
-    const val=signatureFieldValue(req,f,typedName,signatureDataUrl);
+    const val=signatureFieldValue(req,f,typedName,signatureMap,activeSignerId);
     if(f.type==='signature'&&val){
       const img=doc.createElement('img');
       img.src=val;
@@ -2833,7 +2874,7 @@ submitSignatureRequest=async function(requestId,overlay){
     const signers=getRequestSigners(req).map(s=>s.id===state.signer.id?{...s,status:'signed',signed_at:now,signed_name:typedName,signature_path:signaturePath}:s);
     const overallStatus=deriveSignatureRequestStatus(signers);
     let certificatePath=req.certificate_path||'';
-    if(signers.length===1&&overallStatus==='signed'){
+    if(overallStatus==='signed'){
       certificatePath=`${baseFolder}/${SIGNATURE_ARTIFACTS_PREFIX}${req.id}__signed-record.html`;
       let certHtml=buildSignatureCertificateHtml(req,typedName,signatureDataUrl);
       if((req.document_path||'').toLowerCase().endsWith('.html')){
@@ -2842,7 +2883,9 @@ submitSignatureRequest=async function(requestId,overlay){
           if(srcErr)throw srcErr;
           const resp=await fetch(srcData.signedUrl);
           const sourceHtml=await resp.text();
-          certHtml=injectSignatureFieldsIntoHtml(sourceHtml,{...req,signed_at:now},typedName,signatureDataUrl);
+          const completedReq={...req,signers,signed_at:now,status:overallStatus};
+          const signatureMap=await buildSignatureImageMap(completedReq,state.signer.id,signatureDataUrl,true);
+          certHtml=injectSignatureFieldsIntoHtml(sourceHtml,completedReq,typedName,signatureMap,state.signer.id);
         }catch(_e){}
       }
       const {error:certErr}=await sb.storage.from(FIRM_BUCKET).upload(certificatePath,new Blob([certHtml],{type:'text/html;charset=utf-8'}),{upsert:true,contentType:'text/html;charset=utf-8'});
@@ -2851,12 +2894,12 @@ submitSignatureRequest=async function(requestId,overlay){
     Object.assign(req,{
       signers,
       status:overallStatus,
-      signed_at:signers.length===1&&overallStatus==='signed'?now:req.signed_at||null,
+      signed_at:overallStatus==='signed'?now:req.signed_at||null,
       updated_at:now,
       opened_at:req.opened_at||now,
-      signed_name:signers.length===1&&overallStatus==='signed'?typedName:(req.signed_name||''),
+      signed_name:overallStatus==='signed'?typedName:(req.signed_name||''),
       signed_by_user_id:currentUser?.id||null,
-      signature_path:signers.length===1?signaturePath:(req.signature_path||''),
+      signature_path:overallStatus==='signed'?signaturePath:(req.signature_path||''),
       certificate_path:certificatePath,
       user_agent:navigator.userAgent||''
     });
