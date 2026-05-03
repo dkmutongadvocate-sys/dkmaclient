@@ -1435,7 +1435,21 @@ function blobFromDataUrl(dataUrl){
   return new Blob([arr],{type:mime});
 }
 function signatureRequestForPath(docPath){
-  return (mySignatureRequests||[]).filter(r=>r.document_path===docPath).sort((a,b)=>signatureSortValue(b)-signatureSortValue(a))[0]||null;
+  const rows=(mySignatureRequests||[]).filter(r=>r.document_path===docPath);
+  function priority(req){
+    const status=deriveSignatureRequestStatus(getRequestSigners(req));
+    if(status==='signed')return 3;
+    if(status==='declined')return 2.5;
+    if(status==='cancelled')return 2.25;
+    if(status==='in_progress')return 2;
+    if(status==='sent')return 1;
+    return 0;
+  }
+  return rows.sort((a,b)=>{
+    const pa=priority(a),pb=priority(b);
+    if(pb!==pa)return pb-pa;
+    return signatureSortValue(b)-signatureSortValue(a);
+  })[0]||null;
 }
 function getSignatureRequest(requestId){
   return (mySignatureRequests||[]).find(r=>r.id===requestId)||null;
@@ -3950,7 +3964,7 @@ async function loadMatterDetailDocs(matterId){
     return parts.length>=4 && parts[2]===matterId;
   }) : [];
 
-  const matterSignatureMarkup=renderSignatureInbox(mySignatureRequests.filter(r=>r.matter_id===matterId&&r.status!=='cancelled'&&r.status!=='declined'),matterId);
+  const matterSignatureMarkup=renderSignatureInbox(mySignatureRequests.filter(r=>r.matter_id===matterId),matterId);
 
   if(!firmDocs.length && !clientUploads.length && !matterSignatureMarkup){
     container.innerHTML=`<div class="pcard">${empty('Docs','No documents yet','Documents shared by the firm and your uploads for this matter will appear here.')}</div>`;
