@@ -1271,7 +1271,8 @@ function normalizeLoadedSignatureRequest(req){
       status:normalizeSignatureStatus(s?.status),
       signed_at:s?.signed_at||null,
       signed_name:s?.signed_name||'',
-      signature_path:s?.signature_path||''
+      signature_path:s?.signature_path||'',
+      link_sent_at:s?.link_sent_at||null
     })).sort((a,b)=>(a.order||0)-(b.order||0));
   }
   const currentStatus=normalizeSignatureStatus(normalized.status);
@@ -1383,7 +1384,8 @@ function getRequestSigners(req){
       status:normalizeSignatureStatus(s.status||'sent'),
       signed_at:s.signed_at||null,
       signed_name:s.signed_name||'',
-      signature_path:s.signature_path||''
+      signature_path:s.signature_path||'',
+      link_sent_at:s.link_sent_at||null
     })).sort((a,b)=>(a.order||0)-(b.order||0));
   }
   return [{
@@ -1398,7 +1400,8 @@ function getRequestSigners(req){
     status:normalizeSignatureStatus(req?.status||'sent'),
     signed_at:req?.signed_at||null,
     signed_name:req?.signed_name||'',
-    signature_path:req?.signature_path||''
+    signature_path:req?.signature_path||'',
+    link_sent_at:req?.link_sent_at||null
   }];
 }
 function getPortalSignerState(req){
@@ -1419,6 +1422,16 @@ function getPortalSignerState(req){
 function shouldShowPortalSignatureRequest(req){
   const state=getPortalSignerState(req);
   return !!state.signer&&(state.canSign||state.reason==='signed');
+}
+function getSignersReadyForEmailRelease(req,signersOverride=null){
+  const signers=(Array.isArray(signersOverride)&&signersOverride.length?signersOverride:getRequestSigners(req)).slice().sort((a,b)=>(a.order||0)-(b.order||0));
+  if(!req?.signing_order_enabled){
+    return signers.filter(s=>s.delivery==='email_link'&&s.email&&s.status!=='signed'&&!s.link_sent_at);
+  }
+  const next=signers.find(s=>s.status!=='signed');
+  if(!next)return [];
+  if(next.delivery==='email_link'&&next.email&&!next.link_sent_at)return [next];
+  return [];
 }
 function deriveSignatureRequestStatus(signers){
   if((signers||[]).length&&(signers||[]).every(s=>s.status==='signed'))return'signed';
@@ -1866,6 +1879,58 @@ async function writeSignatureResponse(req,payload){
   await writeSignatureJson(path,payload);
   req._response_path=path;
   return path;
+}
+async function releaseNextEmailLinkSigner(req,signers){
+  const releasable=getSignersReadyForEmailRelease(req,signers);
+  if(!releasable.length)return 0;
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session?.access_token)throw new Error('Missing portal session.');
+  const documentPath=req.document_path||'';
+  const documentName=req.document_name||documentPath.split('/').pop()||'Document';
+  const publicBaseUrl=window.location.origin+window.location.pathname;
+  let sent=0;
+  for(const signer of releasable){
+    const res=await fetch(`${SUPABASE_URL_EDGE}/functions/v1/send-document`,{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'Authorization':`Bearer ${session.access_token}`
+      },
+      body:JSON.stringify({
+        bucket:FIRM_BUCKET,
+        storagePath:documentPath,
+        displayName:documentName,
+        toEmail:signer.email,
+        toName:signer.name||'Signer',
+        subject:req.request_title||(`Signature request for ${documentName}`),
+        message:req.message||'',
+        trackingId:(crypto?.randomUUID?crypto.randomUUID():makeSigId()),
+        signatureRequest:{
+          requestId:req.id,
+          requestPath:req._storage_path||`client-general/${req.client_id}/${SIGNATURE_REQUESTS_PREFIX}${req.matter_id}__${req.id}.json`,
+          matterId:req.matter_id,
+          clientId:req.client_id,
+          documentPath:req.document_path,
+          documentName:req.document_name||documentName,
+          requestTitle:req.request_title||(`Signature request for ${documentName}`),
+          message:req.message||'',
+          fields:Array.isArray(req.fields)?req.fields:[],
+          signers,
+          signingOrderEnabled:req.signing_order_enabled!==false,
+          signer,
+          publicBaseUrl
+        }
+      })
+    });
+    const data=await res.json().catch(()=>({}));
+    if(res.ok&&!data?.error){
+      signer.link_sent_at=new Date().toISOString();
+      sent++;
+    }else{
+      throw new Error(data?.error||'Could not release the next signer email link.');
+    }
+  }
+  return sent;
 }
 async function loadMySignatureRequests(){
   if(!clientRecord){mySignatureRequests=[];return;}
@@ -2755,6 +2820,15 @@ submitSignatureRequest=async function(requestId,overlay){
       certificate_path:certificatePath,
       user_agent:navigator.userAgent||''
     });
+    let releasedEmailLinks=0;
+    try{
+      releasedEmailLinks=await releaseNextEmailLinkSigner(req,req.signers);
+      if(releasedEmailLinks){
+        req.updated_at=new Date().toISOString();
+      }
+    }catch(releaseErr){
+      console.warn('[DKMA Portal] next signer release failed',releaseErr.message);
+    }
     await writeSignatureResponse(req,{
       request_id:req.id,
       matter_id:req.matter_id,
@@ -2771,7 +2845,7 @@ submitSignatureRequest=async function(requestId,overlay){
       signers:req.signers
     });
     mySignatureRequests=mySignatureRequests.map(r=>r.id===req.id?req:r).sort((a,b)=>signatureSortValue(b)-signatureSortValue(a));
-    portalToast(overallStatus==='signed'?'Document signed successfully.':'Your signature has been saved.');
+    portalToast(overallStatus==='signed'?'Document signed successfully.':(releasedEmailLinks?'Your signature has been saved and the next signer has been notified.':'Your signature has been saved.'));
     closeSignatureOverlay();
     refreshSignatureViews();
   }catch(e){
