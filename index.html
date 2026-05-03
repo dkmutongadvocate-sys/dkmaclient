@@ -1416,6 +1416,10 @@ function getPortalSignerState(req){
   }
   return{signer,signers,canSign:true,reason:'ready'};
 }
+function shouldShowPortalSignatureRequest(req){
+  const state=getPortalSignerState(req);
+  return !!state.signer&&(state.canSign||state.reason==='signed');
+}
 function deriveSignatureRequestStatus(signers){
   if((signers||[]).length&&(signers||[]).every(s=>s.status==='signed'))return'signed';
   if((signers||[]).some(s=>s.status==='opened'||s.status==='signed'))return'in_progress';
@@ -1999,7 +2003,7 @@ function renderSignatureInbox(requests,matterId=''){
 renderSignatureInbox=function(requests,matterId=''){
   const rows=dedupePortalSignatureRequests((requests||[]).filter(r=>{
     if(matterId&&r.matter_id!==matterId)return false;
-    return !!getPortalSignerState(r).signer;
+    return shouldShowPortalSignatureRequest(r);
   }));
   if(!rows.length)return'';
   return `<div class="pcard" style="margin-bottom:14px">
@@ -2014,12 +2018,12 @@ renderSignatureInbox=function(requests,matterId=''){
       const matter=myMatters.find(m=>m.id===r.matter_id);
       const signerState=getPortalSignerState(r);
       const canSign=signerState.canSign;
-      const cta=signerState.reason==='waiting_turn'?'Waiting turn':(canSign?'Sign now':'View record');
+      const cta=canSign?'Sign now':'View record';
       return `<div class="doc-list-row">
         ${docBadge('sign','dt-doc')}
         <div class="doc-list-info">
           <div class="doc-list-name" title="${esc(r.document_name||r.request_title||'Signature Request')}">${esc(r.document_name||r.request_title||'Signature Request')}</div>
-          <div class="doc-list-meta">${matter?esc(matter.title)+' - ':''}${fmtDate(r.sent_at||r.created_at)}${r.message?' - '+esc(r.message):''}${signerState.reason==='waiting_turn'?' - Another signer goes first':''}</div>
+          <div class="doc-list-meta">${matter?esc(matter.title)+' - ':''}${fmtDate(r.sent_at||r.created_at)}${r.message?' - '+esc(r.message):''}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end">
           ${signaturePill(r.status)}
@@ -3419,7 +3423,8 @@ function sharedDocRow(f){
   const{kind,cls}=docIcon(displayName);
   const meta=f.metadata||{};
   const dateStr=f.created_at?new Date(f.created_at).toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'}):'';
-  const sigReq=signatureRequestForPath(`${f.matterId}/${f.name}`);
+  const sigReqRaw=signatureRequestForPath(`${f.matterId}/${f.name}`);
+  const sigReq=sigReqRaw&&shouldShowPortalSignatureRequest(sigReqRaw)?sigReqRaw:null;
   const signerState=sigReq?getPortalSignerState(sigReq):null;
   const canSign=!!signerState?.canSign;
   return`<div class="doc-list-row">
