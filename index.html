@@ -149,16 +149,17 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 .doc-list-row{display:flex;align-items:center;gap:14px;padding:11px 20px;border-bottom:1px solid var(--brd);transition:background 0.12s}
 .doc-list-row:last-child{border-bottom:none}
 .doc-list-row:hover{background:var(--cream)}
-.doc-list-icon{width:34px;height:34px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;border:1px solid var(--brd)}
+.doc-list-icon{width:34px;height:34px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0;border:1px solid var(--brd);color:var(--navy)}
 .doc-list-info{flex:1;min-width:0}
 .doc-list-name{font-size:13px;font-weight:500;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .doc-list-meta{font-size:10px;color:var(--txt3);margin-top:2px}
 .doc-list-actions{display:flex;gap:6px;flex-shrink:0}
+.doc-kind-svg{width:18px;height:18px;display:block}
 /* doc grid view */
 .doc-cards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;padding:16px 20px}
 .doc-card-item{background:var(--cream);border-radius:9px;padding:14px 12px;display:flex;flex-direction:column;align-items:center;gap:8px;border:1px solid var(--brd);transition:all 0.15s;cursor:default}
 .doc-card-item:hover{border-color:var(--gold);box-shadow:0 2px 10px rgba(184,149,58,0.10)}
-.doc-card-icon{font-size:30px;line-height:1}
+.doc-card-icon{line-height:1;color:var(--navy)}
 .doc-card-name{font-size:11px;font-weight:500;color:var(--txt);text-align:center;word-break:break-word;line-height:1.35;max-height:2.7em;overflow:hidden}
 .doc-card-meta{font-size:9px;color:var(--txt3);text-align:center}
 .doc-card-actions{display:flex;gap:5px;margin-top:2px}
@@ -170,6 +171,11 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 .pbtn.gold:hover{background:var(--gold2)}
 .pbtn.view{color:var(--navy);border-color:var(--navy)}
 .pbtn.view:hover{background:var(--navy);color:#fff}
+.pbtn.icon{display:inline-flex;align-items:center;justify-content:center;gap:0;min-width:38px;padding:7px 9px}
+.pbtn.icon svg{width:16px;height:16px;display:block}
+.doc-view-toggle{display:flex;border:1px solid var(--brd);border-radius:9px;overflow:hidden;background:#fff}
+.doc-view-toggle button{display:inline-flex;align-items:center;justify-content:center;min-width:38px;padding:6px 10px;background:none;border:none;cursor:pointer;color:var(--txt3);line-height:1}
+.doc-view-toggle button.active{background:var(--navy);color:#fff}
 
 .inv-table{width:100%}
 .inv-header-row{display:grid;grid-template-columns:1.2fr 1.5fr 1fr 1fr 1fr;padding:9px 20px;background:var(--cream);border-bottom:1px solid var(--brd)}
@@ -677,12 +683,12 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
           <h2 style="font-family:'Playfair Display',serif;font-size:22px;font-weight:500">Documents</h2>
           <p style="font-size:12px;color:var(--txt3);margin-top:4px">Documents shared by the firm and files you have uploaded.</p>
         </div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <div style="display:flex;border:1px solid var(--brd);border-radius:7px;overflow:hidden">
-            <button id="pdvt-list" title="List view" onclick="setPortalDocView('list')" style="padding:5px 10px;background:var(--navy);color:#fff;border:none;cursor:pointer;font-size:13px;line-height:1">List</button>
-            <button id="pdvt-grid" title="Grid view" onclick="setPortalDocView('grid')" style="padding:5px 10px;background:none;border:none;cursor:pointer;font-size:13px;line-height:1;color:var(--txt3)">Grid</button>
+          <div style="display:flex;gap:8px;align-items:center">
+          <div class="doc-view-toggle">
+            <button id="pdvt-list" title="List view" aria-label="List view" onclick="setPortalDocView('list')"></button>
+            <button id="pdvt-grid" title="Grid view" aria-label="Grid view" onclick="setPortalDocView('grid')"></button>
           </div>
-          <button class="pbtn gold" onclick="showPView('upload',null)">Upload</button>
+          <button class="pbtn gold" id="pd-upload-btn" onclick="showPView('upload',null)"></button>
         </div>
       </div>
       <div id="documents-container"></div>
@@ -1218,13 +1224,100 @@ function fmtMoney(n){
 function fmtDate(d){if(!d)return'-';const dt=new Date(d);return isNaN(dt)?d:dt.toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'});}
 function parseDateLocal(s){if(!s)return new Date(NaN);const[y,m,d]=(s+'').split('-').map(Number);return new Date(y,m-1,d);}
 function fmtFileSize(b){if(!b)return'-';if(b<1024)return b+'B';if(b<1048576)return(b/1024).toFixed(0)+'KB';return(b/1048576).toFixed(1)+'MB';}
+function portalIcon(name){
+  const attrs='viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"';
+  const icons={
+    list:`<svg class="doc-kind-svg" ${attrs}><path d="M8 6h12"/><path d="M8 12h12"/><path d="M8 18h12"/><path d="M3.5 6h.01"/><path d="M3.5 12h.01"/><path d="M3.5 18h.01"/></svg>`,
+    grid:`<svg class="doc-kind-svg" ${attrs}><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>`,
+    upload:`<svg class="doc-kind-svg" ${attrs}><path d="M12 16V4"/><path d="m7 9 5-5 5 5"/><path d="M4 20h16"/></svg>`,
+    sign:`<svg class="doc-kind-svg" ${attrs}><path d="M4 20h5"/><path d="m6 16 7.5-7.5a2.4 2.4 0 0 1 3.4 0l.6.6a2.4 2.4 0 0 1 0 3.4L12 18l-4 1z"/><path d="M14 8l2 2"/></svg>`,
+    pdf:`<svg class="doc-kind-svg" ${attrs}><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M8.5 15h2.5"/><path d="M8.5 18h5"/></svg>`,
+    doc:`<svg class="doc-kind-svg" ${attrs}><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M8.5 12.5h7"/><path d="M8.5 16h7"/></svg>`,
+    xls:`<svg class="doc-kind-svg" ${attrs}><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="m9 12 4 6"/><path d="m13 12-4 6"/><path d="M15.5 12v6"/></svg>`,
+    img:`<svg class="doc-kind-svg" ${attrs}><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.4"/><path d="m21 15-4.5-4.5L8 19"/></svg>`,
+    file:`<svg class="doc-kind-svg" ${attrs}><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>`,
+    view:`<svg class="doc-kind-svg" ${attrs}><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z"/><circle cx="12" cy="12" r="2.5"/></svg>`,
+    download:`<svg class="doc-kind-svg" ${attrs}><path d="M12 4v11"/><path d="m7 11 5 5 5-5"/><path d="M4 20h16"/></svg>`
+  };
+  return icons[name]||icons.file;
+}
 function docIcon(name){
   const ext=(name||'').split('.').pop().toLowerCase();
-  if(ext==='pdf')return{icon:'PDF',cls:'dt-pdf'};
-  if(['doc','docx'].includes(ext))return{icon:'DOC',cls:'dt-doc'};
-  if(['xls','xlsx','csv'].includes(ext))return{icon:'XLS',cls:'dt-xls'};
-  if(['jpg','jpeg','png','gif','webp'].includes(ext))return{icon:'IMG',cls:'dt-img'};
-  return{icon:'FILE',cls:'dt-other'};
+  if(ext==='pdf')return{kind:'pdf',cls:'dt-pdf'};
+  if(['doc','docx'].includes(ext))return{kind:'doc',cls:'dt-doc'};
+  if(['xls','xlsx','csv'].includes(ext))return{kind:'xls',cls:'dt-xls'};
+  if(['jpg','jpeg','png','gif','webp'].includes(ext))return{kind:'img',cls:'dt-img'};
+  return{kind:'file',cls:'dt-other'};
+}
+function signatureStateValue(item){
+  return new Date(item?.updated_at||item?.signed_at||item?.opened_at||item?.sent_at||item?.created_at||0).getTime();
+}
+function normalizeSignatureStatus(status){
+  const value=(status||'sent').toString().trim().toLowerCase();
+  if(value==='completed')return'signed';
+  if(value==='viewed'||value==='in_progress')return'opened';
+  if(value==='ready')return'sent';
+  return value||'sent';
+}
+function normalizeLoadedSignatureRequest(req){
+  if(!req||typeof req!=='object')return req;
+  const normalized={...req};
+  if(Array.isArray(normalized.signers)){
+    normalized.signers=normalized.signers.map((s,i)=>({
+      ...s,
+      id:s?.id||`${normalized.id||'sig'}__${i+1}`,
+      delivery:s?.delivery==='email_link'?'email_link':'portal',
+      order:Math.max(1,Number(s?.order)||i+1),
+      status:normalizeSignatureStatus(s?.status),
+      signed_at:s?.signed_at||null,
+      signed_name:s?.signed_name||'',
+      signature_path:s?.signature_path||''
+    })).sort((a,b)=>(a.order||0)-(b.order||0));
+  }
+  const currentStatus=normalizeSignatureStatus(normalized.status);
+  if(!['cancelled','declined'].includes(currentStatus)){
+    normalized.status=Array.isArray(normalized.signers)&&normalized.signers.length
+      ? deriveSignatureRequestStatus(normalized.signers)
+      : currentStatus;
+  }else{
+    normalized.status=currentStatus;
+  }
+  return normalized;
+}
+function keepLatestSignatureRecord(map, requestId, record){
+  if(!requestId||!record)return;
+  const normalized=normalizeLoadedSignatureRequest(record);
+  const prev=map[requestId];
+  if(!prev||signatureStateValue(normalized)>=signatureStateValue(prev))map[requestId]=normalized;
+}
+function docBadge(kind,cls){
+  return `<span class="doc-list-icon ${cls}">${portalIcon(kind)}</span>`;
+}
+function docCardBadge(kind,cls){
+  return `<span class="doc-list-icon ${cls}" style="width:52px;height:52px;border-radius:14px">${portalIcon(kind)}</span>`;
+}
+function actionIconButton(kind,title,onclick,variant=''){
+  const cls=`pbtn icon ${variant||''}`.trim();
+  return `<button class="${cls}" title="${esc(title)}" aria-label="${esc(title)}" onclick="${onclick}">${portalIcon(kind)}</button>`;
+}
+function syncPortalDocumentToolbar(){
+  const btnList=document.getElementById('pdvt-list');
+  const btnGrid=document.getElementById('pdvt-grid');
+  const uploadBtn=document.getElementById('pd-upload-btn');
+  if(btnList){
+    btnList.innerHTML=portalIcon('list');
+    btnList.classList.toggle('active',_portalDocView==='list');
+  }
+  if(btnGrid){
+    btnGrid.innerHTML=portalIcon('grid');
+    btnGrid.classList.toggle('active',_portalDocView==='grid');
+  }
+  if(uploadBtn){
+    uploadBtn.innerHTML=`${portalIcon('upload')}<span>Upload</span>`;
+    uploadBtn.style.display='inline-flex';
+    uploadBtn.style.alignItems='center';
+    uploadBtn.style.gap='8px';
+  }
 }
 function spill(status){
   const map={active:'sp-active',urgent:'sp-urgent',pending:'sp-pending',closed:'sp-closed',paid:'sp-paid',sent:'sp-sent',overdue:'sp-overdue',draft:'sp-draft'};
@@ -1235,6 +1328,7 @@ function categoryLabel(cat){return{pleading:'Pleading',correspondence:'Correspon
 function signatureStatusMeta(status){
   const map={
     sent:{label:'Ready to sign',bg:'#E6F1FB',fg:'#185FA5'},
+    in_progress:{label:'In progress',bg:'#FAEEDA',fg:'#854F0B'},
     opened:{label:'In progress',bg:'#FAEEDA',fg:'#854F0B'},
     signed:{label:'Signed',bg:'#EAF3DE',fg:'#2D6A4F'},
     completed:{label:'Signed',bg:'#EAF3DE',fg:'#2D6A4F'},
@@ -1286,7 +1380,7 @@ function getRequestSigners(req){
       role:s.role||'Signer',
       client_id:s.client_id||null,
       party_id:s.party_id||null,
-      status:s.status||'sent',
+      status:normalizeSignatureStatus(s.status||'sent'),
       signed_at:s.signed_at||null,
       signed_name:s.signed_name||'',
       signature_path:s.signature_path||''
@@ -1301,7 +1395,7 @@ function getRequestSigners(req){
     role:'Client',
     client_id:req?.client_id||null,
     party_id:null,
-    status:req?.status||'sent',
+    status:normalizeSignatureStatus(req?.status||'sent'),
     signed_at:req?.signed_at||null,
     signed_name:req?.signed_name||'',
     signature_path:req?.signature_path||''
@@ -1783,10 +1877,10 @@ async function loadMySignatureRequests(){
         const rec=await readSignatureJson(`${folder}/${f.name}`);
         if(f.name.startsWith(SIGNATURE_REQUESTS_PREFIX)){
           rec._storage_path=`${folder}/${f.name}`;
-          requestRows.push(rec);
+          requestRows.push(normalizeLoadedSignatureRequest(rec));
         }else if(f.name.startsWith(SIGNATURE_RESPONSE_PREFIX)&&rec?.request_id){
           rec._response_path=`${folder}/${f.name}`;
-          responseByRequestId[rec.request_id]=rec;
+          keepLatestSignatureRecord(responseByRequestId,rec.request_id,{...rec});
         }
       }catch(e){
         console.warn('[DKMA Portal] signature record',f.name,e.message);
@@ -1804,7 +1898,7 @@ async function loadMySignatureRequests(){
             const rec=await readSignatureJson(`${matterId}/${f.name}`);
             if(rec?.request_id){
               rec._response_path=`${matterId}/${f.name}`;
-              responseByRequestId[rec.request_id]=rec;
+              keepLatestSignatureRecord(responseByRequestId,rec.request_id,{...rec});
             }
           }catch(e){
             console.warn('[DKMA Portal] signature response',f.name,e.message);
@@ -1814,7 +1908,7 @@ async function loadMySignatureRequests(){
   }));
   const rows=requestRows.map(rec=>{
     const response=responseByRequestId[rec.id];
-    return response?{...rec,...response,_storage_path:rec._storage_path,_response_path:response._response_path}:rec;
+    return normalizeLoadedSignatureRequest(response?{...rec,...response,_storage_path:rec._storage_path,_response_path:response._response_path}:rec);
   }).sort((a,b)=>signatureSortValue(b)-signatureSortValue(a));
   mySignatureRequests=rows;
 }
@@ -1922,7 +2016,7 @@ renderSignatureInbox=function(requests,matterId=''){
       const canSign=signerState.canSign;
       const cta=signerState.reason==='waiting_turn'?'Waiting turn':(canSign?'Sign now':'View record');
       return `<div class="doc-list-row">
-        <div class="doc-list-icon dt-doc">Sign</div>
+        ${docBadge('sign','dt-doc')}
         <div class="doc-list-info">
           <div class="doc-list-name" title="${esc(r.document_name||r.request_title||'Signature Request')}">${esc(r.document_name||r.request_title||'Signature Request')}</div>
           <div class="doc-list-meta">${matter?esc(matter.title)+' - ':''}${fmtDate(r.sent_at||r.created_at)}${r.message?' - '+esc(r.message):''}${signerState.reason==='waiting_turn'?' - Another signer goes first':''}</div>
@@ -3107,17 +3201,17 @@ async function loadMatterDetailDocs(matterId){
         let displayName=parts.length>=4?parts.slice(3).join('__'):f.name;
         const tsM=displayName.match(/^\d+_(.+)$/);if(tsM)displayName=tsM[1];
         const cat=parts[0]||'';
-        const{icon,cls}=docIcon(displayName);
+        const{kind,cls}=docIcon(displayName);
         const meta=f.metadata||{};
         const dateStr=f.created_at?new Date(f.created_at).toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'}):'';
         return`<div class="doc-list-row">
-          <div class="doc-list-icon ${cls}">${icon}</div>
+          ${docBadge(kind,cls)}
           <div class="doc-list-info">
             <div class="doc-list-name" title="${esc(displayName)}">${esc(displayName)}</div>
             <div class="doc-list-meta">${cat?categoryLabel(cat)+' - ':''}${fmtFileSize(meta.size)}${dateStr?' - '+dateStr:''}</div>
           </div>
           <div class="doc-list-actions">
-            <button class="pbtn view" onclick="viewClientUpload('${esc(f._folder||matterId)}','${esc(f.name)}','${esc(displayName)}')">View</button>
+            ${actionIconButton('view','View upload',`viewClientUpload('${esc(f._folder||matterId)}','${esc(f.name)}','${esc(displayName)}')`,'view')}
           </div>
         </div>`;
       }).join('')}
@@ -3159,16 +3253,14 @@ let _portalDocView='list'; // 'list' | 'grid'
 
 function setPortalDocView(v){
   _portalDocView=v;
-  const btnList=document.getElementById('pdvt-list');
-  const btnGrid=document.getElementById('pdvt-grid');
-  if(btnList){btnList.style.background=v==='list'?'var(--navy)':'none';btnList.style.color=v==='list'?'#fff':'var(--txt3)';}
-  if(btnGrid){btnGrid.style.background=v==='grid'?'var(--navy)':'none';btnGrid.style.color=v==='grid'?'#fff':'var(--txt3)';}
+  syncPortalDocumentToolbar();
   renderDocuments();
 }
 
 function renderDocuments(){
   const c=document.getElementById('documents-container');
   if(!clientRecord){c.innerHTML=empty('Docs','Account not linked','Contact the firm to link your portal account.');return;}
+  syncPortalDocumentToolbar();
 
   const totalFirm=sharedDocs.length;
   const totalMine=myUploads.length;
@@ -3246,7 +3338,7 @@ function docCardGeneral(f, source){
     if(parts.length>=4)displayName=parts.slice(3).join('__');
   }
   const tsM=displayName.match(/^\d+_(.+)$/);if(tsM)displayName=tsM[1];
-  const{icon}=docIcon(displayName);
+  const{kind,cls}=docIcon(displayName);
   const meta=f.metadata||{};
   const sizeStr=fmtFileSize(meta.size);
   const matterId=f.matterId||f._matterId||'';
@@ -3259,12 +3351,12 @@ function docCardGeneral(f, source){
     :`viewClientUpload('${esc(folder)}','${esc(f.name)}','${esc(displayName)}')`;
   const dlFn=source==='firm'?`downloadSharedDoc('${esc(matterId)}','${esc(f.name)}','${esc(displayName)}')`:null;
   return`<div class="doc-card-item">
-    <div class="doc-card-icon">${icon}</div>
+    <div class="doc-card-icon">${docCardBadge(kind,cls)}</div>
     <div class="doc-card-name" title="${esc(displayName)}">${esc(displayName)}</div>
     <div class="doc-card-meta">${[sourceBadge,sizeStr].filter(Boolean).join(' ')}</div>
     <div class="doc-card-actions">
-      <button class="pbtn view" style="padding:4px 8px;font-size:10px" onclick="${viewFn}">View</button>
-      ${dlFn?`<button class="pbtn" style="padding:4px 8px;font-size:10px" onclick="${dlFn}">Download</button>`:''}
+      ${actionIconButton('view','View document',viewFn,'view')}
+      ${dlFn?actionIconButton('download','Download document',dlFn):''}
     </div>
   </div>`;
 }
@@ -3288,7 +3380,7 @@ function docRowGeneral(f, source){
     if(parts.length>=4){cat=parts[1];desc=parts[2];displayName=parts.slice(3).join('__');}
   }
   const tsM=displayName.match(/^\d+_(.+)$/);if(tsM)displayName=tsM[1];
-  const{icon,cls}=docIcon(displayName);
+  const{kind,cls}=docIcon(displayName);
   const meta=f.metadata||{};
   const dateStr=f.created_at?new Date(f.created_at).toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'}):'';
   const catLabel=cat?categoryLabel(cat):'';
@@ -3299,12 +3391,12 @@ function docRowGeneral(f, source){
     : `<span style="background:#E6F1FB;color:#185FA5;font-size:9px;padding:1px 7px;border-radius:8px;font-weight:600;white-space:nowrap">You</span>`;
 
   const viewBtn=source==='firm'
-    ? `<button class="pbtn view" style="white-space:nowrap" onclick="viewSharedDoc('${esc(matterId)}','${esc(f.name)}','${esc(displayName)}')">View</button>
-       <button class="pbtn" style="white-space:nowrap" onclick="downloadSharedDoc('${esc(matterId)}','${esc(f.name)}','${esc(displayName)}')">Download</button>`
-    : `<button class="pbtn view" style="white-space:nowrap" onclick="viewClientUpload('${esc(folder)}','${esc(f.name)}','${esc(displayName)}')">View</button>`;
+    ? `${actionIconButton('view','View document',`viewSharedDoc('${esc(matterId)}','${esc(f.name)}','${esc(displayName)}')`,'view')}
+       ${actionIconButton('download','Download document',`downloadSharedDoc('${esc(matterId)}','${esc(f.name)}','${esc(displayName)}')`)}`
+    : `${actionIconButton('view','View upload',`viewClientUpload('${esc(folder)}','${esc(f.name)}','${esc(displayName)}')`,'view')}`;
 
   return`<div class="doc-list-row">
-    <div class="doc-list-icon ${cls}">${icon}</div>
+    ${docBadge(kind,cls)}
     <div class="doc-list-info">
       <div class="doc-list-name" title="${esc(displayName)}">${esc(displayName)}</div>
       <div class="doc-list-meta" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:3px">
@@ -3324,21 +3416,22 @@ function sharedDocRow(f){
   else if(parts.length===2){displayName=parts[1]||f.name;}
   const tsMatch=displayName.match(/^\d+_(.+)$/);
   if(tsMatch)displayName=tsMatch[1];
-  const{icon,cls}=docIcon(displayName);
+  const{kind,cls}=docIcon(displayName);
   const meta=f.metadata||{};
   const dateStr=f.created_at?new Date(f.created_at).toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'}):'';
   const sigReq=signatureRequestForPath(`${f.matterId}/${f.name}`);
-  const canSign=sigReq&&(sigReq.status==='sent'||sigReq.status==='opened');
+  const signerState=sigReq?getPortalSignerState(sigReq):null;
+  const canSign=!!signerState?.canSign;
   return`<div class="doc-list-row">
-    <div class="doc-list-icon ${cls}">${icon}</div>
+    ${docBadge(kind,cls)}
     <div class="doc-list-info">
       <div class="doc-list-name" title="${esc(displayName)}">${esc(displayName)} ${sigReq?signaturePill(sigReq.status):''}</div>
       <div class="doc-list-meta">${category?categoryLabel(category)+' - ':''}${fmtFileSize(meta.size)}${dateStr?' - '+dateStr:''}${description?' - '+esc(description):''}</div>
     </div>
     <div class="doc-list-actions">
-      <button class="pbtn view" onclick="viewSharedDoc('${esc(f.matterId)}','${esc(f.name)}','${esc(displayName)}')">View</button>
-      <button class="pbtn" onclick="downloadSharedDoc('${esc(f.matterId)}','${esc(f.name)}','${esc(displayName)}')">Download</button>
-      ${sigReq?`<button class="pbtn ${canSign?'primary':'view'}" onclick="openSignatureOverlay('${esc(sigReq.id)}')">${canSign?'Sign':'Signed'}</button>`:''}
+      ${actionIconButton('view','View document',`viewSharedDoc('${esc(f.matterId)}','${esc(f.name)}','${esc(displayName)}')`,'view')}
+      ${actionIconButton('download','Download document',`downloadSharedDoc('${esc(f.matterId)}','${esc(f.name)}','${esc(displayName)}')`)}
+      ${sigReq?`<button class="pbtn icon ${canSign?'primary':'view'}" title="${canSign?'Sign document':(signerState?.reason==='waiting_turn'?'View signature status':'Open signed record')}" aria-label="${canSign?'Sign document':(signerState?.reason==='waiting_turn'?'View signature status':'Open signed record')}" onclick="openSignatureOverlay('${esc(sigReq.id)}')">${portalIcon('sign')}</button>`:''}
     </div>
   </div>`;
 }
@@ -3690,18 +3783,18 @@ async function renderMyUploads(){
     if(tsMatch)displayName=tsMatch[1];
     const cat=parts.length>=2?parts[1]:'';
     const desc=parts.length>=3?parts[2].replace(/_/g,' '):'';
-    const{icon,cls}=docIcon(displayName);
+    const{kind,cls}=docIcon(displayName);
     const meta=f.metadata||{};
     const dateStr=f.created_at?new Date(f.created_at).toLocaleDateString('en-KE',{day:'numeric',month:'short'}):'';
     const folder=f._folder||'';
     const matterName=f._matterId&&f._matterId!=='general'?(myMatters.find(m=>m.id===f._matterId)||{title:'Unknown matter'}).title:'General';
     return`<div class="doc-list-row" style="padding:10px 16px">
-      <div class="doc-list-icon ${cls}" style="width:30px;height:30px;font-size:14px">${icon}</div>
+      <span class="doc-list-icon ${cls}" style="width:30px;height:30px">${portalIcon(kind)}</span>
       <div class="doc-list-info">
         <div class="doc-list-name" style="font-size:12px">${esc(displayName)}</div>
         <div class="doc-list-meta">${fmtFileSize(meta.size)}${dateStr?'  -  '+dateStr:''}${matterName?'  -  '+esc(matterName):''}</div>
       </div>
-      <button class="pbtn view" style="font-size:10px;padding:3px 8px" onclick="viewClientUpload('${esc(folder)}','${esc(f.name)}','${esc(displayName)}')">View</button>
+      ${actionIconButton('view','View upload',`viewClientUpload('${esc(folder)}','${esc(f.name)}','${esc(displayName)}')`,'view')}
     </div>`;
   }).join('');
 }
