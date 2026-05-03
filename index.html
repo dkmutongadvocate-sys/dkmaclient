@@ -2642,6 +2642,130 @@ async function ensureSignaturePdfTools(){
   if(!window.html2canvas)await _loadSignaturePdfLib('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
   if(!window.jspdf)await _loadSignaturePdfLib('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
 }
+async function ensurePdfJsSignatureTools(){
+  if(!window.pdfjsLib){
+    await _loadSignaturePdfLib('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js');
+  }
+  if(window.pdfjsLib?.GlobalWorkerOptions){
+    window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+  }
+}
+const _sigImageCache={};
+function loadSignatureImage(src){
+  if(!src)return Promise.resolve(null);
+  if(_sigImageCache[src])return _sigImageCache[src];
+  _sigImageCache[src]=new Promise((resolve,reject)=>{
+    const img=new Image();
+    img.crossOrigin='anonymous';
+    img.onload=()=>resolve(img);
+    img.onerror=()=>reject(new Error('Could not load signature image.'));
+    img.src=src;
+  });
+  return _sigImageCache[src];
+}
+function fitSignatureText(ctx,text,maxWidth,maxHeight,weight='500'){
+  let size=Math.max(9,Math.min(maxHeight*0.42,24));
+  while(size>8){
+    ctx.font=`${weight} ${size}px Arial`;
+    if(ctx.measureText(text).width<=Math.max(20,maxWidth-8))break;
+    size-=1;
+  }
+  ctx.font=`${weight} ${size}px Arial`;
+}
+async function downloadPdfDocumentWithAppliedSignatures(req,fileName){
+  await ensureSignaturePdfTools();
+  await ensurePdfJsSignatureTools();
+  const {data,error}=await sb.storage.from(FIRM_BUCKET).createSignedUrl(req.document_path,300);
+  if(error||!data?.signedUrl)throw error||new Error('Could not open original document');
+  const signatureMap=await buildSignatureImageMap(req,'','',true);
+  const pdf=await window.pdfjsLib.getDocument(data.signedUrl).promise;
+  const pageMeta=[];
+  const targetWidth=1200;
+  const gap=14;
+  let previewWidth=0;
+  for(let pageNum=1;pageNum<=pdf.numPages;pageNum++){
+    const page=await pdf.getPage(pageNum);
+    const baseViewport=page.getViewport({scale:1});
+    const scale=targetWidth/baseViewport.width;
+    const viewport=page.getViewport({scale});
+    pageMeta.push({page,viewport,width:viewport.width,height:viewport.height});
+    previewWidth=Math.max(previewWidth,viewport.width);
+  }
+  const totalHeight=pageMeta.reduce((sum,p)=>sum+p.height,0)+(Math.max(0,pageMeta.length-1)*gap);
+  const buckets=pageMeta.map(()=>[]);
+  const fields=getRequestFields(req);
+  fields.forEach(f=>{
+    const value=signatureFieldValue(req,f,'',signatureMap,'');
+    if(!value)return;
+    const fx=f.x*previewWidth;
+    const fy=f.y*totalHeight;
+    const fw=f.w*previewWidth;
+    const fh=f.h*totalHeight;
+    const midY=fy+(fh/2);
+    let cursor=0;
+    for(let i=0;i<pageMeta.length;i++){
+      const meta=pageMeta[i];
+      const startY=cursor;
+      const endY=startY+meta.height;
+      if(midY>=startY && midY<=endY){
+        const pageLeft=(previewWidth-meta.width)/2;
+        buckets[i].push({
+          type:f.type,
+          value,
+          x:fx-pageLeft,
+          y:fy-startY,
+          w:fw,
+          h:fh
+        });
+        break;
+      }
+      cursor=endY+gap;
+    }
+  });
+  const {jsPDF}=window.jspdf;
+  let doc=null;
+  for(let i=0;i<pageMeta.length;i++){
+    const meta=pageMeta[i];
+    const canvas=document.createElement('canvas');
+    canvas.width=Math.ceil(meta.width);
+    canvas.height=Math.ceil(meta.height);
+    const ctx=canvas.getContext('2d');
+    await meta.page.render({canvasContext:ctx,viewport:meta.viewport}).promise;
+    for(const item of buckets[i]){
+      const x=Math.max(0,item.x);
+      const y=Math.max(0,item.y);
+      const w=Math.max(1,Math.min(item.w,canvas.width-x));
+      const h=Math.max(1,Math.min(item.h,canvas.height-y));
+      if(item.type==='signature'){
+        try{
+          const img=await loadSignatureImage(item.value);
+          if(img){
+            const scale=Math.min((w-4)/img.width,(h-4)/img.height);
+            const drawW=Math.max(1,img.width*scale);
+            const drawH=Math.max(1,img.height*scale);
+            ctx.drawImage(img,x+((w-drawW)/2),y+((h-drawH)/2),drawW,drawH);
+          }
+        }catch(_e){}
+      }else{
+        ctx.fillStyle='#0D1B2A';
+        ctx.textAlign='center';
+        ctx.textBaseline='middle';
+        fitSignatureText(ctx,String(item.value||''),w,h,item.type==='name'?'600':'500');
+        ctx.fillText(String(item.value||''),x+(w/2),y+(h/2));
+      }
+    }
+    const imgData=canvas.toDataURL('image/jpeg',0.98);
+    const orientation=canvas.width>=canvas.height?'landscape':'portrait';
+    if(!doc){
+      doc=new jsPDF({orientation,unit:'px',format:[canvas.width,canvas.height]});
+    }else{
+      doc.addPage([canvas.width,canvas.height],orientation);
+    }
+    doc.addImage(imgData,'JPEG',0,0,canvas.width,canvas.height);
+  }
+  if(!doc)throw new Error('Could not build signed PDF.');
+  doc.save(fileName);
+}
 const _waitSigPdf=(ms)=>new Promise(r=>setTimeout(r,ms));
 async function waitForSignaturePdfFrame(doc){
   if(!doc?.body)return;
@@ -2922,7 +3046,11 @@ async function openSignatureCertificate(req){
   overlay.querySelector('#sig-record-download-signed')?.addEventListener('click',async()=>{
     const base=(req.document_name||'signed-document').replace(/\.[^.]+$/,'').replace(/[\\/:*?"<>|]+/g,' ').trim()||'signed-document';
     try{
-      await downloadRenderableUrlAsPdf(signedPreviewUrl,`${base} - signed.pdf`);
+      if((req.document_path||'').toLowerCase().endsWith('.pdf')){
+        await downloadPdfDocumentWithAppliedSignatures(req,`${base} - signed.pdf`);
+      }else{
+        await downloadRenderableUrlAsPdf(signedPreviewUrl,`${base} - signed.pdf`);
+      }
       portalToast('Signed document downloaded.');
     }catch(e){
       portalToast('Could not download the signed document: '+(e.message||e),true);
