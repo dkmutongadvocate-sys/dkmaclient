@@ -363,6 +363,22 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 }
 .portal-drawer-signout:hover{background:rgba(255,255,255,0.1);color:#fff}
 
+#public-sign-shell{display:none;min-height:100vh;background:linear-gradient(180deg,#F8F5F0 0%,#F3EEE4 100%);padding:32px 18px}
+.public-sign-wrap{max-width:1180px;margin:0 auto}
+.public-sign-hero{background:var(--navy);color:#fff;border-radius:24px;padding:26px 28px;box-shadow:0 22px 48px rgba(13,27,42,0.14);display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:22px}
+.public-sign-brand{display:flex;align-items:center;gap:12px}
+.public-sign-brand-badge{background:var(--gold);color:var(--navy);font-size:10px;font-weight:700;padding:4px 10px;border-radius:999px;letter-spacing:.4px;text-transform:uppercase}
+.public-sign-card{background:#fff;border:1px solid var(--brd);border-radius:22px;box-shadow:0 18px 42px rgba(13,27,42,0.08);overflow:hidden}
+.public-sign-status{font-size:11px;font-weight:700;padding:5px 12px;border-radius:999px;background:rgba(184,149,58,0.22);color:#fff;white-space:nowrap}
+.public-sign-grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(320px,.9fr);gap:20px;padding:22px}
+.public-sign-panel{background:#fff;border:1px solid var(--brd);border-radius:18px;padding:18px}
+.public-sign-meta{display:grid;grid-template-columns:140px 1fr;gap:10px 16px;font-size:13px;color:var(--txt2)}
+.public-sign-meta .label{font-size:11px;letter-spacing:.4px;text-transform:uppercase;color:var(--txt3);font-weight:600}
+.public-sign-actions{display:flex;gap:10px;flex-wrap:wrap}
+.public-sign-note{background:var(--cream);border:1px solid var(--brd);border-radius:14px;padding:14px 16px;font-size:12px;color:var(--txt2);line-height:1.7}
+.public-sign-footer{font-size:11px;color:var(--txt3);padding:0 22px 22px}
+.public-sign-empty{padding:32px 26px;text-align:center;color:var(--txt2);line-height:1.7}
+
 @media(max-width:768px){
   .pstats{grid-template-columns:1fr 1fr}
   .topnav-tabs{gap:0;scrollbar-width:none;-ms-overflow-style:none}
@@ -426,6 +442,10 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
   /* Welcome banner */
   .welcome-banner{padding:18px}
   .topnav-logo{font-size:14px}
+  .public-sign-grid{grid-template-columns:1fr;padding:16px}
+  #public-sign-shell{padding:18px 12px}
+  .public-sign-hero{padding:20px 18px;border-radius:18px;flex-direction:column}
+  .public-sign-meta{grid-template-columns:1fr}
 }
 
 @media(max-width:480px){
@@ -494,6 +514,11 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
     <div style="height:100%;background:var(--gold);border-radius:2px;animation:splashBar 1.2s ease-in-out infinite"></div>
   </div>
   <style>@keyframes splashBar{0%{width:0%;margin-left:0}50%{width:100%;margin-left:0}100%{width:0%;margin-left:100%}}</style>
+</div>
+
+<!-- PUBLIC SIGN LINK SHELL -->
+<div id="public-sign-shell">
+  <div class="public-sign-wrap" id="public-sign-root"></div>
 </div>
 
 <!-- AUTH SCREEN -->
@@ -1180,6 +1205,8 @@ const SIGNATURE_REQUESTS_PREFIX='client__signature_request__';
 const SIGNATURE_RESPONSE_PREFIX='client__signature_response__';
 const SIGNATURE_ARTIFACTS_PREFIX='client__signature_artifact__';
 const SIGNATURE_TEMPLATE_PREFIX='client__signature_template__';
+let publicSignToken='';
+let publicSignSession=null;
 
 function esc(s){if(!s)return'';return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function initials(n){return(n||'?').split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);}
@@ -1407,6 +1434,8 @@ async function signIn(){
 async function signOut(){
   await sb.auth.signOut();
   document.getElementById('portal-shell').style.display='none';
+  const publicShell=document.getElementById('public-sign-shell');
+  if(publicShell)publicShell.style.display='none';
   showAuthScreen();
   showMode('signin');
 }
@@ -1465,11 +1494,18 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){closePortalDrawer()
 function hideSplash(){const s=document.getElementById('portal-splash');if(s)s.style.display='none';}
 function showAuthScreen(){
   hideSplash();
+  const publicShell=document.getElementById('public-sign-shell');
+  if(publicShell)publicShell.style.display='none';
   document.getElementById('auth-screen').style.display='flex';
   document.getElementById('portal-shell').style.display='none';
 }
 
 async function initPortal(){
+  const linkToken=getPublicSignatureToken();
+  if(linkToken){
+    await initPublicSignatureLinkFlow(linkToken);
+    return;
+  }
   // Supabase picks up the #access_token from the URL automatically
   const{data:{session}}=await sb.auth.getSession();
 
@@ -2066,6 +2102,258 @@ async function renderSignatureDocPreview(req,mountEl,typedName='',signatureDataU
     }).join('');
   }catch(e){
     mountEl.innerHTML=`<div style="padding:18px;border:1px solid var(--brd);border-radius:10px;background:#fff;color:var(--txt3);font-size:12px">Could not load preview: ${esc(e.message)}</div>`;
+  }
+}
+async function renderSignatureDocPreviewFromUrl(req,documentUrl,mountEl,typedName='',signatureDataUrl='',activeSignerId=''){
+  if(!mountEl||!req||!documentUrl)return;
+  const storageName=((req.document_path||req.document_name||'').split('/').pop())||'document';
+  const ext=((storageName.split('.').pop())||'').toLowerCase();
+  try{
+    const fields=getRequestFields(req);
+    mountEl.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px">
+        <div style="font-size:11px;color:var(--txt3);text-transform:uppercase;letter-spacing:.4px">Signing Preview</div>
+        <div style="font-size:11px;color:var(--txt3)">Scroll to review the document before signing</div>
+      </div>
+      <div style="border:1px solid var(--brd);border-radius:16px;background:#F7F4EC;padding:12px;max-height:min(60vh,760px);overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch">
+        <div style="position:relative;background:#fff;border:1px solid rgba(13,27,42,0.08);border-radius:12px;overflow:hidden;min-height:420px;box-shadow:0 2px 16px rgba(13,27,42,0.05)">
+          <div id="sigdoc-preview-base"></div>
+          <div id="sigdoc-preview-layer" style="position:absolute;inset:0;pointer-events:none"></div>
+        </div>
+      </div>`;
+    const base=mountEl.querySelector('#sigdoc-preview-base');
+    async function ensurePdfJs(){
+      if(window.pdfjsLib)return window.pdfjsLib;
+      await new Promise((resolve,reject)=>{
+        const s=document.createElement('script');
+        s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js';
+        s.onload=resolve;
+        s.onerror=()=>reject(new Error('Could not load PDF preview library'));
+        document.head.appendChild(s);
+      });
+      if(window.pdfjsLib?.GlobalWorkerOptions){
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+      }
+      return window.pdfjsLib;
+    }
+    async function renderInlineHtml(urlToLoad){
+      const resp=await fetch(urlToLoad);
+      if(!resp.ok)throw new Error('Preview fetch failed');
+      const source=await resp.text();
+      const parsed=new DOMParser().parseFromString(source,'text/html');
+      const styles=[...parsed.querySelectorAll('style')].map(el=>el.outerHTML).join('');
+      const links=[...parsed.querySelectorAll('link[rel="stylesheet"]')].map(el=>el.outerHTML).join('');
+      base.innerHTML=`${styles}${links}<div style="position:relative;padding:24px;background:#fff">${parsed.body.innerHTML}</div>`;
+    }
+    async function renderPdf(urlToLoad){
+      const pdfjs=await ensurePdfJs();
+      const pdf=await pdfjs.getDocument(urlToLoad).promise;
+      base.innerHTML='';
+      const stack=document.createElement('div');
+      stack.style.cssText='position:relative;display:flex;flex-direction:column;gap:14px;padding:12px 0;background:#f8f6ef';
+      base.appendChild(stack);
+      const widthGuess=Math.min(Math.max((mountEl.clientWidth||760)-54,320),860);
+      for(let pageNum=1;pageNum<=pdf.numPages;pageNum++){
+        const page=await pdf.getPage(pageNum);
+        const baseViewport=page.getViewport({scale:1});
+        const scale=Math.max(0.35,widthGuess/baseViewport.width);
+        const viewport=page.getViewport({scale});
+        const canvas=document.createElement('canvas');
+        canvas.width=Math.ceil(viewport.width);
+        canvas.height=Math.ceil(viewport.height);
+        canvas.style.cssText='display:block;width:100%;height:auto;background:#fff;border:1px solid var(--brd);border-radius:8px';
+        const pageWrap=document.createElement('div');
+        pageWrap.style.cssText=`position:relative;width:${viewport.width}px;max-width:100%;margin:0 auto`;
+        pageWrap.appendChild(canvas);
+        stack.appendChild(pageWrap);
+        await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise;
+      }
+    }
+    if(['png','jpg','jpeg','gif','webp'].includes(ext)){
+      base.innerHTML=`<img src="${documentUrl}" alt="${escapeAttr(req.document_name||'Document')}" style="display:block;width:100%;height:auto">`;
+    }else if(ext==='html'||ext==='htm'){
+      await renderInlineHtml(documentUrl);
+    }else if(ext==='pdf'){
+      await renderPdf(documentUrl);
+    }else{
+      base.innerHTML=`<div style="padding:48px 24px;text-align:center;color:var(--txt3)">Preview is not available for this file type, but the saved placeholders will still be used.</div>`;
+    }
+    const layer=mountEl.querySelector('#sigdoc-preview-layer');
+    layer.innerHTML=fields.map(f=>{
+      const val=signatureFieldValue(req,f,typedName,signatureDataUrl,activeSignerId);
+      const isSig=f.type==='signature';
+      return `<div style="position:absolute;left:${f.x*100}%;top:${f.y*100}%;width:${f.w*100}%;height:${f.h*100}%;border:${isSig?'0':'2px dashed '+(f.type==='name'?'#185FA5':'#854F0B')};background:${isSig?'transparent':'rgba(255,255,255,0.82)'};border-radius:8px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:6px;text-align:center">
+        ${isSig&&val?`<img src="${val}" alt="Signature" style="max-width:100%;max-height:100%;object-fit:contain">`:val?`<span style="font-size:${f.type==='date'?'11px':'12px'};font-weight:${f.type==='name'?'600':'500'};color:#0D1B2A">${esc(val)}</span>`:`<span style="font-size:11px;font-weight:600;color:${isSig?'#3C3489':f.type==='name'?'#185FA5':'#854F0B'}">${esc(assignedFieldLabel(req,f))}</span>`}
+      </div>`;
+    }).join('');
+  }catch(e){
+    mountEl.innerHTML=`<div style="padding:18px;border:1px solid var(--brd);border-radius:10px;background:#fff;color:var(--txt3);font-size:12px">Could not load preview: ${esc(e.message)}</div>`;
+  }
+}
+
+function getPublicSignatureToken(){
+  const url=new URL(window.location.href);
+  return (url.searchParams.get('sign_token')||url.searchParams.get('token')||'').trim();
+}
+function signatureFunctionUrl(name){return `${SUPABASE_URL}/functions/v1/${name}`;}
+async function callPublicSignatureFunction(name,payload){
+  const resp=await fetch(signatureFunctionUrl(name),{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(payload||{})
+  });
+  const data=await resp.json().catch(()=>({}));
+  if(!resp.ok)throw new Error(data?.error||data?.message||'Request failed');
+  return data;
+}
+function getPublicSignatureState(session){
+  const req=session?.request||{};
+  const signers=Array.isArray(req.signers)?req.signers:[];
+  const signer=signers.find(s=>s.id===session?.signer?.id)||session?.signer||null;
+  if(!signer)return{signer:null,canSign:false,reason:'missing'};
+  const waiting=req.signing_order_enabled&&signers.some(s=>Number(s.order||0)<Number(signer.order||0)&&s.status!=='signed');
+  if(signer.status==='signed')return{signer,canSign:false,reason:'signed'};
+  if(waiting)return{signer,canSign:false,reason:'waiting_turn'};
+  return{signer,canSign:signer.status==='sent'||signer.status==='opened',reason:signer.status||'sent'};
+}
+function showPublicSignShell(){
+  hideSplash();
+  const auth=document.getElementById('auth-screen');
+  const portal=document.getElementById('portal-shell');
+  const pub=document.getElementById('public-sign-shell');
+  if(auth)auth.style.display='none';
+  if(portal)portal.style.display='none';
+  if(pub)pub.style.display='block';
+}
+function renderPublicSignLoading(message='Loading signing link...'){
+  showPublicSignShell();
+  const root=document.getElementById('public-sign-root');
+  if(root)root.innerHTML=`<div class="public-sign-wrap"><div class="public-sign-card"><div class="public-sign-empty">${esc(message)}</div></div></div>`;
+}
+function openPublicSignDocument(){
+  if(publicSignSession?.document_url)window.open(publicSignSession.document_url,'_blank','noopener');
+}
+function openPublicSignRecord(){
+  if(publicSignSession?.certificate_url)window.open(publicSignSession.certificate_url,'_blank','noopener');
+}
+async function submitPublicSignatureLink(){
+  const shell=document.getElementById('public-sign-root');
+  if(!shell||!publicSignSession)return;
+  const fullName=(shell.querySelector('#public-sign-full-name')?.value||'').trim();
+  const consent=shell.querySelector('#public-sign-consent');
+  const canvas=shell.querySelector('#public-sign-canvas');
+  const signatureDataUrl=signatureCanvasData(canvas);
+  if(!fullName){portalToast('Type your full name before signing.',true);return;}
+  if(consent&&!consent.checked){portalToast('Please confirm the signing statement first.',true);return;}
+  if(!signatureDataUrl){portalToast('Draw your signature in the box first.',true);return;}
+  const btn=shell.querySelector('#public-sign-submit');
+  if(btn){btn.disabled=true;btn.textContent='Saving...';}
+  try{
+    const result=await callPublicSignatureFunction('complete-signature-link',{token:publicSignToken,fullName,signatureDataUrl});
+    publicSignSession.request.signers=(publicSignSession.request.signers||[]).map(s=>s.id===publicSignSession.signer.id?{...s,status:'signed',signed_at:new Date().toISOString(),signed_name:fullName}:s);
+    publicSignSession.signer={...publicSignSession.signer,status:'signed',signed_name:fullName,signed_at:new Date().toISOString()};
+    publicSignSession.request.status=result.status||'signed';
+    publicSignSession.certificate_url=result.certificate_url||publicSignSession.certificate_url||null;
+    renderPublicSignatureLink();
+    portalToast('Document signed successfully.');
+  }catch(e){
+    portalToast('Could not save the signature: '+e.message,true);
+    if(btn){btn.disabled=false;btn.textContent='Confirm Signature';}
+  }
+}
+function renderPublicSignatureLink(){
+  const root=document.getElementById('public-sign-root');
+  if(!root||!publicSignSession)return;
+  const req=publicSignSession.request||{};
+  const state=getPublicSignatureState(publicSignSession);
+  const signer=state.signer||publicSignSession.signer||{};
+  const canSign=state.canSign;
+  const signedAlready=state.reason==='signed';
+  const waitingTurn=state.reason==='waiting_turn';
+  const statusMarkup=signaturePill(req.status||signer.status||'sent');
+  root.innerHTML=`<div class="public-sign-wrap">
+    <div class="public-sign-hero">
+      <div>
+        <div class="public-sign-brand">
+          <div style="font-family:'Playfair Display',serif;font-size:28px;font-weight:500;line-height:1">DKMA</div>
+          <span class="public-sign-brand-badge">Secure Signing</span>
+        </div>
+        <div style="font-family:'Playfair Display',serif;font-size:32px;line-height:1.1;margin-top:14px">${canSign?'Review and Sign':'Signature Request'}</div>
+        <div style="font-size:13px;color:rgba(255,255,255,0.74);margin-top:8px">${esc(req.document_name||req.request_title||'Document')}</div>
+      </div>
+      <div class="public-sign-status">${(signatureStatusMeta(req.status||signer.status||'sent')||{}).label||'Ready'}</div>
+    </div>
+    <div class="public-sign-card">
+      <div class="public-sign-grid">
+        <div class="public-sign-panel">
+          <div class="public-sign-note">${waitingTurn?'Another signer must complete their step before this document opens for your signature.<br><br>':''}${esc(req.message||'Review the document and sign once you are satisfied with its contents.')}</div>
+          <div class="public-sign-actions" style="margin-top:14px">
+            <button class="pbtn view" type="button" id="public-open-doc">View document</button>
+            ${publicSignSession.certificate_url?'<button class="pbtn" type="button" id="public-open-record">Open signed record</button>':''}
+          </div>
+          <div id="public-sign-preview" style="margin-top:16px"></div>
+        </div>
+        <div class="public-sign-panel">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px">
+            <div style="font-family:'Playfair Display',serif;font-size:22px;color:var(--txt)">${canSign?'Sign Here':(signedAlready?'Already Signed':'Waiting')}</div>
+            ${statusMarkup}
+          </div>
+          <div class="public-sign-meta">
+            <div class="label">Signer</div><div>${esc(signer.name||publicSignSession.signer?.name||'Signer')}</div>
+            <div class="label">Email</div><div>${esc(signer.email||publicSignSession.signer?.email||'-')}</div>
+            <div class="label">Role</div><div>${esc(signer.role||'Signer')}</div>
+            <div class="label">Order</div><div>${esc(String(signer.order||1))}</div>
+            <div class="label">Expires</div><div>${esc(fmtDate(publicSignSession.expires_at))}</div>
+          </div>
+          ${canSign?`<div style="display:grid;gap:8px;margin-top:16px">
+              <label class="pform-label">Full name</label>
+              <input class="pform-input" id="public-sign-full-name" value="${esc(signer.signed_name||signer.name||'')}" placeholder="Type your full legal name">
+            </div>
+            <div style="display:grid;gap:8px;margin-top:16px">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+                <label class="pform-label" style="margin:0">Draw your signature</label>
+                <button class="pbtn" type="button" id="public-sign-clear">Clear</button>
+              </div>
+              <div style="border:1px solid var(--brd);border-radius:14px;background:#fff;padding:10px;box-shadow:inset 0 1px 0 rgba(255,255,255,0.7)">
+                <canvas id="public-sign-canvas" style="display:block;width:100%;height:180px;background:#fff;border-radius:10px;touch-action:none"></canvas>
+              </div>
+            </div>
+            <label style="display:flex;align-items:flex-start;gap:10px;font-size:12px;color:var(--txt2);line-height:1.7;background:#FBF8F1;border:1px solid var(--brd);border-radius:12px;padding:12px 13px;margin-top:16px">
+              <input type="checkbox" id="public-sign-consent" style="margin-top:3px">
+              <span>I confirm that I have reviewed this document and that this electronic signature is mine.</span>
+            </label>
+            <div style="display:flex;justify-content:flex-end;margin-top:16px">
+              <button class="pbtn primary" type="button" id="public-sign-submit">Confirm Signature</button>
+            </div>`:
+            `<div class="public-sign-note" style="margin-top:16px">${signedAlready?`This document has already been signed by ${esc(signer.signed_name||signer.name||'the signer')}${signer.signed_at?' on '+esc(fmtDate(signer.signed_at)):''}.`:'This signing link is valid, but another signer must complete their step first.'}</div>`}
+        </div>
+      </div>
+      <div class="public-sign-footer">This signing page is a standalone secure link for outside parties. No client portal login is required.</div>
+    </div>
+  </div>`;
+  root.querySelector('#public-open-doc')?.addEventListener('click',openPublicSignDocument);
+  root.querySelector('#public-open-record')?.addEventListener('click',openPublicSignRecord);
+  const previewMount=root.querySelector('#public-sign-preview');
+  renderSignatureDocPreviewFromUrl(req,publicSignSession.document_url,previewMount,signer.signed_name||signer.name||'','',signer.id||'');
+  if(canSign){
+    const nameInput=root.querySelector('#public-sign-full-name');
+    const currentTypedName=()=>nameInput?.value.trim()||signer.name||'';
+    const pad=wireSignatureCanvas(root.querySelector('#public-sign-canvas'),sigUrl=>renderSignatureDocPreviewFromUrl(req,publicSignSession.document_url,previewMount,currentTypedName(),sigUrl,signer.id||''));
+    root.querySelector('#public-sign-clear')?.addEventListener('click',()=>pad.clear());
+    root.querySelector('#public-sign-submit')?.addEventListener('click',submitPublicSignatureLink);
+    nameInput?.addEventListener('input',()=>renderSignatureDocPreviewFromUrl(req,publicSignSession.document_url,previewMount,nameInput.value.trim(),signatureCanvasData(root.querySelector('#public-sign-canvas')),signer.id||''));
+  }
+}
+async function initPublicSignatureLinkFlow(token){
+  publicSignToken=token;
+  renderPublicSignLoading('Loading signing link...');
+  try{
+    const data=await callPublicSignatureFunction('resolve-signature-link',{token});
+    publicSignSession=data;
+    renderPublicSignatureLink();
+  }catch(e){
+    showPublicSignShell();
+    const root=document.getElementById('public-sign-root');
+    if(root)root.innerHTML=`<div class="public-sign-wrap"><div class="public-sign-card"><div class="public-sign-empty"><div style="font-family:'Playfair Display',serif;font-size:30px;color:var(--txt);margin-bottom:10px">Signing Link</div><div>${esc(e.message||'This signing link could not be opened.')}</div></div></div></div>`;
   }
 }
 async function openSignatureCertificate(req){
