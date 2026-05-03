@@ -2547,12 +2547,12 @@ function buildPortalSignedPdfPreviewHtml(req,originalUrl,fields,signatureMap){
   </style>
 </head>
 <body>
-  <div class="bar">
+  <div class="bar" data-dkma-export-hide="1">
     <strong>Signed Document</strong>
     <span>Finalized on ${esc(fmtAuditDateTime(req.signed_at||new Date().toISOString(),req.signed_timezone||''))}</span>
   </div>
   <div class="frame">
-    <div class="sheet">
+    <div class="sheet" data-dkma-export-root="1">
       <div id="preview-base"></div>
       <div id="preview-layer"></div>
     </div>
@@ -2616,7 +2616,7 @@ async function createPortalSignedDocumentPreviewUrl(req){
   }else if(docPath.endsWith('.pdf')){
     html=buildPortalSignedPdfPreviewHtml(req,origData.signedUrl,fields,signatureMap);
   }else if(['.png','.jpg','.jpeg','.gif','.webp'].some(ext=>docPath.endsWith(ext))){
-    html=`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(req.document_name||'Signed document')}</title><style>body{margin:0;background:#F5F2EA;color:#0D1B2A;font:14px Inter,Arial,sans-serif}.bar{position:sticky;top:0;background:#0D1B2A;color:#fff;padding:12px 18px}.frame{padding:20px}.sheet{position:relative;max-width:960px;margin:0 auto;background:#fff;border:1px solid rgba(13,27,42,.08);border-radius:16px;overflow:hidden}.sheet img.base{display:block;width:100%;height:auto}.layer{position:absolute;inset:0;pointer-events:none}.box{position:absolute;box-sizing:border-box;border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:6px;text-align:center}.box img{max-width:100%;max-height:100%;object-fit:contain}</style></head><body><div class="bar"><strong>Signed Document</strong><span>Finalized on ${esc(fmtAuditDateTime(req.signed_at||new Date().toISOString(),req.signed_timezone||''))}</span></div><div class="frame"><div class="sheet"><img class="base" src="${escapeAttr(origData.signedUrl)}" alt="${escapeAttr(req.document_name||'Signed document')}"><div class="layer">${fields.map(f=>{const val=signatureFieldValue(req,f,'',signatureMap,'');return `<div class="box" style="left:${f.x*100}%;top:${f.y*100}%;width:${f.w*100}%;height:${f.h*100}%;border:${f.type==='signature'?'0':'1px solid rgba(13,27,42,.24)'};background:${f.type==='signature'?'transparent':'rgba(255,255,255,.84)'}">${f.type==='signature'&&val?`<img src="${escapeAttr(val)}" alt="Signature">`:val?`<span style="font-size:${f.type==='date'?'11px':'12px'};font-weight:${f.type==='name'?'600':'500'};color:#0D1B2A">${esc(val)}</span>`:''}</div>`;}).join('')}</div></div></div></body></html>`;
+    html=`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(req.document_name||'Signed document')}</title><style>body{margin:0;background:#F5F2EA;color:#0D1B2A;font:14px Inter,Arial,sans-serif}.bar{position:sticky;top:0;background:#0D1B2A;color:#fff;padding:12px 18px}.frame{padding:20px}.sheet{position:relative;max-width:960px;margin:0 auto;background:#fff;border:1px solid rgba(13,27,42,.08);border-radius:16px;overflow:hidden}.sheet img.base{display:block;width:100%;height:auto}.layer{position:absolute;inset:0;pointer-events:none}.box{position:absolute;box-sizing:border-box;border-radius:8px;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:6px;text-align:center}.box img{max-width:100%;max-height:100%;object-fit:contain}</style></head><body><div class="bar" data-dkma-export-hide="1"><strong>Signed Document</strong><span>Finalized on ${esc(fmtAuditDateTime(req.signed_at||new Date().toISOString(),req.signed_timezone||''))}</span></div><div class="frame"><div class="sheet" data-dkma-export-root="1"><img class="base" src="${escapeAttr(origData.signedUrl)}" alt="${escapeAttr(req.document_name||'Signed document')}"><div class="layer">${fields.map(f=>{const val=signatureFieldValue(req,f,'',signatureMap,'');return `<div class="box" style="left:${f.x*100}%;top:${f.y*100}%;width:${f.w*100}%;height:${f.h*100}%;border:${f.type==='signature'?'0':'1px solid rgba(13,27,42,.24)'};background:${f.type==='signature'?'transparent':'rgba(255,255,255,.84)'}">${f.type==='signature'&&val?`<img src="${escapeAttr(val)}" alt="Signature">`:val?`<span style="font-size:${f.type==='date'?'11px':'12px'};font-weight:${f.type==='name'?'600':'500'};color:#0D1B2A">${esc(val)}</span>`:''}</div>`;}).join('')}</div></div></div></body></html>`;
   }else{
     html=`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${esc(req.document_name||'Signed document')}</title><style>body{font-family:Arial,sans-serif;background:#f7f5ef;color:#222;margin:0;padding:32px}.sheet{max-width:760px;margin:0 auto;background:#fff;border:1px solid #ddd;border-radius:14px;padding:32px}h1{margin:0 0 10px;font-size:28px}.sub{color:#666;font-size:14px;margin-bottom:24px}</style></head><body><div class="sheet"><h1>Signed Document</h1><div class="sub">Preview is not available for this file type. Use the source document button to review the original file.</div></div></body></html>`;
   }
@@ -2669,17 +2669,22 @@ async function downloadRenderableUrlAsPdf(sourceUrl,fileName){
     const doc=iframe.contentDocument;
     if(!doc?.body)throw new Error('Could not prepare the preview for export.');
     await waitForSignaturePdfFrame(doc);
+    doc.querySelectorAll('[data-dkma-export-hide="1"]').forEach(el=>{el.style.display='none';});
+    const exportRoot=doc.querySelector('[data-dkma-export-root="1"]')||doc.body;
+    doc.body.style.background='#ffffff';
+    doc.body.style.margin='0';
     const body=doc.body;
     const docEl=doc.documentElement;
-    const fullHeight=Math.max(body.scrollHeight,body.offsetHeight,docEl?.scrollHeight||0,docEl?.offsetHeight||0,1200);
+    const fullHeight=Math.max(exportRoot.scrollHeight,exportRoot.offsetHeight,body.scrollHeight,body.offsetHeight,docEl?.scrollHeight||0,docEl?.offsetHeight||0,1200);
+    const fullWidth=Math.max(exportRoot.scrollWidth,exportRoot.offsetWidth,993);
     iframe.style.height=`${Math.min(fullHeight,20000)}px`;
-    const canvas=await window.html2canvas(body,{
+    const canvas=await window.html2canvas(exportRoot,{
       scale:2,
       useCORS:true,
       allowTaint:true,
       backgroundColor:'#ffffff',
-      width:993,
-      windowWidth:993,
+      width:fullWidth,
+      windowWidth:fullWidth,
       height:fullHeight,
       windowHeight:fullHeight,
       scrollX:0,
@@ -2706,6 +2711,16 @@ async function downloadRenderableUrlAsPdf(sourceUrl,fileName){
   }finally{
     iframe.remove();
   }
+}
+async function createSignedRecordBlobUrl(bucket,path){
+  const {data,error}=await sb.storage.from(bucket).createSignedUrl(path,300);
+  if(error||!data?.signedUrl)throw error||new Error('Could not open saved record');
+  const resp=await fetch(data.signedUrl);
+  if(!resp.ok)throw new Error('Could not load saved record');
+  const html=await resp.text();
+  const blobUrl=URL.createObjectURL(new Blob([html],{type:'text/html;charset=utf-8'}));
+  setTimeout(()=>URL.revokeObjectURL(blobUrl),300000);
+  return blobUrl;
 }
 async function submitPublicSignatureLink(){
   const shell=document.getElementById('public-sign-root');
@@ -2914,11 +2929,10 @@ async function openSignatureCertificate(req){
     window.open(data.signedUrl,'_blank','noopener');
   });
   overlay.querySelector('#sig-record-download-html')?.addEventListener('click',async()=>{
-    const {data,error}=await sb.storage.from(FIRM_BUCKET).createSignedUrl(req.certificate_path,300);
-    if(error||!data?.signedUrl){portalToast('Could not download the audit record.',true);return;}
     const base=(req.document_name||'signed-record').replace(/\.[^.]+$/,'').replace(/[\\/:*?"<>|]+/g,' ').trim()||'signed-record';
     try{
-      await downloadRenderableUrlAsPdf(data.signedUrl,`${base} - audit-record.pdf`);
+      const blobUrl=await createSignedRecordBlobUrl(FIRM_BUCKET,req.certificate_path);
+      await downloadRenderableUrlAsPdf(blobUrl,`${base} - audit-record.pdf`);
       portalToast('Audit record downloaded.');
     }catch(e){
       portalToast('Could not download the audit record: '+(e.message||e),true);
@@ -2931,10 +2945,12 @@ function injectSignatureFieldsIntoHtml(sourceHtml,req,typedName,signatureMap={},
   if(!doc?.body)return buildSignatureCertificateHtml(req,typedName,signatureMap?.[activeSignerId]||'');
   const wrapper=doc.createElement('div');
   wrapper.id='dkma-sign-wrap';
+  wrapper.setAttribute('data-dkma-export-root','1');
   wrapper.setAttribute('style','position:relative;min-height:100vh;');
   while(doc.body.firstChild)wrapper.appendChild(doc.body.firstChild);
   doc.body.appendChild(wrapper);
   const banner=doc.createElement('div');
+  banner.setAttribute('data-dkma-export-hide','1');
   banner.setAttribute('style','position:sticky;top:0;z-index:9999;background:#0D1B2A;color:#fff;padding:10px 16px;font:12px Arial,sans-serif;text-align:center;');
   banner.textContent='Signed via DKMA client portal on '+new Date(req.signed_at||new Date().toISOString()).toLocaleString('en-KE');
   doc.body.insertBefore(banner,wrapper);
