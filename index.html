@@ -1067,6 +1067,38 @@ function _safeLocalStorageGet(key){
 function _safeLocalStorageSet(key,value){
   try{localStorage.setItem(key,value);return true;}catch(_e){return false;}
 }
+function _readSharedSwConfig(){
+  return new Promise(resolve=>{
+    try{
+      if(!('indexedDB' in window)){resolve(null);return;}
+      const req=indexedDB.open('dkma-sw-store',1);
+      req.onsuccess=e=>{
+        try{
+          const db=e.target.result;
+          if(!db.objectStoreNames.contains('kv')){resolve(null);return;}
+          const tx=db.transaction('kv','readonly');
+          const getReq=tx.objectStore('kv').get('swConfig');
+          getReq.onsuccess=()=>resolve(getReq.result||null);
+          getReq.onerror=()=>resolve(null);
+        }catch(_inner){
+          resolve(null);
+        }
+      };
+      req.onupgradeneeded=()=>resolve(null);
+      req.onerror=()=>resolve(null);
+    }catch(_e){
+      resolve(null);
+    }
+  });
+}
+async function _hydratePortalConfigFromSharedStore(){
+  const cfg=await _readSharedSwConfig();
+  if(!cfg?.url||!cfg?.key)return false;
+  const okUrl=_safeLocalStorageSet('SUPABASE_URL',cfg.url);
+  const okKey=_safeLocalStorageSet('SUPABASE_ANON_KEY',cfg.key);
+  if(cfg.phone)_safeLocalStorageSet('LAWYER_PHONE',cfg.phone);
+  return !!(okUrl&&okKey);
+}
 function _resolveInjectedValue(rawValue, opts={}){
   const sources=opts.sources||[];
   if(rawValue && !String(rawValue).includes('%%')) return String(rawValue);
@@ -1174,7 +1206,15 @@ const LAWYER_PHONE=_resolveInjectedValue(RAW_LAWYER_PHONE,{
 });
 
 if(SUPABASE_URL.includes('%%')||SUPABASE_KEY.includes('%%')){
-  _showConfigSetup();
+  _hydratePortalConfigFromSharedStore()
+    .then(found=>{
+      if(found){
+        location.reload();
+        return;
+      }
+      _showConfigSetup();
+    })
+    .catch(()=>_showConfigSetup());
   throw new Error('Supabase credentials not injected - placeholders still present.');
 }
 if(typeof supabase==='undefined'||!supabase.createClient){
