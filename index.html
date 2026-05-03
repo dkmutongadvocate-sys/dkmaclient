@@ -2624,6 +2624,89 @@ async function createPortalSignedDocumentPreviewUrl(req){
   setTimeout(()=>URL.revokeObjectURL(blobUrl),300000);
   return blobUrl;
 }
+const _loadSignaturePdfLib=(src)=>new Promise((res,rej)=>{
+  const existing=document.querySelector(`script[src="${src}"]`);
+  if(existing){
+    if(existing.dataset.loaded==='1'||(src.includes('html2canvas')&&window.html2canvas)||(src.includes('jspdf')&&window.jspdf)){res();return;}
+    existing.addEventListener('load',()=>{existing.dataset.loaded='1';res();},{once:true});
+    existing.addEventListener('error',rej,{once:true});
+    return;
+  }
+  const s=document.createElement('script');
+  s.src=src;
+  s.onload=()=>{s.dataset.loaded='1';res();};
+  s.onerror=rej;
+  document.head.appendChild(s);
+});
+async function ensureSignaturePdfTools(){
+  if(!window.html2canvas)await _loadSignaturePdfLib('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+  if(!window.jspdf)await _loadSignaturePdfLib('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+}
+const _waitSigPdf=(ms)=>new Promise(r=>setTimeout(r,ms));
+async function waitForSignaturePdfFrame(doc){
+  if(!doc?.body)return;
+  for(let i=0;i<14;i++){
+    const hasText=((doc.body.innerText||'').trim().length>0);
+    const pendingImages=[...doc.images].some(img=>!img.complete);
+    const expectsCanvas=!!doc.querySelector('script[src*="pdf.min.js"]');
+    const hasCanvas=doc.querySelectorAll('canvas').length>0;
+    if(hasText&&!pendingImages&&(!expectsCanvas||hasCanvas))break;
+    await _waitSigPdf(250);
+  }
+  await _waitSigPdf(450);
+}
+async function downloadRenderableUrlAsPdf(sourceUrl,fileName){
+  await ensureSignaturePdfTools();
+  const iframe=document.createElement('iframe');
+  iframe.style.cssText='position:fixed;left:-9999px;top:0;width:993px;height:1px;border:none;visibility:hidden;';
+  document.body.appendChild(iframe);
+  try{
+    await new Promise((res,rej)=>{
+      iframe.onload=()=>res();
+      iframe.onerror=()=>rej(new Error('Could not load the preview for PDF export.'));
+      iframe.src=sourceUrl;
+    });
+    const doc=iframe.contentDocument;
+    if(!doc?.body)throw new Error('Could not prepare the preview for export.');
+    await waitForSignaturePdfFrame(doc);
+    const body=doc.body;
+    const docEl=doc.documentElement;
+    const fullHeight=Math.max(body.scrollHeight,body.offsetHeight,docEl?.scrollHeight||0,docEl?.offsetHeight||0,1200);
+    iframe.style.height=`${Math.min(fullHeight,20000)}px`;
+    const canvas=await window.html2canvas(body,{
+      scale:2,
+      useCORS:true,
+      allowTaint:true,
+      backgroundColor:'#ffffff',
+      width:993,
+      windowWidth:993,
+      height:fullHeight,
+      windowHeight:fullHeight,
+      scrollX:0,
+      scrollY:0,
+      logging:false
+    });
+    const imgData=canvas.toDataURL('image/jpeg',0.97);
+    const {jsPDF}=window.jspdf;
+    const pdf=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+    const pdfW=pdf.internal.pageSize.getWidth();
+    const pdfH=pdf.internal.pageSize.getHeight();
+    const imgH=(canvas.height*pdfW)/canvas.width;
+    let heightLeft=imgH;
+    let position=0;
+    pdf.addImage(imgData,'JPEG',0,position,pdfW,imgH);
+    heightLeft-=pdfH;
+    while(heightLeft>0){
+      position=heightLeft-imgH;
+      pdf.addPage();
+      pdf.addImage(imgData,'JPEG',0,position,pdfW,imgH);
+      heightLeft-=pdfH;
+    }
+    pdf.save(fileName);
+  }finally{
+    iframe.remove();
+  }
+}
 async function submitPublicSignatureLink(){
   const shell=document.getElementById('public-sign-root');
   if(!shell||!publicSignSession)return;
@@ -2775,9 +2858,9 @@ async function openSignatureCertificate(req){
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
           <button class="pbtn view" type="button" id="sig-record-open-doc">View source document</button>
           ${signedPreviewUrl?'<button class="pbtn" type="button" id="sig-record-open-signed">Open signed document</button>':''}
-          ${signedPreviewUrl?'<button class="pbtn" type="button" id="sig-record-download-signed">Download signed document</button>':''}
-          ${req.certificate_path?'<button class="pbtn" type="button" id="sig-record-open-html">Open saved HTML record</button>':''}
-          ${req.certificate_path?'<button class="pbtn" type="button" id="sig-record-download-html">Download audit record</button>':''}
+          ${signedPreviewUrl?'<button class="pbtn" type="button" id="sig-record-download-signed">Download signed PDF</button>':''}
+          ${req.certificate_path?'<button class="pbtn" type="button" id="sig-record-open-html">Open saved record</button>':''}
+          ${req.certificate_path?'<button class="pbtn" type="button" id="sig-record-download-html">Download audit PDF</button>':''}
         </div>
         <div id="sig-record-preview" style="min-height:420px">${signedPreviewUrl?`<iframe src="${signedPreviewUrl}" style="width:100%;height:min(68vh,760px);border:1px solid var(--brd);border-radius:16px;background:#fff"></iframe>`:'<div style="padding:18px;border:1px solid var(--brd);border-radius:10px;background:#fff;color:var(--txt3);font-size:12px">Could not load the signed-document preview. Use the buttons above to open the source or saved record.</div>'}</div>
       </div>
@@ -2816,14 +2899,14 @@ async function openSignatureCertificate(req){
   overlay.querySelector('#sig-record-close').onclick=()=>overlay.remove();
   overlay.querySelector('#sig-record-open-doc').onclick=()=>openSignatureSourceDocument(req);
   overlay.querySelector('#sig-record-open-signed')?.addEventListener('click',()=>window.open(signedPreviewUrl,'_blank','noopener'));
-  overlay.querySelector('#sig-record-download-signed')?.addEventListener('click',()=>{
-    const a=document.createElement('a');
+  overlay.querySelector('#sig-record-download-signed')?.addEventListener('click',async()=>{
     const base=(req.document_name||'signed-document').replace(/\.[^.]+$/,'').replace(/[\\/:*?"<>|]+/g,' ').trim()||'signed-document';
-    a.href=signedPreviewUrl;
-    a.download=`${base} - signed.html`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    try{
+      await downloadRenderableUrlAsPdf(signedPreviewUrl,`${base} - signed.pdf`);
+      portalToast('Signed document downloaded.');
+    }catch(e){
+      portalToast('Could not download the signed document: '+(e.message||e),true);
+    }
   });
   overlay.querySelector('#sig-record-open-html')?.addEventListener('click',async()=>{
     const {data,error}=await sb.storage.from(FIRM_BUCKET).createSignedUrl(req.certificate_path,300);
@@ -2833,13 +2916,13 @@ async function openSignatureCertificate(req){
   overlay.querySelector('#sig-record-download-html')?.addEventListener('click',async()=>{
     const {data,error}=await sb.storage.from(FIRM_BUCKET).createSignedUrl(req.certificate_path,300);
     if(error||!data?.signedUrl){portalToast('Could not download the audit record.',true);return;}
-    const a=document.createElement('a');
     const base=(req.document_name||'signed-record').replace(/\.[^.]+$/,'').replace(/[\\/:*?"<>|]+/g,' ').trim()||'signed-record';
-    a.href=data.signedUrl;
-    a.download=`${base} - audit-record.html`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    try{
+      await downloadRenderableUrlAsPdf(data.signedUrl,`${base} - audit-record.pdf`);
+      portalToast('Audit record downloaded.');
+    }catch(e){
+      portalToast('Could not download the audit record: '+(e.message||e),true);
+    }
   });
 }
 function injectSignatureFieldsIntoHtml(sourceHtml,req,typedName,signatureMap={},activeSignerId=''){
