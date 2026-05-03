@@ -1465,7 +1465,13 @@ function getRequestSigners(req){
       signed_at:s.signed_at||null,
       signed_name:s.signed_name||'',
       signature_path:s.signature_path||'',
-      link_sent_at:s.link_sent_at||null
+      link_sent_at:s.link_sent_at||null,
+      decline_reason:s.decline_reason||'',
+      declined_at:s.declined_at||null,
+      declined_timezone:s.declined_timezone||'',
+      declined_ip:s.declined_ip||'',
+      declined_via:s.declined_via||'',
+      signed_location:s.signed_location||''
     })).sort((a,b)=>(a.order||0)-(b.order||0));
   }
   return [{
@@ -1481,7 +1487,13 @@ function getRequestSigners(req){
     signed_at:req?.signed_at||null,
     signed_name:req?.signed_name||'',
     signature_path:req?.signature_path||'',
-    link_sent_at:req?.link_sent_at||null
+    link_sent_at:req?.link_sent_at||null,
+    decline_reason:req?.decline_reason||'',
+    declined_at:req?.declined_at||null,
+    declined_timezone:req?.declined_timezone||'',
+    declined_ip:req?.declined_ip||'',
+    declined_via:req?.declined_via||'',
+    signed_location:req?.signed_location||''
   }];
 }
 function getPortalSignerState(req){
@@ -1493,6 +1505,8 @@ function getPortalSignerState(req){
   ))||null;
   if(!signer)return{signer:null,signers,canSign:false,reason:'not_assigned'};
   if(signer.status==='signed')return{signer,signers,canSign:false,reason:'signed'};
+  if(signer.status==='declined')return{signer,signers,canSign:false,reason:'declined'};
+  if(req?.status==='cancelled'||signer.status==='cancelled')return{signer,signers,canSign:false,reason:'cancelled'};
   if(req?.signing_order_enabled){
     const blocked=signers.some(s=>(s.order||0)<(signer.order||0)&&s.status!=='signed');
     if(blocked)return{signer,signers,canSign:false,reason:'waiting_turn'};
@@ -1501,19 +1515,21 @@ function getPortalSignerState(req){
 }
 function shouldShowPortalSignatureRequest(req){
   const state=getPortalSignerState(req);
-  return !!state.signer&&(state.canSign||state.reason==='signed');
+  return !!state.signer&&(state.canSign||['signed','declined','cancelled'].includes(state.reason));
 }
 function getSignersReadyForEmailRelease(req,signersOverride=null){
   const signers=(Array.isArray(signersOverride)&&signersOverride.length?signersOverride:getRequestSigners(req)).slice().sort((a,b)=>(a.order||0)-(b.order||0));
+  if(['declined','cancelled'].includes(normalizeSignatureStatus(req?.status||''))||signers.some(s=>['declined','cancelled'].includes(normalizeSignatureStatus(s.status||''))))return [];
   if(!req?.signing_order_enabled){
-    return signers.filter(s=>s.delivery==='email_link'&&s.email&&s.status!=='signed'&&!s.link_sent_at);
+    return signers.filter(s=>s.delivery==='email_link'&&s.email&&!['signed','declined','cancelled'].includes(normalizeSignatureStatus(s.status||''))&&!s.link_sent_at);
   }
-  const next=signers.find(s=>s.status!=='signed');
+  const next=signers.find(s=>!['signed','declined','cancelled'].includes(normalizeSignatureStatus(s.status||'')));
   if(!next)return [];
   if(next.delivery==='email_link'&&next.email&&!next.link_sent_at)return [next];
   return [];
 }
 function deriveSignatureRequestStatus(signers){
+  if((signers||[]).some(s=>normalizeSignatureStatus(s.status||'')==='declined'))return'declined';
   if((signers||[]).length&&(signers||[]).every(s=>s.status==='signed'))return'signed';
   if((signers||[]).some(s=>s.status==='opened'||s.status==='signed'))return'in_progress';
   return'sent';
@@ -2493,6 +2509,8 @@ function getPublicSignatureState(session){
   if(!signer)return{signer:null,canSign:false,reason:'missing'};
   const waiting=req.signing_order_enabled&&signers.some(s=>Number(s.order||0)<Number(signer.order||0)&&s.status!=='signed');
   if(signer.status==='signed')return{signer,canSign:false,reason:'signed'};
+  if(signer.status==='declined')return{signer,canSign:false,reason:'declined'};
+  if(req?.status==='cancelled'||signer.status==='cancelled')return{signer,canSign:false,reason:'cancelled'};
   if(waiting)return{signer,canSign:false,reason:'waiting_turn'};
   return{signer,canSign:signer.status==='sent'||signer.status==='opened',reason:signer.status||'sent'};
 }
@@ -2879,6 +2897,36 @@ async function submitPublicSignatureLink(){
     if(btn){btn.disabled=false;btn.textContent='Confirm Signature';}
   }
 }
+async function declinePublicSignatureLink(){
+  const shell=document.getElementById('public-sign-root');
+  if(!shell||!publicSignSession)return;
+  const fullName=(shell.querySelector('#public-sign-full-name')?.value||'').trim()||publicSignSession.signer?.name||'Signer';
+  const declineReason=(shell.querySelector('#public-sign-decline-reason')?.value||'').trim();
+  if(!declineReason){portalToast('Add a reason before declining to sign.',true);return;}
+  const btn=shell.querySelector('#public-sign-decline');
+  if(btn){btn.disabled=true;btn.textContent='Saving...';}
+  try{
+    const result=await callPublicSignatureFunction('complete-signature-link',{
+      token:publicSignToken,
+      action:'decline',
+      fullName,
+      declineReason,
+      timeZone:getUserTimeZone()
+    });
+    publicSignSession.request.signers=Array.isArray(result?.signers)&&result.signers.length
+      ? result.signers
+      : (publicSignSession.request.signers||[]).map(s=>s.id===publicSignSession.signer.id?{...s,status:'declined',declined_at:new Date().toISOString(),decline_reason:declineReason}:s);
+    publicSignSession.signer=(publicSignSession.request.signers||[]).find(s=>s.id===publicSignSession.signer.id)||{...publicSignSession.signer,status:'declined',declined_at:new Date().toISOString(),decline_reason:declineReason};
+    publicSignSession.request.status=result.status||'declined';
+    publicSignSession.request.declined_at=result.declined_at||new Date().toISOString();
+    publicSignSession.request.decline_reason=result.decline_reason||declineReason;
+    renderPublicSignatureLink();
+    portalToast('Signing request declined.');
+  }catch(e){
+    portalToast('Could not decline the signing request: '+e.message,true);
+    if(btn){btn.disabled=false;btn.textContent='Decline to Sign';}
+  }
+}
 function renderPublicSignatureLink(){
   const root=document.getElementById('public-sign-root');
   if(!root||!publicSignSession)return;
@@ -2888,6 +2936,8 @@ function renderPublicSignatureLink(){
   const canSign=state.canSign;
   const signedAlready=state.reason==='signed';
   const waitingTurn=state.reason==='waiting_turn';
+  const declinedAlready=state.reason==='declined';
+  const cancelledRequest=state.reason==='cancelled';
   const statusMarkup=signaturePill(req.status||signer.status||'sent');
   root.innerHTML=`<div class="public-sign-wrap">
     <div class="public-sign-hero">
@@ -2940,10 +2990,23 @@ function renderPublicSignatureLink(){
               <input type="checkbox" id="public-sign-consent" style="margin-top:3px">
               <span>I confirm that I have reviewed this document and that this electronic signature is mine.</span>
             </label>
-            <div style="display:flex;justify-content:flex-end;margin-top:16px">
+            <div style="display:grid;gap:8px;margin-top:16px">
+              <label class="pform-label">If you need to decline, tell the firm why</label>
+              <textarea class="pform-input" id="public-sign-decline-reason" rows="3" placeholder="Reason for declining to sign"></textarea>
+            </div>
+            <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;flex-wrap:wrap">
+              <button class="pbtn" type="button" id="public-sign-decline">Decline to Sign</button>
               <button class="pbtn primary" type="button" id="public-sign-submit">Confirm Signature</button>
             </div>`:
-            `<div class="public-sign-note" style="margin-top:16px">${signedAlready?`This document has already been signed by ${esc(signer.signed_name||signer.name||'the signer')}${signer.signed_at?' on '+esc(fmtDate(signer.signed_at)):''}.`:'This signing link is valid, but another signer must complete their step first.'}</div>`}
+            `<div class="public-sign-note" style="margin-top:16px">${
+              signedAlready
+                ? `This document has already been signed by ${esc(signer.signed_name||signer.name||'the signer')}${signer.signed_at?' on '+esc(fmtDate(signer.signed_at)):''}.`
+                : declinedAlready
+                  ? `This signer declined the request${signer.declined_at?' on '+esc(fmtDate(signer.declined_at)):''}${signer.decline_reason?'. Reason: '+esc(signer.decline_reason):'.'}` 
+                  : cancelledRequest
+                    ? `This signing request was cancelled${req.cancelled_at?' on '+esc(fmtDate(req.cancelled_at)):''}${req.cancelled_reason?'. Reason: '+esc(req.cancelled_reason):'.'}`
+                    : 'This signing link is valid, but another signer must complete their step first.'
+            }</div>`}
         </div>
       </div>
       <div class="public-sign-footer">This signing page is a standalone secure link for outside parties. No client portal login is required.</div>
@@ -2959,6 +3022,7 @@ function renderPublicSignatureLink(){
     const pad=wireSignatureCanvas(root.querySelector('#public-sign-canvas'),sigUrl=>renderSignatureDocPreviewFromUrl(req,publicSignSession.document_url,previewMount,currentTypedName(),sigUrl,signer.id||''));
     root.querySelector('#public-sign-clear')?.addEventListener('click',()=>pad.clear());
     root.querySelector('#public-sign-submit')?.addEventListener('click',submitPublicSignatureLink);
+    root.querySelector('#public-sign-decline')?.addEventListener('click',declinePublicSignatureLink);
     nameInput?.addEventListener('input',()=>renderSignatureDocPreviewFromUrl(req,publicSignSession.document_url,previewMount,nameInput.value.trim(),signatureCanvasData(root.querySelector('#public-sign-canvas')),signer.id||''));
   }
 }
@@ -3031,6 +3095,8 @@ async function openSignatureCertificate(req){
               <div style="display:grid;grid-template-columns:88px minmax(0,1fr);gap:6px 10px;margin-top:12px;font-size:12px;line-height:1.55">
                 <div style="color:var(--txt3);font-weight:600">Signed</div><div style="min-width:0;overflow-wrap:anywhere">${esc(fmtAuditDateTime(signer.signed_at||'',signer.signed_timezone||''))}</div>
                 <div style="color:var(--txt3);font-weight:600">Origin</div><div style="min-width:0;overflow-wrap:anywhere">${esc(signerAuditOrigin(signer))}</div>
+                ${signer.declined_at?`<div style="color:var(--txt3);font-weight:600">Declined</div><div style="min-width:0;overflow-wrap:anywhere">${esc(fmtAuditDateTime(signer.declined_at||'',signer.declined_timezone||''))}</div>`:''}
+                ${signer.decline_reason?`<div style="color:var(--txt3);font-weight:600">Reason</div><div style="min-width:0;overflow-wrap:anywhere">${esc(signer.decline_reason)}</div>`:''}
                 ${signer.signed_location?`<div style="color:var(--txt3);font-weight:600">Location</div><div style="min-width:0;overflow-wrap:anywhere">${esc(signer.signed_location)}</div>`:''}
               </div>
             </div>`).join('')}
@@ -3148,6 +3214,10 @@ function buildSignatureCertificateHtml(req,typedName,signatureDataUrl){
         <div class="label">Matter</div><div class="value">${esc(matter?.title||req.matter_title||'Matter')}</div>
         <div class="label">Sent</div><div class="value">${esc(fmtAuditDateTime(req.sent_at||req.created_at,req.signed_timezone||''))}</div>
         <div class="label">Finalized</div><div class="value">${esc(fmtAuditDateTime(req.signed_at,req.signed_timezone||''))}</div>
+        ${req.declined_at?`<div class="label">Declined</div><div class="value">${esc(fmtAuditDateTime(req.declined_at,req.declined_timezone||''))}</div>`:''}
+        ${req.decline_reason?`<div class="label">Decline Reason</div><div class="value">${esc(req.decline_reason)}</div>`:''}
+        ${req.cancelled_at?`<div class="label">Cancelled</div><div class="value">${esc(fmtAuditDateTime(req.cancelled_at,req.cancelled_timezone||''))}</div>`:''}
+        ${req.cancelled_reason?`<div class="label">Cancel Reason</div><div class="value">${esc(req.cancelled_reason)}</div>`:''}
         <div class="label">Request ID</div><div class="value"><code>${esc(req.id||makeSigId())}</code></div>
         <div class="label">Source Path</div><div class="value"><code>${esc(req.document_path||'')}</code></div>
       </div>
@@ -3164,6 +3234,8 @@ function buildSignatureCertificateHtml(req,typedName,signatureDataUrl){
           <div class="sig-grid">
             <div class="label">Signed</div><div class="value">${esc(fmtAuditDateTime(signer.signed_at||'',signer.signed_timezone||''))}</div>
             <div class="label">Origin</div><div class="value">${esc(signerAuditOrigin(signer))}</div>
+            ${signer.declined_at?`<div class="label">Declined</div><div class="value">${esc(fmtAuditDateTime(signer.declined_at||'',signer.declined_timezone||''))}</div>`:''}
+            ${signer.decline_reason?`<div class="label">Reason</div><div class="value">${esc(signer.decline_reason)}</div>`:''}
             ${signer.signed_location?`<div class="label">Location</div><div class="value">${esc(signer.signed_location)}</div>`:''}
           </div>
           ${signer.preview_signature?`<div class="sig-preview"><div class="label" style="margin-bottom:8px">Captured Signature</div><img src="${signer.preview_signature}" alt="Signature"></div>`:''}
@@ -3427,6 +3499,57 @@ submitSignatureRequest=async function(requestId,overlay){
     submitBtn.textContent='Confirm Signature';
   }
 }
+async function submitSignatureDecline(requestId,overlay){
+  const req=getSignatureRequest(requestId);
+  if(!req){portalToast('Signature request not found.',true);return;}
+  const state=getPortalSignerState(req);
+  if(!state.signer){portalToast('This request is not assigned to your portal account.',true);return;}
+  if(!state.canSign){portalToast(state.reason==='waiting_turn'?'Another signer needs to sign first.':'This request is not ready for signing.',true);return;}
+  const declineReason=(overlay.querySelector('#sig-decline-reason')?.value||'').trim();
+  if(!declineReason){portalToast('Add a reason before declining to sign.',true);return;}
+  const declineBtn=overlay.querySelector('#sig-decline');
+  if(declineBtn){declineBtn.disabled=true;declineBtn.textContent='Saving...';}
+  try{
+    const now=new Date().toISOString();
+    const signerTimeZone=getUserTimeZone();
+    const signers=getRequestSigners(req).map(s=>s.id===state.signer.id?{
+      ...s,
+      status:'declined',
+      declined_at:now,
+      decline_reason:declineReason,
+      declined_timezone:signerTimeZone,
+      declined_via:'Client Portal'
+    }:s);
+    Object.assign(req,{
+      signers,
+      status:'declined',
+      declined_at:now,
+      decline_reason:declineReason,
+      updated_at:now,
+      opened_at:req.opened_at||now,
+      user_agent:navigator.userAgent||''
+    });
+    await writeSignatureResponse(req,{
+      request_id:req.id,
+      matter_id:req.matter_id,
+      client_id:req.client_id||clientRecord.id,
+      status:req.status,
+      declined_at:req.declined_at,
+      decline_reason:req.decline_reason,
+      updated_at:req.updated_at,
+      opened_at:req.opened_at,
+      user_agent:req.user_agent,
+      signers:req.signers
+    });
+    mySignatureRequests=mySignatureRequests.map(r=>r.id===req.id?req:r).sort((a,b)=>signatureSortValue(b)-signatureSortValue(a));
+    portalToast('Signing request declined.');
+    closeSignatureOverlay();
+    refreshSignatureViews();
+  }catch(e){
+    portalToast('Could not decline the signing request: '+e.message,true);
+    if(declineBtn){declineBtn.disabled=false;declineBtn.textContent='Decline to Sign';}
+  }
+}
 openSignatureOverlay=function(requestId){
   const req=getSignatureRequest(requestId);
   if(!req){portalToast('Signature request not found.',true);return;}
@@ -3436,6 +3559,8 @@ openSignatureOverlay=function(requestId){
   const canSign=state.canSign;
   const matter=myMatters.find(m=>m.id===req.matter_id);
   const signedAlready=state.reason==='signed';
+  const declinedAlready=state.reason==='declined';
+  const cancelledRequest=state.reason==='cancelled';
   const waitingTurn=state.reason==='waiting_turn';
   const overlay=document.createElement('div');
   overlay.id='signature-overlay';
@@ -3443,7 +3568,7 @@ openSignatureOverlay=function(requestId){
   overlay.innerHTML=`<div style="background:#fff;border-radius:22px;width:min(1120px,100%);max-height:94dvh;overflow:hidden;box-shadow:0 30px 90px rgba(13,27,42,0.28)">
     <div style="padding:20px 24px;border-bottom:1px solid var(--brd);display:flex;align-items:flex-start;gap:14px;background:linear-gradient(180deg,#FFFFFF 0%,#FBF8F1 100%)">
       <div style="flex:1;min-width:0">
-        <div style="font-family:'Playfair Display',serif;font-size:24px;color:var(--txt)">${canSign?'Sign Document':(signedAlready?'Signed Record':'Signature Status')}</div>
+        <div style="font-family:'Playfair Display',serif;font-size:24px;color:var(--txt)">${canSign?'Sign Document':(signedAlready?'Signed Record':(declinedAlready?'Declined Record':'Signature Status'))}</div>
         <div style="font-size:12px;color:var(--txt3);margin-top:4px">${esc(req.document_name||'Document')}${matter?' - '+esc(matter.title):''}</div>
       </div>
       ${signaturePill(req.status)}
@@ -3451,7 +3576,7 @@ openSignatureOverlay=function(requestId){
     </div>
     <div style="padding:22px;display:grid;gap:18px;max-height:calc(94dvh - 95px);overflow:auto;background:#fff">
       <div style="background:var(--cream);border:1px solid var(--brd);border-radius:14px;padding:14px 16px;font-size:12px;color:var(--txt2);line-height:1.7">
-        ${waitingTurn?'Another signer must complete their step before this document opens for your signature.<br><br>':''}${esc(req.message||'Review the document and sign once you are satisfied with its contents.')}
+        ${waitingTurn?'Another signer must complete their step before this document opens for your signature.<br><br>':''}${declinedAlready?`${esc(state.signer.decline_reason||'This signing request was declined.')}${state.signer.declined_at?'<br><br>Declined on '+esc(fmtDate(state.signer.declined_at))+'.':''}`:''}${cancelledRequest?`${esc(req.cancelled_reason||'This signing request was cancelled by the firm.')}${req.cancelled_at?'<br><br>Cancelled on '+esc(fmtDate(req.cancelled_at))+'.':''}`:''}${!declinedAlready&&!cancelledRequest?esc(req.message||'Review the document and sign once you are satisfied with its contents.'):''}
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         <button class="pbtn view" type="button" id="sig-open-doc">View document</button>
@@ -3476,12 +3601,17 @@ openSignatureOverlay=function(requestId){
         <input type="checkbox" id="sig-consent" style="margin-top:3px">
         <span>I confirm that I have reviewed this document and that this electronic signature is mine.</span>
       </label>
+      <div style="display:grid;gap:8px">
+        <label class="pform-label">If you need to decline, tell the firm why</label>
+        <textarea class="pform-input" id="sig-decline-reason" rows="3" placeholder="Reason for declining to sign"></textarea>
+      </div>
       <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;padding-top:4px">
+        <button class="pbtn" type="button" id="sig-decline">Decline to Sign</button>
         <button class="pbtn" type="button" id="sig-cancel">Cancel</button>
         <button class="pbtn primary" type="button" id="sig-submit">Confirm Signature</button>
       </div>`:`
       <div style="font-size:13px;color:var(--txt2);line-height:1.7">
-        ${signedAlready?`This document has already been signed by you${state.signer.signed_at?' on '+fmtDate(state.signer.signed_at):''}.`:'This document will unlock for your signature once the earlier signer completes their step.'}
+        ${signedAlready?`This document has already been signed by you${state.signer.signed_at?' on '+fmtDate(state.signer.signed_at):''}.`:declinedAlready?`You declined this signing request${state.signer.declined_at?' on '+fmtDate(state.signer.declined_at):''}${state.signer.decline_reason?'. Reason: '+esc(state.signer.decline_reason):'.'}`:cancelledRequest?`This signing request was cancelled by the firm${req.cancelled_at?' on '+fmtDate(req.cancelled_at):''}${req.cancelled_reason?'. Reason: '+esc(req.cancelled_reason):'.'}`:'This document will unlock for your signature once the earlier signer completes their step.'}
       </div>
       <div style="display:flex;justify-content:flex-end">
         <button class="pbtn" type="button" id="sig-cancel">Close</button>
@@ -3503,6 +3633,7 @@ openSignatureOverlay=function(requestId){
     const currentTypedName=()=>nameInput?.value.trim()||state.signer.name||clientRecord?.name||'';
     const pad=wireSignatureCanvas(overlay.querySelector('#sig-canvas'),sigUrl=>renderSignatureDocPreview(req,previewMount,currentTypedName(),sigUrl));
     overlay.querySelector('#sig-clear').onclick=()=>pad.clear();
+    overlay.querySelector('#sig-decline').onclick=()=>submitSignatureDecline(requestId,overlay);
     overlay.querySelector('#sig-submit').onclick=()=>submitSignatureRequest(requestId,overlay);
     if(nameInput)nameInput.addEventListener('input',()=>renderSignatureDocPreview(req,previewMount,nameInput.value.trim(),signatureCanvasData(overlay.querySelector('#sig-canvas'))));
     if(state.signer.status==='sent'){
@@ -3916,7 +4047,7 @@ function renderDocuments(){
   const totalFirm=sharedDocs.length;
   const totalMine=myUploads.length;
   const total=totalFirm+totalMine;
-  const pendingMarkup=renderSignatureInbox(mySignatureRequests.filter(r=>r.status!=='cancelled'&&r.status!=='declined'));
+  const pendingMarkup=renderSignatureInbox(mySignatureRequests);
 
   if(!total&&!pendingMarkup){
     c.innerHTML=`<div class="pcard">${empty('Docs','No documents yet','Documents shared by the firm and files you upload will both appear here.')}</div>`;return;
