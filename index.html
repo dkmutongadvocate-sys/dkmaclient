@@ -1531,6 +1531,35 @@ function shouldShowPortalSignatureRequest(req){
   const state=getPortalSignerState(req);
   return !!state.signer&&(state.canSign||['signed','declined','cancelled'].includes(state.reason));
 }
+function getNextPendingSignatureSigner(req,signersOverride=null){
+  const signers=(Array.isArray(signersOverride)&&signersOverride.length?signersOverride:getRequestSigners(req)).slice().sort((a,b)=>(a.order||0)-(b.order||0));
+  return signers.find(s=>!['signed','declined','cancelled'].includes(normalizeSignatureStatus(s.status||'')))||null;
+}
+function canPreviewSignedDocument(req){
+  const signers=getRequestSigners(req);
+  return !!(req?.signature_path||req?.signed_at||signers.some(s=>!!s.signed_at||!!s.signature_path||normalizeSignatureStatus(s.status||'')==='signed'));
+}
+function signatureSignerProgressMeta(req,signer){
+  const signers=getRequestSigners(req).slice().sort((a,b)=>(a.order||0)-(b.order||0));
+  const normalizedStatus=normalizeSignatureStatus(signer?.status||'sent');
+  if(normalizedStatus==='signed')return{label:'Signed',tone:'#2D6A4F',bg:'#EAF3DE'};
+  if(normalizedStatus==='declined')return{label:'Declined',tone:'#A32D2D',bg:'#FCEBEB'};
+  if(normalizedStatus==='cancelled')return{label:'Cancelled',tone:'var(--txt3)',bg:'var(--cream2)'};
+  const next=signers.find(s=>!['signed','declined','cancelled'].includes(normalizeSignatureStatus(s.status||'')));
+  if(next?.id===signer?.id){
+    return{
+      label:signer.delivery==='email_link'&&signer.link_sent_at?'Awaiting signature':'Next',
+      tone:'#854F0B',
+      bg:'#FAEEDA'
+    };
+  }
+  if(req?.signing_order_enabled&&next&&(signer.order||0)>(next.order||0))return{label:'Waiting',tone:'#5E6472',bg:'#EEF1F5'};
+  return{
+    label:signer.delivery==='email_link'&&signer.link_sent_at?'Sent':'Pending',
+    tone:'#185FA5',
+    bg:'#E6F1FB'
+  };
+}
 function getSignersReadyForEmailRelease(req,signersOverride=null){
   const signers=(Array.isArray(signersOverride)&&signersOverride.length?signersOverride:getRequestSigners(req)).slice().sort((a,b)=>(a.order||0)-(b.order||0));
   if(['declined','cancelled'].includes(normalizeSignatureStatus(req?.status||''))||signers.some(s=>['declined','cancelled'].includes(normalizeSignatureStatus(s.status||''))))return [];
@@ -3054,12 +3083,15 @@ async function initPublicSignatureLinkFlow(token){
   }
 }
 async function openSignatureCertificate(req){
-  if(!req?.document_path&&!req?.certificate_path){portalToast('Signed record not available yet.',true);return;}
+  if(!req?.document_path&&!req?.certificate_path){portalToast('Signing record not available yet.',true);return;}
   const matter=myMatters.find(m=>m.id===req.matter_id);
   const signers=getAuditSigners(req,req.signed_name||req.signer_name||'');
+  const nextSigner=getNextPendingSignatureSigner(req,signers);
   let signedPreviewUrl='';
   try{
-    signedPreviewUrl=await createPortalSignedDocumentPreviewUrl(req);
+    if(canPreviewSignedDocument(req)){
+      signedPreviewUrl=await createPortalSignedDocumentPreviewUrl(req);
+    }
   }catch(_e){}
   const old=document.getElementById('signature-record-overlay');
   if(old)old.remove();
@@ -3069,7 +3101,7 @@ async function openSignatureCertificate(req){
   overlay.innerHTML=`<div style="background:#fff;border-radius:22px;width:min(1280px,100%);height:min(94dvh,980px);overflow:hidden;box-shadow:0 30px 90px rgba(13,27,42,0.28);display:flex;flex-direction:column">
     <div style="padding:20px 24px;border-bottom:1px solid var(--brd);display:flex;align-items:flex-start;gap:14px;background:linear-gradient(180deg,#FFFFFF 0%,#FBF8F1 100%)">
       <div style="flex:1;min-width:0">
-        <div style="font-family:'Playfair Display',serif;font-size:24px;color:var(--txt)">Signed Document Record</div>
+        <div style="font-family:'Playfair Display',serif;font-size:24px;color:var(--txt)">Signing Record</div>
         <div style="font-size:12px;color:var(--txt3);margin-top:4px;overflow-wrap:anywhere">${esc(req.document_name||'Document')}${matter?' - '+esc(matter.title):''}</div>
       </div>
       ${signaturePill(deriveSignatureRequestStatus(getRequestSigners(req)))}
@@ -3082,20 +3114,22 @@ async function openSignatureCertificate(req){
           ${signedPreviewUrl?'<button class="pbtn" type="button" id="sig-record-open-signed">Open signed document</button>':''}
           ${signedPreviewUrl?'<button class="pbtn" type="button" id="sig-record-download-signed">Download signed PDF</button>':''}
           ${req.certificate_path?'<button class="pbtn" type="button" id="sig-record-open-html">Open saved record</button>':''}
-          ${req.certificate_path?'<button class="pbtn" type="button" id="sig-record-download-html">Download audit PDF</button>':''}
+          <button class="pbtn" type="button" id="sig-record-download-html">Download audit PDF</button>
         </div>
-        <div id="sig-record-preview" style="min-height:420px">${signedPreviewUrl?`<div style="border:1px solid var(--brd);border-radius:18px;background:#F8F5F0;padding:10px"><iframe src="${signedPreviewUrl}" style="width:100%;height:min(70vh,780px);border:none;border-radius:12px;background:#fff"></iframe></div>`:'<div style="padding:18px;border:1px solid var(--brd);border-radius:10px;background:#fff;color:var(--txt3);font-size:12px">Could not load the signed-document preview. Use the buttons above to open the source or saved record.</div>'}</div>
+        <div id="sig-record-preview" style="min-height:420px">${signedPreviewUrl?`<div style="border:1px solid var(--brd);border-radius:18px;background:#F8F5F0;padding:10px"><iframe src="${signedPreviewUrl}" style="width:100%;height:min(70vh,780px);border:none;border-radius:12px;background:#fff"></iframe></div>`:'<div style="padding:18px;border:1px solid var(--brd);border-radius:10px;background:#fff;color:var(--txt3);font-size:12px">No signature has been applied yet. Once the first signer completes their step, the signed preview will appear here.</div>'}</div>
       </div>
       <aside style="min-height:0;overflow-y:auto;overflow-x:hidden;padding:20px 22px;border-left:1px solid var(--brd);background:#FBF8F1">
         <div style="position:sticky;top:-20px;background:linear-gradient(180deg,#FBF8F1 82%,rgba(251,248,241,0));padding-bottom:12px;z-index:2">
           <div style="font-family:'Playfair Display',serif;font-size:20px;color:var(--txt);margin-bottom:8px">Audit Trail</div>
-          <div style="font-size:11px;color:var(--txt3);line-height:1.6">Signer-by-signer activity, timestamps, origin details, and any decline or location notes.</div>
+          <div style="font-size:11px;color:var(--txt3);line-height:1.6">Signer-by-signer activity, signing order, timestamps, origin details, and any decline or location notes.</div>
         </div>
         <div style="display:grid;grid-template-columns:120px minmax(0,1fr);gap:10px 14px;font-size:13px;line-height:1.6">
           <div style="color:var(--txt3);font-weight:600">Document</div><div style="min-width:0;overflow-wrap:anywhere">${esc(req.document_name||'Document')}</div>
           <div style="color:var(--txt3);font-weight:600">Matter</div><div style="min-width:0;overflow-wrap:anywhere">${esc(matter?.title||req.matter_title||'-')}</div>
           <div style="color:var(--txt3);font-weight:600">Sent</div><div>${esc(fmtAuditDateTime(req.sent_at||req.created_at,req.signed_timezone||''))}</div>
           <div style="color:var(--txt3);font-weight:600">Finalized</div><div>${esc(fmtAuditDateTime(req.signed_at||'',req.signed_timezone||''))}</div>
+          <div style="color:var(--txt3);font-weight:600">Signing Order</div><div>${req.signing_order_enabled===false?'Parallel':'Ordered'}</div>
+          <div style="color:var(--txt3);font-weight:600">Current Step</div><div style="min-width:0;overflow-wrap:anywhere">${nextSigner?`Step ${nextSigner.order||1} - ${esc(nextSigner.name||nextSigner.email||'Pending signer')}`:'All signers complete'}</div>
           <div style="color:var(--txt3);font-weight:600">Request ID</div><div style="min-width:0"><code style="font-size:11px;white-space:pre-wrap;overflow-wrap:anywhere">${esc(req.id||'-')}</code></div>
           <div style="color:var(--txt3);font-weight:600">Source Path</div><div style="min-width:0"><code style="font-size:11px;white-space:pre-wrap;overflow-wrap:anywhere">${esc(req.document_path||'-')}</code></div>
         </div>
@@ -3104,12 +3138,13 @@ async function openSignatureCertificate(req){
             <div style="border:1px solid var(--brd);border-radius:14px;background:#fff;padding:14px 16px">
               <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
                 <div style="min-width:0">
-                  <div style="font-size:14px;font-weight:600;color:var(--txt);overflow-wrap:anywhere">${esc(signer.display_name)}</div>
+                  <div style="font-size:14px;font-weight:600;color:var(--txt);overflow-wrap:anywhere">Step ${signer.order||idx+1} - ${esc(signer.display_name)}</div>
                   <div style="font-size:11px;color:var(--txt3);margin-top:3px">${esc(signer.role||`Signer ${idx+1}`)}${signer.display_email&&signer.display_email!=='-'?' - '+esc(signer.display_email):''}</div>
                 </div>
-                ${signaturePill(normalizeSignatureStatus(signer.status||'sent'))}
+                <span class="status-pill" style="background:${signatureSignerProgressMeta(req,signer).bg};color:${signatureSignerProgressMeta(req,signer).tone}">${esc(signatureSignerProgressMeta(req,signer).label)}</span>
               </div>
               <div style="display:grid;grid-template-columns:88px minmax(0,1fr);gap:6px 10px;margin-top:12px;font-size:12px;line-height:1.55">
+                <div style="color:var(--txt3);font-weight:600">Route</div><div style="min-width:0;overflow-wrap:anywhere">${signer.delivery==='email_link'?'Email Link':'Client Portal'}</div>
                 <div style="color:var(--txt3);font-weight:600">Signed</div><div style="min-width:0;overflow-wrap:anywhere">${esc(fmtAuditDateTime(signer.signed_at||'',signer.signed_timezone||''))}</div>
                 <div style="color:var(--txt3);font-weight:600">Origin</div><div style="min-width:0;overflow-wrap:anywhere">${esc(signerAuditOrigin(signer))}</div>
                 ${signer.declined_at?`<div style="color:var(--txt3);font-weight:600">Declined</div><div style="min-width:0;overflow-wrap:anywhere">${esc(fmtAuditDateTime(signer.declined_at||'',signer.declined_timezone||''))}</div>`:''}
@@ -3195,6 +3230,7 @@ function injectSignatureFieldsIntoHtml(sourceHtml,req,typedName,signatureMap={},
 function buildSignatureCertificateHtml(req,typedName,signatureDataUrl){
   const matter=myMatters.find(m=>m.id===req.matter_id);
   const signers=getAuditSigners(req,typedName,signatureDataUrl);
+  const nextSigner=getNextPendingSignatureSigner(req,signers);
   return `<!DOCTYPE html>
   <html lang="en">
   <head>
@@ -3231,6 +3267,8 @@ function buildSignatureCertificateHtml(req,typedName,signatureDataUrl){
         <div class="label">Matter</div><div class="value">${esc(matter?.title||req.matter_title||'Matter')}</div>
         <div class="label">Sent</div><div class="value">${esc(fmtAuditDateTime(req.sent_at||req.created_at,req.signed_timezone||''))}</div>
         <div class="label">Finalized</div><div class="value">${esc(fmtAuditDateTime(req.signed_at,req.signed_timezone||''))}</div>
+        <div class="label">Signing Order</div><div class="value">${req.signing_order_enabled===false?'Parallel':'Ordered'}</div>
+        <div class="label">Current Step</div><div class="value">${nextSigner?`Step ${nextSigner.order||1} - ${esc(nextSigner.name||nextSigner.email||'Pending signer')}`:'All signers complete'}</div>
         ${req.declined_at?`<div class="label">Declined</div><div class="value">${esc(fmtAuditDateTime(req.declined_at,req.declined_timezone||''))}</div>`:''}
         ${req.decline_reason?`<div class="label">Decline Reason</div><div class="value">${esc(req.decline_reason)}</div>`:''}
         ${req.cancelled_at?`<div class="label">Cancelled</div><div class="value">${esc(fmtAuditDateTime(req.cancelled_at,req.cancelled_timezone||''))}</div>`:''}
@@ -3243,12 +3281,13 @@ function buildSignatureCertificateHtml(req,typedName,signatureDataUrl){
         ${signers.map((signer,idx)=>`<div class="sig-card">
           <div class="sig-head">
             <div>
-              <div class="sig-name">${esc(signer.display_name)}</div>
+              <div class="sig-name">Step ${signer.order||idx+1} - ${esc(signer.display_name)}</div>
               <div class="sig-meta">${esc(signer.role||`Signer ${idx+1}`)}${signer.display_email&&signer.display_email!=='-'?' - '+esc(signer.display_email):''}</div>
             </div>
-            <span class="pill">${esc((signatureStatusMeta(normalizeSignatureStatus(signer.status||'sent'))||{}).label||'Sent')}</span>
+            <span class="pill" style="background:${signatureSignerProgressMeta(req,signer).bg};color:${signatureSignerProgressMeta(req,signer).tone}">${esc(signatureSignerProgressMeta(req,signer).label)}</span>
           </div>
           <div class="sig-grid">
+            <div class="label">Route</div><div class="value">${signer.delivery==='email_link'?'Email Link':'Client Portal'}</div>
             <div class="label">Signed</div><div class="value">${esc(fmtAuditDateTime(signer.signed_at||'',signer.signed_timezone||''))}</div>
             <div class="label">Origin</div><div class="value">${esc(signerAuditOrigin(signer))}</div>
             ${signer.declined_at?`<div class="label">Declined</div><div class="value">${esc(fmtAuditDateTime(signer.declined_at||'',signer.declined_timezone||''))}</div>`:''}
