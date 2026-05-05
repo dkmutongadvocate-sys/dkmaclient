@@ -2087,6 +2087,45 @@ async function writeSignatureJson(path,payload){
   const {error}=await sb.storage.from(FIRM_BUCKET).upload(path,blob,{upsert:true,contentType:'application/json'});
   if(error)throw error;
 }
+function stripSignatureRequestTransientFields(req){
+  if(!req||typeof req!=='object')return req;
+  const clone={...req};
+  delete clone._storage_path;
+  delete clone._response_path;
+  return clone;
+}
+function getSignatureRequestMasterPath(req){
+  if(req?.master_request_path)return req.master_request_path;
+  const clientId=String(req?.client_id||clientRecord?.id||'').trim();
+  if(!clientId||!req?.matter_id||!req?.id)return '';
+  return `client-general/${clientId}/${SIGNATURE_REQUESTS_PREFIX}${req.matter_id}__${req.id}.json`;
+}
+function getSignatureRequestMirrorPaths(req){
+  const paths=new Set();
+  const masterPath=getSignatureRequestMasterPath(req);
+  if(masterPath)paths.add(masterPath);
+  (Array.isArray(req?.signers)?req.signers:[]).forEach(signer=>{
+    if((signer?.delivery||'portal')!=='portal')return;
+    const clientId=String(signer?.client_id||'').trim();
+    if(!clientId||!req?.matter_id||!req?.id)return;
+    paths.add(`client-general/${clientId}/${SIGNATURE_REQUESTS_PREFIX}${req.matter_id}__${req.id}.json`);
+  });
+  return [...paths];
+}
+async function syncSignatureRequestMirrors(req){
+  const masterPath=getSignatureRequestMasterPath(req);
+  const payload=stripSignatureRequestTransientFields({
+    ...req,
+    master_request_path:masterPath||req?.master_request_path||''
+  });
+  const paths=getSignatureRequestMirrorPaths(payload);
+  const writeTargets=paths.length?paths:(masterPath?[masterPath]:[]);
+  if(!writeTargets.length)return [];
+  await Promise.all(writeTargets.map(path=>writeSignatureJson(path,payload)));
+  req.master_request_path=payload.master_request_path||'';
+  req._storage_path=req._storage_path||writeTargets[0];
+  return writeTargets;
+}
 function signatureResponsePath(req){
   return `${req.matter_id}/${SIGNATURE_RESPONSE_PREFIX}${req.id}.json`;
 }
@@ -2187,7 +2226,7 @@ async function notifyNextPendingSigner(req,signers){
           trackingId:(crypto?.randomUUID?crypto.randomUUID():makeSigId()),
           signatureRequest:{
             requestId:req.id,
-            requestPath:req._storage_path||`client-general/${req.client_id}/${SIGNATURE_REQUESTS_PREFIX}${req.matter_id}__${req.id}.json`,
+            requestPath:getSignatureRequestMasterPath(req)||req._storage_path||`client-general/${req.client_id}/${SIGNATURE_REQUESTS_PREFIX}${req.matter_id}__${req.id}.json`,
             matterId:req.matter_id,
             clientId:req.client_id,
             documentPath:req.document_path,
@@ -3653,26 +3692,14 @@ submitSignatureRequest=async function(requestId,overlay){
       certificate_path:certificatePath,
       user_agent:navigator.userAgent||''
     });
-    if(req._storage_path){
-      await writeSignatureJson(req._storage_path,{
-        ...req,
-        _storage_path:undefined,
-        _response_path:undefined
-      });
-    }
+    await syncSignatureRequestMirrors(req);
     let releasedSignerNotifications=0;
     let releaseWarning='';
     try{
       releasedSignerNotifications=await notifyNextPendingSigner(req,req.signers);
       if(releasedSignerNotifications){
         req.updated_at=new Date().toISOString();
-        if(req._storage_path){
-          await writeSignatureJson(req._storage_path,{
-            ...req,
-            _storage_path:undefined,
-            _response_path:undefined
-          });
-        }
+        await syncSignatureRequestMirrors(req);
       }
     }catch(releaseErr){
       console.warn('[DKMA Portal] next signer release failed',releaseErr.message);
@@ -3738,6 +3765,7 @@ async function submitSignatureDecline(requestId,overlay){
       opened_at:req.opened_at||now,
       user_agent:navigator.userAgent||''
     });
+    await syncSignatureRequestMirrors(req);
     await writeSignatureResponse(req,{
       request_id:req.id,
       matter_id:req.matter_id,
