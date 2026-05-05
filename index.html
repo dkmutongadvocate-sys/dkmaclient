@@ -2149,6 +2149,23 @@ async function writeSignatureResponse(req,payload){
   req._response_path=path;
   return path;
 }
+async function hydrateLatestSignatureRequest(req){
+  if(!req||!req.id||!req.matter_id)return req;
+  const responsePath=req._response_path||signatureResponsePath(req);
+  try{
+    const response=await readSignatureJson(responsePath);
+    if(response&&response.request_id===req.id){
+      const merged=normalizeLoadedSignatureRequest({
+        ...req,
+        ...response,
+        _storage_path:req._storage_path,
+        _response_path:responsePath
+      });
+      Object.assign(req,merged);
+    }
+  }catch(_e){}
+  return req;
+}
 function buildPortalSignatureNoticeHtml({toName,requestTitle,documentName,message,portalUrl,trackingId}){
   const safeName=esc(toName||'Client');
   const safeTitle=esc(requestTitle||'Signature Request');
@@ -3654,6 +3671,7 @@ function openSignatureOverlay(requestId){
 submitSignatureRequest=async function(requestId,overlay){
   const req=getSignatureRequest(requestId);
   if(!req){portalToast('Signature request not found.',true);return;}
+  await hydrateLatestSignatureRequest(req);
   const state=getPortalSignerState(req);
   if(!state.signer){portalToast('This request is not assigned to your portal account.',true);return;}
   if(!state.canSign){portalToast(state.reason==='waiting_turn'?'Another signer needs to sign first.':'This request is not ready for signing.',true);return;}
@@ -3753,6 +3771,7 @@ submitSignatureRequest=async function(requestId,overlay){
 async function submitSignatureDecline(requestId,overlay){
   const req=getSignatureRequest(requestId);
   if(!req){portalToast('Signature request not found.',true);return;}
+  await hydrateLatestSignatureRequest(req);
   const state=getPortalSignerState(req);
   if(!state.signer){portalToast('This request is not assigned to your portal account.',true);return;}
   if(!state.canSign){portalToast(state.reason==='waiting_turn'?'Another signer needs to sign first.':'This request is not ready for signing.',true);return;}
