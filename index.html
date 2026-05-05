@@ -4243,7 +4243,7 @@ function renderDocuments(){
   };
   function renderRequestSection(title,sub,rows){
     if(!rows.length)return '';
-    return `<div class="pcard" style="margin-bottom:14px">
+      return `<div class="pcard" style="margin-bottom:14px">
       <div class="pcard-header">
         <div><div class="pcard-title">${title}</div><div class="pcard-sub">${sub}</div></div>
         <span style="font-size:11px;color:var(--txt3)">${rows.length} request${rows.length!==1?'s':''}</span>
@@ -4251,6 +4251,8 @@ function renderDocuments(){
       ${rows.map(req=>{
         const status=deriveSignatureRequestStatus(getRequestSigners(req));
         const nextSigner=getNextPendingSignatureSigner(req);
+        const signerState=getPortalSignerState(req);
+        const canSign=!!signerState?.canSign;
         const nextText=nextSigner?`${nextSigner.name||nextSigner.email||'Signer'}${nextSigner.order?` - Step ${nextSigner.order}`:''}`:'Complete';
         return `<div style="padding:16px 20px;border-top:1px solid var(--brd);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center">
           <div style="min-width:0">
@@ -4260,7 +4262,7 @@ function renderDocuments(){
           </div>
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end">
             ${signaturePill(status)}
-            <button class="pbtn" style="padding:7px 12px;font-size:12px" onclick="openSignatureCertificateById('${req.id}')">Record</button>
+            <button class="pbtn ${canSign?'primary':''}" style="padding:7px 12px;font-size:12px" onclick="${canSign?`openSignatureOverlay('${req.id}')`:`openSignatureCertificateById('${req.id}')`}">${canSign?'Sign now':'Record'}</button>
           </div>
         </div>`;
       }).join('')}
