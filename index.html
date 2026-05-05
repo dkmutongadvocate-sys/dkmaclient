@@ -3651,14 +3651,30 @@ submitSignatureRequest=async function(requestId,overlay){
       certificate_path:certificatePath,
       user_agent:navigator.userAgent||''
     });
+    if(req._storage_path){
+      await writeSignatureJson(req._storage_path,{
+        ...req,
+        _storage_path:undefined,
+        _response_path:undefined
+      });
+    }
     let releasedSignerNotifications=0;
+    let releaseWarning='';
     try{
       releasedSignerNotifications=await notifyNextPendingSigner(req,req.signers);
       if(releasedSignerNotifications){
         req.updated_at=new Date().toISOString();
+        if(req._storage_path){
+          await writeSignatureJson(req._storage_path,{
+            ...req,
+            _storage_path:undefined,
+            _response_path:undefined
+          });
+        }
       }
     }catch(releaseErr){
       console.warn('[DKMA Portal] next signer release failed',releaseErr.message);
+      releaseWarning=' The next signer was not notified automatically yet.';
     }
     await writeSignatureResponse(req,{
       request_id:req.id,
@@ -3676,7 +3692,12 @@ submitSignatureRequest=async function(requestId,overlay){
       signers:req.signers
     });
     mySignatureRequests=mySignatureRequests.map(r=>r.id===req.id?req:r).sort((a,b)=>signatureSortValue(b)-signatureSortValue(a));
-    portalToast(overallStatus==='signed'?'Document signed successfully.':(releasedSignerNotifications?'Your signature has been saved and the next signer has been notified.':'Your signature has been saved.'));
+    portalToast(overallStatus==='signed'
+      ? 'Document signed successfully.'
+      : releasedSignerNotifications
+        ? 'Your signature has been saved and the next signer has been notified.'
+        : 'Your signature has been saved.'+releaseWarning
+    );
     closeSignatureOverlay();
     refreshSignatureViews();
   }catch(e){
