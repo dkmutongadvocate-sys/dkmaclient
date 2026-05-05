@@ -1415,6 +1415,7 @@ function signatureStatusMeta(status){
     sent:{label:'Ready to sign',bg:'#E6F1FB',fg:'#185FA5'},
     in_progress:{label:'In progress',bg:'#FAEEDA',fg:'#854F0B'},
     opened:{label:'In progress',bg:'#FAEEDA',fg:'#854F0B'},
+    waiting:{label:'Waiting turn',bg:'#EEF1F5',fg:'#5E6472'},
     signed:{label:'Signed',bg:'#EAF3DE',fg:'#2D6A4F'},
     completed:{label:'Signed',bg:'#EAF3DE',fg:'#2D6A4F'},
     declined:{label:'Declined',bg:'#FCEBEB',fg:'#A32D2D'},
@@ -1550,7 +1551,20 @@ function getPortalSignerState(req){
 }
 function shouldShowPortalSignatureRequest(req){
   const state=getPortalSignerState(req);
-  return !!state.signer&&(state.canSign||['signed','declined','cancelled'].includes(state.reason));
+  return !!state.signer&&(state.canSign||['waiting_turn','signed','declined','cancelled'].includes(state.reason));
+}
+function getPortalRequestDisplayStatus(req){
+  const state=getPortalSignerState(req);
+  if(!state?.signer)return deriveSignatureRequestStatus(getRequestSigners(req));
+  if(state.reason==='signed')return'signed';
+  if(state.reason==='declined')return'declined';
+  if(state.reason==='cancelled')return'cancelled';
+  if(state.reason==='waiting_turn')return'waiting';
+  if(state.canSign){
+    const signerStatus=normalizeSignatureStatus(state.signer?.status||'sent');
+    return signerStatus==='opened'?'opened':'sent';
+  }
+  return deriveSignatureRequestStatus(getRequestSigners(req));
 }
 function getNextPendingSignatureSigner(req,signersOverride=null){
   const signers=(Array.isArray(signersOverride)&&signersOverride.length?signersOverride:getRequestSigners(req)).slice().sort((a,b)=>(a.order||0)-(b.order||0));
@@ -2431,6 +2445,7 @@ renderSignatureInbox=function(requests,matterId=''){
       const signerState=getPortalSignerState(r);
       const canSign=signerState.canSign;
       const cta=canSign?'Sign now':'View record';
+      const displayStatus=getPortalRequestDisplayStatus(r);
       return `<div class="doc-list-row">
         ${docBadge('sign','dt-doc')}
         <div class="doc-list-info">
@@ -2438,7 +2453,7 @@ renderSignatureInbox=function(requests,matterId=''){
           <div class="doc-list-meta">${matter?esc(matter.title)+' - ':''}${fmtDate(r.sent_at||r.created_at)}${r.message?' - '+esc(r.message):''}</div>
         </div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end">
-          ${signaturePill(r.status)}
+          ${signaturePill(displayStatus)}
           <button class="pbtn ${canSign?'primary':'view'}" style="white-space:nowrap" onclick="openSignatureOverlay('${esc(r.id)}')">${cta}</button>
         </div>
       </div>`;
@@ -3559,7 +3574,7 @@ function openSignatureOverlay(requestId){
         <div style="font-family:'Playfair Display',serif;font-size:24px;color:var(--txt)">${canSign?'Sign Document':'Signed Record'}</div>
         <div style="font-size:12px;color:var(--txt3);margin-top:4px">${esc(req.document_name||'Document')}${matter?' • '+esc(matter.title):''}</div>
       </div>
-      ${signaturePill(req.status)}
+      ${signaturePill(getPortalRequestDisplayStatus(req))}
       <button type="button" id="sig-close" style="background:none;border:none;font-size:24px;line-height:1;color:var(--txt3);cursor:pointer">?</button>
     </div>
     <div style="padding:22px;display:grid;gap:18px;max-height:calc(94dvh - 95px);overflow:auto;background:#fff">
@@ -4288,9 +4303,9 @@ function renderDocuments(){
     return;
   }
   const grouped={
-    active:requests.filter(r=>!['signed','declined','cancelled'].includes(deriveSignatureRequestStatus(getRequestSigners(r)))),
-    completed:requests.filter(r=>deriveSignatureRequestStatus(getRequestSigners(r))==='signed'),
-    closed:requests.filter(r=>['declined','cancelled'].includes(deriveSignatureRequestStatus(getRequestSigners(r))))
+    active:requests.filter(r=>!['signed','declined','cancelled'].includes(getPortalRequestDisplayStatus(r))),
+    completed:requests.filter(r=>getPortalRequestDisplayStatus(r)==='signed'),
+    closed:requests.filter(r=>['declined','cancelled'].includes(getPortalRequestDisplayStatus(r)))
   };
   function renderRequestSection(title,sub,rows){
     if(!rows.length)return '';
@@ -4300,7 +4315,7 @@ function renderDocuments(){
         <span style="font-size:11px;color:var(--txt3)">${rows.length} request${rows.length!==1?'s':''}</span>
       </div>
       ${rows.map(req=>{
-        const status=deriveSignatureRequestStatus(getRequestSigners(req));
+        const status=getPortalRequestDisplayStatus(req);
         const nextSigner=getNextPendingSignatureSigner(req);
         const signerState=getPortalSignerState(req);
         const canSign=!!signerState?.canSign;
@@ -4420,10 +4435,11 @@ function sharedDocRow(f){
   const sigReq=sigReqRaw&&shouldShowPortalSignatureRequest(sigReqRaw)?sigReqRaw:null;
   const signerState=sigReq?getPortalSignerState(sigReq):null;
   const canSign=!!signerState?.canSign;
+  const signerDisplayStatus=sigReq?getPortalRequestDisplayStatus(sigReq):'';
   return`<div class="doc-list-row">
     ${docBadge(kind,cls)}
     <div class="doc-list-info">
-      <div class="doc-list-name" title="${esc(displayName)}">${esc(displayName)} ${sigReq?signaturePill(sigReq.status):''}</div>
+      <div class="doc-list-name" title="${esc(displayName)}">${esc(displayName)} ${sigReq?signaturePill(signerDisplayStatus):''}</div>
       <div class="doc-list-meta">${category?categoryLabel(category)+' - ':''}${fmtFileSize(meta.size)}${dateStr?' - '+dateStr:''}${description?' - '+esc(description):''}</div>
     </div>
     <div class="doc-list-actions">
