@@ -3676,7 +3676,7 @@ submitSignatureRequest=async function(requestId,overlay){
       signers:req.signers
     });
     mySignatureRequests=mySignatureRequests.map(r=>r.id===req.id?req:r).sort((a,b)=>signatureSortValue(b)-signatureSortValue(a));
-    portalToast(overallStatus==='signed'?'Document signed successfully.':(releasedEmailLinks?'Your signature has been saved and the next signer has been notified.':'Your signature has been saved.'));
+    portalToast(overallStatus==='signed'?'Document signed successfully.':(releasedSignerNotifications?'Your signature has been saved and the next signer has been notified.':'Your signature has been saved.'));
     closeSignatureOverlay();
     refreshSignatureViews();
   }catch(e){
