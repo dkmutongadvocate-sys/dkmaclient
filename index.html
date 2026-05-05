@@ -1222,6 +1222,7 @@ if(typeof supabase==='undefined'||!supabase.createClient){
   throw new Error('supabase CDN not loaded.');
 }
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{storageKey:'dkma-portal-session'}});
+const SUPABASE_URL_EDGE=SUPABASE_URL;
 
 // Portal accounts are stored with a +portal alias to avoid colliding with
 // staff accounts on the same email. The client always types their real email.
