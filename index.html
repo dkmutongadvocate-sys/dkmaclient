@@ -575,7 +575,7 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
     <div class="topnav-tabs">
       <div class="topnav-tab active" onclick="showPView('overview',this)">Overview</div>
       <div class="topnav-tab" onclick="showPView('matters',this)">My Matters</div>
-      <div class="topnav-tab" onclick="showPView('documents',this)">Documents</div>
+      <div class="topnav-tab" onclick="showPView('documents',this)">Signatures</div>
       <div class="topnav-tab" onclick="showPView('events',this)">Events</div>
       <div class="topnav-tab" onclick="showPView('invoices',this)">Invoices</div>
       <div class="topnav-tab" onclick="showPView('upload',this)">Upload</div>
@@ -663,7 +663,7 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
       <!-- Documents panel -->
       <div class="matter-detail-panel" id="mdp-documents">
         <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
-          <button class="pbtn gold" onclick="showPView('upload',null)" id="md-upload-btn">Upload Document</button>
+          <button class="pbtn gold" onclick="openMatterUpload(activeMatterDetailId)" id="md-upload-btn">Upload Document</button>
         </div>
         <div id="md-docs-container">
           <div class="pcard"><div style="padding:40px;text-align:center;color:var(--txt3)">Loading documents...</div></div>
@@ -680,8 +680,8 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
     <div class="pview" id="pview-documents">
       <div style="margin-bottom:20px;display:flex;align-items:flex-end;justify-content:space-between">
         <div>
-          <h2 style="font-family:'Playfair Display',serif;font-size:22px;font-weight:500">Documents</h2>
-          <p style="font-size:12px;color:var(--txt3);margin-top:4px">Documents shared by the firm and files you have uploaded.</p>
+          <h2 style="font-family:'Playfair Display',serif;font-size:22px;font-weight:500">Signatures</h2>
+          <p style="font-size:12px;color:var(--txt3);margin-top:4px">Track active signature requests, signed records, and signing progress across your matters.</p>
         </div>
           <div style="display:flex;gap:8px;align-items:center">
           <div class="doc-view-toggle">
@@ -993,7 +993,7 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
     </div>
     <div class="portal-drawer-item" id="pdi-documents" onclick="showPView('documents',null,true);closePortalDrawer()">
       <svg viewBox="0 0 16 16" fill="none"><path d="M3 1h7l3 3v11H3V1z" stroke="currentColor" stroke-width="1.4"/><path d="M10 1v3h3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M6 7h4M6 10h4M6 13h2" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
-      Documents
+      Signatures
     </div>
     <div class="portal-drawer-item" id="pdi-events" onclick="showPView('events',null,true);closePortalDrawer()">
       <svg viewBox="0 0 16 16" fill="none"><rect x="1" y="2.5" width="14" height="12" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M5 1v3M11 1v3M1 7h14" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
@@ -1385,17 +1385,20 @@ function syncPortalDocumentToolbar(){
   const btnList=document.getElementById('pdvt-list');
   const btnGrid=document.getElementById('pdvt-grid');
   const uploadBtn=document.getElementById('pd-upload-btn');
+  const documentsActive=document.getElementById('pview-documents')?.classList.contains('active');
   if(btnList){
     btnList.innerHTML=portalIcon('list');
     btnList.classList.toggle('active',_portalDocView==='list');
+    btnList.style.display=documentsActive?'none':'';
   }
   if(btnGrid){
     btnGrid.innerHTML=portalIcon('grid');
     btnGrid.classList.toggle('active',_portalDocView==='grid');
+    btnGrid.style.display=documentsActive?'none':'';
   }
   if(uploadBtn){
     uploadBtn.innerHTML=`${portalIcon('upload')}<span>Upload</span>`;
-    uploadBtn.style.display='inline-flex';
+    uploadBtn.style.display=documentsActive?'none':'inline-flex';
     uploadBtn.style.alignItems='center';
     uploadBtn.style.gap='8px';
   }
@@ -1454,6 +1457,11 @@ function signatureRequestForPath(docPath){
 function getSignatureRequest(requestId){
   return (mySignatureRequests||[]).find(r=>r.id===requestId)||null;
 }
+function openSignatureCertificateById(requestId){
+  const req=getSignatureRequest(requestId);
+  if(!req){toast('Signature request not found.',true);return;}
+  openSignatureCertificate(req);
+}
 function isSignatureSystemFile(name){
   return !!name&&(name.startsWith(SIGNATURE_REQUESTS_PREFIX)||name.startsWith(SIGNATURE_RESPONSE_PREFIX)||name.startsWith(SIGNATURE_ARTIFACTS_PREFIX)||name.startsWith(SIGNATURE_TEMPLATE_PREFIX));
 }
@@ -1480,6 +1488,7 @@ function getRequestSigners(req){
       signed_name:s.signed_name||'',
       signature_path:s.signature_path||'',
       link_sent_at:s.link_sent_at||null,
+      portal_notice_sent_at:s.portal_notice_sent_at||null,
       decline_reason:s.decline_reason||'',
       declined_at:s.declined_at||null,
       declined_timezone:s.declined_timezone||'',
@@ -1502,6 +1511,7 @@ function getRequestSigners(req){
     signed_name:req?.signed_name||'',
     signature_path:req?.signature_path||'',
     link_sent_at:req?.link_sent_at||null,
+    portal_notice_sent_at:req?.portal_notice_sent_at||null,
     decline_reason:req?.decline_reason||'',
     declined_at:req?.declined_at||null,
     declined_timezone:req?.declined_timezone||'',
@@ -1569,6 +1579,17 @@ function getSignersReadyForEmailRelease(req,signersOverride=null){
   const next=signers.find(s=>!['signed','declined','cancelled'].includes(normalizeSignatureStatus(s.status||'')));
   if(!next)return [];
   if(next.delivery==='email_link'&&next.email&&!next.link_sent_at)return [next];
+  return [];
+}
+function getSignersReadyForPortalNotice(req,signersOverride=null){
+  const signers=(Array.isArray(signersOverride)&&signersOverride.length?signersOverride:getRequestSigners(req)).slice().sort((a,b)=>(a.order||0)-(b.order||0));
+  if(['declined','cancelled'].includes(normalizeSignatureStatus(req?.status||''))||signers.some(s=>['declined','cancelled'].includes(normalizeSignatureStatus(s.status||''))))return [];
+  if(!req?.signing_order_enabled){
+    return signers.filter(s=>s.delivery==='portal'&&s.email&&!['signed','declined','cancelled'].includes(normalizeSignatureStatus(s.status||''))&&!s.portal_notice_sent_at);
+  }
+  const next=signers.find(s=>!['signed','declined','cancelled'].includes(normalizeSignatureStatus(s.status||'')));
+  if(!next)return [];
+  if(next.delivery==='portal'&&next.email&&!next.portal_notice_sent_at)return [next];
   return [];
 }
 function deriveSignatureRequestStatus(signers){
@@ -1760,6 +1781,14 @@ function showPView(id,el,fromMobile){
   if(id==='sos-history'){loadSosHistory();}
   if(id==='notifications'){loadClientAlerts(true);}
   if(id==='groups'){renderPortalGroups();}
+  if(id==='documents'||id==='matter-detail')startPortalSignatureRefresh();
+  else stopPortalSignatureRefresh();
+}
+function openMatterUpload(matterId){
+  showPView('upload',null);
+  populateUploadMatterSelect();
+  const sel=document.getElementById('up-matter');
+  if(sel&&matterId)sel.value=matterId;
 }
 
 function openPortalDrawer(){
@@ -2056,57 +2085,124 @@ async function writeSignatureResponse(req,payload){
   req._response_path=path;
   return path;
 }
-async function releaseNextEmailLinkSigner(req,signers){
-  const releasable=getSignersReadyForEmailRelease(req,signers);
-  if(!releasable.length)return 0;
+function buildPortalSignatureNoticeHtml({toName,requestTitle,documentName,message,portalUrl,trackingId}){
+  const safeName=esc(toName||'Client');
+  const safeTitle=esc(requestTitle||'Signature Request');
+  const safeDoc=esc(documentName||'Document');
+  const safeMessage=esc(message||'You have a document waiting for signature in your DKMA Client Portal.').replace(/\n/g,'<br>');
+  const safeUrl=String(portalUrl||window.location.origin+window.location.pathname).replace(/"/g,'&quot;');
+  const trackingPixel=trackingId
+    ? `<img src="${SUPABASE_URL_EDGE}/functions/v1/track-open?id=${encodeURIComponent(trackingId)}" width="1" height="1" border="0" alt="" style="display:block;border:0;width:1px;height:1px;opacity:0;">`
+    : '';
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:32px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);max-width:600px;width:100%;">
+        <tr><td style="background:#0a1628;padding:24px 32px;text-align:left;"><span style="font-family:'Georgia',serif;font-size:20px;color:#c9a84c;font-weight:bold;letter-spacing:1px;">DKMA</span><span style="font-size:12px;color:#8899aa;margin-left:12px;">Dennis Kimani Mutonga, Advocate</span></td></tr>
+        <tr><td style="padding:32px;">
+          <p style="margin:0 0 14px;font-size:15px;color:#212121;">Hello ${safeName},</p>
+          <p style="margin:0 0 10px;font-size:14px;color:#212121;line-height:1.7;">${safeMessage}</p>
+          <p style="margin:0 0 18px;font-size:13px;color:#5f6b7a;">Request: <strong>${safeTitle}</strong><br>Document: ${safeDoc}</p>
+          <p style="margin:0 0 24px;"><a href="${safeUrl}" style="display:inline-block;background:#0a1628;color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:8px;font-weight:600;">Log in to Client Portal</a></p>
+          <p style="margin:0;font-size:12px;color:#697584;line-height:1.6;">Please log in to your DKMA Client Portal to review and sign this document.</p>
+        </td></tr>
+      </table>
+      ${trackingPixel}
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+async function dispatchPortalSignatureNotice(req,signer){
   const {data:{session}}=await sb.auth.getSession();
   if(!session?.access_token)throw new Error('Missing portal session.');
   const documentPath=req.document_path||'';
   const documentName=req.document_name||documentPath.split('/').pop()||'Document';
-  const publicBaseUrl=window.location.origin+window.location.pathname;
-  let sent=0;
-  for(const signer of releasable){
-    const res=await fetch(`${SUPABASE_URL_EDGE}/functions/v1/send-document`,{
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'Authorization':`Bearer ${session.access_token}`
-      },
-      body:JSON.stringify({
-        bucket:FIRM_BUCKET,
-        storagePath:documentPath,
-        displayName:documentName,
-        toEmail:signer.email,
-        toName:signer.name||'Signer',
-        subject:req.request_title||(`Signature request for ${documentName}`),
-        message:req.message||'',
-        trackingId:(crypto?.randomUUID?crypto.randomUUID():makeSigId()),
-        signatureRequest:{
-          requestId:req.id,
-          requestPath:req._storage_path||`client-general/${req.client_id}/${SIGNATURE_REQUESTS_PREFIX}${req.matter_id}__${req.id}.json`,
-          matterId:req.matter_id,
-          clientId:req.client_id,
-          documentPath:req.document_path,
-          documentName:req.document_name||documentName,
-          requestTitle:req.request_title||(`Signature request for ${documentName}`),
-          message:req.message||'',
-          fields:Array.isArray(req.fields)?req.fields:[],
-          signers,
-          signingOrderEnabled:req.signing_order_enabled!==false,
-          signer,
-          publicBaseUrl
-        }
+  const trackingId=(crypto?.randomUUID?crypto.randomUUID():makeSigId());
+  const res=await fetch(`${SUPABASE_URL_EDGE}/functions/v1/send-document`,{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'Authorization':`Bearer ${session.access_token}`
+    },
+    body:JSON.stringify({
+      bucket:FIRM_BUCKET,
+      storagePath:documentPath,
+      displayName:documentName,
+      toEmail:signer.email,
+      toName:signer.name||'Client',
+      subject:req.request_title||(`Signature request for ${documentName}`),
+      message:req.message||'',
+      trackingId,
+      htmlBody:buildPortalSignatureNoticeHtml({
+        toName:signer.name||'Client',
+        requestTitle:req.request_title||(`Signature request for ${documentName}`),
+        documentName:req.document_name||documentName,
+        message:req.message||'You have a document waiting for signature in your DKMA Client Portal.',
+        portalUrl:window.location.origin+window.location.pathname,
+        trackingId
       })
-    });
-    const data=await res.json().catch(()=>({}));
-    if(res.ok&&!data?.error){
+    })
+  });
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok||data?.error)throw new Error(data?.error||'Could not send the portal signing notice.');
+  return data;
+}
+async function notifyNextPendingSigner(req,signers){
+  const releasableEmail=getSignersReadyForEmailRelease(req,signers);
+  if(releasableEmail.length){
+    const documentPath=req.document_path||'';
+    const documentName=req.document_name||documentPath.split('/').pop()||'Document';
+    const publicBaseUrl=window.location.origin+window.location.pathname;
+    let sent=0;
+    for(const signer of releasableEmail){
+      const res=await fetch(`${SUPABASE_URL_EDGE}/functions/v1/send-document`,{
+        method:'POST',
+        headers:{
+          'Content-Type':'application/json',
+          'Authorization':`Bearer ${(await sb.auth.getSession()).data.session?.access_token}`
+        },
+        body:JSON.stringify({
+          bucket:FIRM_BUCKET,
+          storagePath:documentPath,
+          displayName:documentName,
+          toEmail:signer.email,
+          toName:signer.name||'Signer',
+          subject:req.request_title||(`Signature request for ${documentName}`),
+          message:req.message||'',
+          trackingId:(crypto?.randomUUID?crypto.randomUUID():makeSigId()),
+          signatureRequest:{
+            requestId:req.id,
+            requestPath:req._storage_path||`client-general/${req.client_id}/${SIGNATURE_REQUESTS_PREFIX}${req.matter_id}__${req.id}.json`,
+            matterId:req.matter_id,
+            clientId:req.client_id,
+            documentPath:req.document_path,
+            documentName:req.document_name||documentName,
+            requestTitle:req.request_title||(`Signature request for ${documentName}`),
+            message:req.message||'',
+            fields:Array.isArray(req.fields)?req.fields:[],
+            signers,
+            signingOrderEnabled:req.signing_order_enabled!==false,
+            signer,
+            publicBaseUrl
+          }
+        })
+      });
+      const data=await res.json().catch(()=>({}));
+      if(!(res.ok&&!data?.error))throw new Error(data?.error||'Could not release the next signer email link.');
       signer.link_sent_at=new Date().toISOString();
       sent++;
-    }else{
-      throw new Error(data?.error||'Could not release the next signer email link.');
     }
+    return sent;
   }
-  return sent;
+  const portalSigner=getSignersReadyForPortalNotice(req,signers)[0];
+  if(!portalSigner)return 0;
+  await dispatchPortalSignatureNotice(req,portalSigner);
+  portalSigner.portal_notice_sent_at=new Date().toISOString();
+  return 1;
 }
 async function loadMySignatureRequests(){
   if(!clientRecord){mySignatureRequests=[];return;}
@@ -2212,6 +2308,30 @@ function refreshSignatureViews(){
   if(activeMatterDetailId&&document.getElementById('pview-matter-detail')?.classList.contains('active')&&activeMatterDetailTab==='documents'){
     loadMatterDetailDocs(activeMatterDetailId);
   }
+}
+let _portalSignatureRefreshTimer=null;
+let _portalSignatureRefreshBusy=false;
+function stopPortalSignatureRefresh(){
+  if(_portalSignatureRefreshTimer){
+    clearInterval(_portalSignatureRefreshTimer);
+    _portalSignatureRefreshTimer=null;
+  }
+}
+function startPortalSignatureRefresh(){
+  stopPortalSignatureRefresh();
+  _portalSignatureRefreshTimer=setInterval(async()=>{
+    if(_portalSignatureRefreshBusy||!currentUser)return;
+    const documentsActive=document.getElementById('pview-documents')?.classList.contains('active');
+    const matterDocsActive=activeMatterDetailId&&document.getElementById('pview-matter-detail')?.classList.contains('active')&&activeMatterDetailTab==='documents';
+    if(!documentsActive&&!matterDocsActive)return;
+    _portalSignatureRefreshBusy=true;
+    try{
+      await Promise.all([loadMySignatureRequests(),loadMyUploads()]);
+      refreshSignatureViews();
+    }catch(_e){}finally{
+      _portalSignatureRefreshBusy=false;
+    }
+  },10000);
 }
 function renderSignatureInbox(requests,matterId=''){
   const rows=(requests||[]).filter(r=>!matterId||r.matter_id===matterId);
@@ -3521,10 +3641,10 @@ submitSignatureRequest=async function(requestId,overlay){
       certificate_path:certificatePath,
       user_agent:navigator.userAgent||''
     });
-    let releasedEmailLinks=0;
+    let releasedSignerNotifications=0;
     try{
-      releasedEmailLinks=await releaseNextEmailLinkSigner(req,req.signers);
-      if(releasedEmailLinks){
+      releasedSignerNotifications=await notifyNextPendingSigner(req,req.signers);
+      if(releasedSignerNotifications){
         req.updated_at=new Date().toISOString();
       }
     }catch(releaseErr){
@@ -3943,6 +4063,8 @@ function switchMatterDetailTab(tab, el){
   document.querySelectorAll('.matter-detail-panel').forEach(p=>p.classList.remove('active'));
   if(el) el.classList.add('active');
   document.getElementById('mdp-'+tab).classList.add('active');
+  if(tab==='documents')startPortalSignatureRefresh();
+  else if(!document.getElementById('pview-documents')?.classList.contains('active'))stopPortalSignatureRefresh();
   if(tab==='updates') loadMatterDetailUpdates(activeMatterDetailId);
   if(tab==='documents') loadMatterDetailDocs(activeMatterDetailId);
   if(tab==='events') renderMatterDetailEvents(activeMatterDetailId);
@@ -4097,73 +4219,47 @@ function setPortalDocView(v){
 
 function renderDocuments(){
   const c=document.getElementById('documents-container');
-  if(!clientRecord){c.innerHTML=empty('Docs','Account not linked','Contact the firm to link your portal account.');return;}
+  if(!clientRecord){c.innerHTML=empty('Sign','Account not linked','Contact the firm to link your portal account.');return;}
   syncPortalDocumentToolbar();
-
-  const totalFirm=sharedDocs.length;
-  const totalMine=myUploads.length;
-  const total=totalFirm+totalMine;
-  const pendingMarkup=renderSignatureInbox(mySignatureRequests);
-
-  if(!total&&!pendingMarkup){
-    c.innerHTML=`<div class="pcard">${empty('Docs','No documents yet','Documents shared by the firm and files you upload will both appear here.')}</div>`;return;
+  const requests=dedupePortalSignatureRequests(mySignatureRequests||[]);
+  if(!requests.length){
+    c.innerHTML=`<div class="pcard">${empty('Sign','No signature requests yet','When the firm sends a document for signature, it will appear here. Matter-specific uploads stay inside each matter under Documents.')}</div>`;
+    return;
   }
-
-  // Tab bar
-  const tabs=[
-    {id:'general',label:'All Documents',count:total},
-    {id:'matter',label:'By Matter',count:null},
-  ];
-  const tabHtml=`<div style="display:flex;gap:0;background:#fff;border-radius:10px;border:0.5px solid var(--brd);overflow:hidden;margin-bottom:18px">
-    ${tabs.map(t=>`<div onclick="switchDocsTab('${t.id}')" id="dtab-${t.id}" style="padding:10px 20px;font-size:12px;font-weight:500;cursor:pointer;border-right:1px solid var(--brd);white-space:nowrap;transition:all 0.12s;${_docsActiveTab===t.id?'background:var(--navy);color:#fff':'color:var(--txt3)'}">${t.label}${t.count!==null?` <span style="background:${_docsActiveTab===t.id?'rgba(255,255,255,0.2)':'var(--cream2)'};color:${_docsActiveTab===t.id?'#fff':'var(--txt2)'};font-size:10px;padding:1px 6px;border-radius:8px;margin-left:5px">${t.count}</span>`:''}</div>`).join('')}
-  </div>`;
-
-  const isGrid=_portalDocView==='grid';
-  let panelHtml='';
-
-  if(_docsActiveTab==='general'){
-    const allFiles=[
-      ...sharedDocs.map(f=>({f,source:'firm'})),
-      ...myUploads.map(f=>({f,source:'client'})),
-    ];
-    if(isGrid){
-      panelHtml=`<div class="pcard"><div class="doc-cards-grid">${allFiles.map(({f,source})=>docCardGeneral(f,source)).join('')}</div></div>`;
-    } else {
-      panelHtml=`<div class="pcard">${allFiles.map(({f,source})=>docRowGeneral(f,source)).join('')}</div>`;
-    }
-  } else {
-    const byMatter={};
-    sharedDocs.forEach(f=>{
-      const key=f.matterId||'general';
-      if(!byMatter[key])byMatter[key]={title:f.matterTitle||'General',firm:[],client:[]};
-      byMatter[key].firm.push(f);
-    });
-    myUploads.forEach(f=>{
-      const mid=f._matterId||'general';
-      const matter=myMatters.find(m=>m.id===mid);
-      const key=mid;
-      if(!byMatter[key])byMatter[key]={title:matter?matter.title:'General / No Matter',firm:[],client:[]};
-      byMatter[key].client.push(f);
-    });
-    const sorted=Object.entries(byMatter).sort(([a],[b])=>a==='general'?1:b==='general'?-1:0);
-    panelHtml=sorted.map(([key,grp])=>{
-      const total=grp.firm.length+grp.client.length;
-      const firmRows=grp.firm.map(f=>isGrid?docCardGeneral(f,'firm'):docRowGeneral(f,'firm'));
-      const clientRows=grp.client.map(f=>isGrid?docCardGeneral(f,'client'):docRowGeneral(f,'client'));
-      const inner=isGrid
-        ?`<div class="doc-cards-grid">${[...firmRows,...clientRows].join('')}</div>`
-        :[...firmRows,...clientRows].join('');
-      return`<div class="pcard" style="margin-bottom:14px">
-        <div class="pcard-header">
-          <div><div class="pcard-title">${esc(grp.title)}</div><div class="pcard-sub">${grp.firm.length} from firm - ${grp.client.length} uploaded by you</div></div>
-          <span style="font-size:11px;color:var(--txt3)">${total} file${total!==1?'s':''}</span>
-        </div>
-        ${inner}
-      </div>`;
-    }).join('');
+  const grouped={
+    active:requests.filter(r=>!['signed','declined','cancelled'].includes(deriveSignatureRequestStatus(getRequestSigners(r)))),
+    completed:requests.filter(r=>deriveSignatureRequestStatus(getRequestSigners(r))==='signed'),
+    closed:requests.filter(r=>['declined','cancelled'].includes(deriveSignatureRequestStatus(getRequestSigners(r))))
+  };
+  function renderRequestSection(title,sub,rows){
+    if(!rows.length)return '';
+    return `<div class="pcard" style="margin-bottom:14px">
+      <div class="pcard-header">
+        <div><div class="pcard-title">${title}</div><div class="pcard-sub">${sub}</div></div>
+        <span style="font-size:11px;color:var(--txt3)">${rows.length} request${rows.length!==1?'s':''}</span>
+      </div>
+      ${rows.map(req=>{
+        const status=deriveSignatureRequestStatus(getRequestSigners(req));
+        const nextSigner=getNextPendingSignatureSigner(req);
+        const nextText=nextSigner?`${nextSigner.name||nextSigner.email||'Signer'}${nextSigner.order?` - Step ${nextSigner.order}`:''}`:'Complete';
+        return `<div style="padding:16px 20px;border-top:1px solid var(--brd);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center">
+          <div style="min-width:0">
+            <div style="font-size:14px;font-weight:700;color:var(--txt);overflow-wrap:anywhere">${esc(req.document_name||'Document')}</div>
+            <div style="font-size:11px;color:var(--txt3);margin-top:4px;line-height:1.7">${esc(req.request_title||'Signature Request')} · ${esc(req.matter_title||'Matter')}</div>
+            <div style="font-size:11px;color:var(--txt3);margin-top:4px;line-height:1.7">Next: ${esc(nextText)}${req.signing_order_enabled?' · Ordered':' · Parallel'}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end">
+            ${signaturePill(status)}
+            <button class="pbtn" style="padding:7px 12px;font-size:12px" onclick="openSignatureCertificateById('${req.id}')">Record</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
   }
-
-  c.innerHTML=(pendingMarkup||'')+tabHtml+panelHtml;
+  c.innerHTML=
+    renderRequestSection('Awaiting action','Signature requests that still need attention.',grouped.active)+
+    renderRequestSection('Completed','Documents that are fully signed.',grouped.completed)+
+    renderRequestSection('Declined / Cancelled','Requests that were closed without full signing.',grouped.closed);
 }
 
 function docCardGeneral(f, source){
