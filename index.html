@@ -1523,19 +1523,29 @@ function getRequestSigners(req){
 function getPortalSignerState(req){
   const signers=getRequestSigners(req);
   const realEmail=((clientRecord?.email||currentUser?.email||'').replace('+portal@','@')).trim().toLowerCase();
-  const signer=signers.find(s=>s.delivery==='portal'&&(
+  const matches=signers.filter(s=>s.delivery==='portal'&&(
     (s.client_id&&clientRecord&&String(s.client_id)===String(clientRecord.id))||
     (s.email&&s.email.trim().toLowerCase()===realEmail)
-  ))||null;
-  if(!signer)return{signer:null,signers,canSign:false,reason:'not_assigned'};
-  if(signer.status==='signed')return{signer,signers,canSign:false,reason:'signed'};
-  if(signer.status==='declined')return{signer,signers,canSign:false,reason:'declined'};
-  if(req?.status==='cancelled'||signer.status==='cancelled')return{signer,signers,canSign:false,reason:'cancelled'};
-  if(req?.signing_order_enabled){
-    const blocked=signers.some(s=>(s.order||0)<(signer.order||0)&&s.status!=='signed');
-    if(blocked)return{signer,signers,canSign:false,reason:'waiting_turn'};
+  ));
+  if(!matches.length)return{signer:null,signers,canSign:false,reason:'not_assigned'};
+  function signerStateFor(signer){
+    if(normalizeSignatureStatus(signer.status)==='signed')return{signer,signers,canSign:false,reason:'signed'};
+    if(normalizeSignatureStatus(signer.status)==='declined')return{signer,signers,canSign:false,reason:'declined'};
+    if(req?.status==='cancelled'||normalizeSignatureStatus(signer.status)==='cancelled')return{signer,signers,canSign:false,reason:'cancelled'};
+    if(req?.signing_order_enabled){
+      const blocked=signers.some(prev=>(prev.order||0)<(signer.order||0)&&normalizeSignatureStatus(prev.status||'')!=='signed');
+      if(blocked)return{signer,signers,canSign:false,reason:'waiting_turn'};
+    }
+    return{signer,signers,canSign:true,reason:'ready'};
   }
-  return{signer,signers,canSign:true,reason:'ready'};
+  const prioritized=[
+    ...matches.filter(s=>signerStateFor(s).canSign),
+    ...matches.filter(s=>signerStateFor(s).reason==='waiting_turn'),
+    ...matches.filter(s=>signerStateFor(s).reason==='signed'),
+    ...matches.filter(s=>signerStateFor(s).reason==='declined'),
+    ...matches.filter(s=>signerStateFor(s).reason==='cancelled')
+  ];
+  return signerStateFor(prioritized[0]||matches[0]);
 }
 function shouldShowPortalSignatureRequest(req){
   const state=getPortalSignerState(req);
