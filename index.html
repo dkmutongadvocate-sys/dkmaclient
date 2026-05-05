@@ -2203,6 +2203,7 @@ async function notifyNextPendingSigner(req,signers){
       });
       const data=await res.json().catch(()=>({}));
       if(!(res.ok&&!data?.error))throw new Error(data?.error||'Could not release the next signer email link.');
+      if(!data?.signUrl)throw new Error('The live send-document function did not return a signing link. Redeploy the updated edge function and resend the next signer.');
       signer.link_sent_at=new Date().toISOString();
       sent++;
     }
@@ -3674,7 +3675,7 @@ submitSignatureRequest=async function(requestId,overlay){
       }
     }catch(releaseErr){
       console.warn('[DKMA Portal] next signer release failed',releaseErr.message);
-      releaseWarning=' The next signer was not notified automatically yet.';
+      releaseWarning=' '+(releaseErr?.message||'The next signer was not notified automatically yet.');
     }
     await writeSignatureResponse(req,{
       request_id:req.id,
