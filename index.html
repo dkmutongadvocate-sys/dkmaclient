@@ -2218,11 +2218,25 @@ async function syncSignatureRequestMirrors(req){
 function signatureResponsePath(req){
   return `${req.matter_id}/${SIGNATURE_RESPONSE_PREFIX}${req.id}.json`;
 }
+function getSignatureResponseMirrorPaths(req){
+  const paths=new Set();
+  if(req?.matter_id&&req?.id){
+    paths.add(signatureResponsePath(req));
+  }
+  (Array.isArray(req?.signers)?req.signers:[]).forEach(signer=>{
+    if((signer?.delivery||'portal')!=='portal')return;
+    const clientId=String(signer?.client_id||'').trim();
+    if(!clientId||!req?.matter_id||!req?.id)return;
+    paths.add(`client-general/${clientId}/${SIGNATURE_RESPONSE_PREFIX}${req.matter_id}__${req.id}.json`);
+  });
+  return [...paths];
+}
 async function writeSignatureResponse(req,payload){
-  const path=req._response_path||signatureResponsePath(req);
-  await writeSignatureJson(path,payload);
-  req._response_path=path;
-  return path;
+  const primaryPath=req._response_path||signatureResponsePath(req);
+  const paths=new Set([primaryPath,...getSignatureResponseMirrorPaths(req)]);
+  await Promise.all([...paths].map(path=>writeSignatureJson(path,payload)));
+  req._response_path=primaryPath;
+  return primaryPath;
 }
 async function hydrateLatestSignatureRequest(req){
   if(!req||!req.id||!req.matter_id)return req;
