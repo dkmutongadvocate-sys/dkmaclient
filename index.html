@@ -3020,8 +3020,16 @@ function renderPublicSignLoading(message='Loading signing link...'){
 function openPublicSignDocument(){
   if(publicSignSession?.document_url)window.open(publicSignSession.document_url,'_blank','noopener');
 }
-function openPublicSignRecord(){
-  if(publicSignSession?.certificate_url)window.open(publicSignSession.certificate_url,'_blank','noopener');
+async function openPublicSignRecord(){
+  try{
+    if(!publicSignSession?.certificate_url)throw new Error('Signed record not available yet.');
+    await openHtmlRecordUrl(
+      publicSignSession.certificate_url,
+      `${publicSignSession?.request?.request_title||publicSignSession?.request?.document_name||'Signed Record'} - Signed Record`
+    );
+  }catch(e){
+    portalToast('Could not open the signed record: '+(e.message||e),true);
+  }
 }
 function buildPortalSignedPdfPreviewHtml(req,originalUrl,fields,signatureMap){
   const payload={
@@ -3358,6 +3366,17 @@ function createHtmlBlobUrl(html){
   setTimeout(()=>URL.revokeObjectURL(blobUrl),300000);
   return blobUrl;
 }
+async function openHtmlRecordUrl(recordUrl,title='Signed Record'){
+  if(!recordUrl)throw new Error('Record URL not available.');
+  const resp=await fetch(recordUrl,{cache:'no-store'});
+  if(!resp.ok)throw new Error('Could not load the saved record.');
+  const html=await resp.text();
+  const blobUrl=createHtmlBlobUrl(html);
+  const win=window.open(blobUrl,'_blank','noopener');
+  if(!win)throw new Error('Popup blocked. Please allow popups for signed records.');
+  try{win.document.title=title;}catch(_e){}
+  return win;
+}
 async function submitPublicSignatureLink(){
   const shell=document.getElementById('public-sign-root');
   if(!shell||!publicSignSession)return;
@@ -3628,9 +3647,13 @@ async function openSignatureCertificate(req){
     }
   });
   overlay.querySelector('#sig-record-open-html')?.addEventListener('click',async()=>{
-    const {data,error}=await sb.storage.from(FIRM_BUCKET).createSignedUrl(req.certificate_path,300);
-    if(error||!data?.signedUrl){portalToast('Could not open the saved record.',true);return;}
-    window.open(data.signedUrl,'_blank','noopener');
+    try{
+      const {data,error}=await sb.storage.from(FIRM_BUCKET).createSignedUrl(req.certificate_path,300);
+      if(error||!data?.signedUrl)throw error||new Error('Could not open the saved record.');
+      await openHtmlRecordUrl(data.signedUrl,`${req.document_name||'Signed Record'} - Signed Record`);
+    }catch(e){
+      portalToast('Could not open the saved record: '+(e.message||e),true);
+    }
   });
   overlay.querySelector('#sig-record-download-html')?.addEventListener('click',async()=>{
     const base=(req.document_name||'signed-record').replace(/\.[^.]+$/,'').replace(/[\\/:*?"<>|]+/g,' ').trim()||'signed-record';
