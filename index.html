@@ -3022,6 +3022,11 @@ function openPublicSignDocument(){
 }
 async function openPublicSignRecord(){
   try{
+    const req=publicSignSession?.request||null;
+    if(req&&(req.document_path||req.certificate_path)){
+      await openSignatureCertificate(req);
+      return;
+    }
     if(!publicSignSession?.certificate_url)throw new Error('Signed record not available yet.');
     await openHtmlRecordUrl(
       publicSignSession.certificate_url,
