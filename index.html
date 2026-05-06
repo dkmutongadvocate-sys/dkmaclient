@@ -1251,6 +1251,7 @@ let firmContact={};          // firm settings from firm_settings table
 const SIGNATURE_REQUESTS_PREFIX='client__signature_request__';
 const SIGNATURE_RESPONSE_PREFIX='client__signature_response__';
 const SIGNATURE_ARTIFACTS_PREFIX='client__signature_artifact__';
+const SIGNATURE_INDEX_PREFIX='client__signature_index__';
 const SIGNATURE_TEMPLATE_PREFIX='client__signature_template__';
 let publicSignToken='';
 let publicSignSession=null;
@@ -1537,7 +1538,7 @@ function openSignatureCertificateById(requestId){
   openSignatureCertificate(req);
 }
 function isSignatureSystemFile(name){
-  return !!name&&(name.startsWith(SIGNATURE_REQUESTS_PREFIX)||name.startsWith(SIGNATURE_RESPONSE_PREFIX)||name.startsWith(SIGNATURE_ARTIFACTS_PREFIX)||name.startsWith(SIGNATURE_TEMPLATE_PREFIX));
+  return !!name&&(name.startsWith(SIGNATURE_REQUESTS_PREFIX)||name.startsWith(SIGNATURE_RESPONSE_PREFIX)||name.startsWith(SIGNATURE_ARTIFACTS_PREFIX)||name.startsWith(SIGNATURE_INDEX_PREFIX)||name.startsWith(SIGNATURE_TEMPLATE_PREFIX));
 }
 function defaultSignatureFields(){
   return[];
@@ -2196,6 +2197,30 @@ function getSignatureRequestMirrorPaths(req){
   if(masterPath)paths.add(masterPath);
   return [...paths];
 }
+function getSignatureIndexPaths(req){
+  const paths=new Map();
+  (Array.isArray(req?.signers)?req.signers:[]).forEach(signer=>{
+    if((signer?.delivery||'portal')!=='portal')return;
+    const clientId=String(signer?.client_id||'').trim();
+    if(!clientId||!req?.matter_id||!req?.id)return;
+    paths.set(`client-general/${clientId}/${SIGNATURE_INDEX_PREFIX}${req.id}.json`,signer);
+  });
+  return [...paths.entries()].map(([path,signer])=>({path,signer}));
+}
+async function syncSignaturePortalIndexes(req){
+  const masterPath=getSignatureRequestMasterPath(req);
+  const responsePath=signatureResponsePath(req);
+  const writes=getSignatureIndexPaths(req).map(({path,signer})=>writeSignatureJson(path,{
+    request_id:req.id,
+    matter_id:req.matter_id,
+    client_id:signer?.client_id||null,
+    signer_id:signer?.id||'',
+    request_path:masterPath,
+    response_path:responsePath,
+    updated_at:req.updated_at||req.signed_at||req.sent_at||req.created_at||new Date().toISOString()
+  }));
+  if(writes.length)await Promise.all(writes);
+}
 async function syncSignatureRequestMirrors(req){
   const masterPath=getSignatureRequestMasterPath(req);
   const payload=stripSignatureRequestTransientFields({
@@ -2206,6 +2231,7 @@ async function syncSignatureRequestMirrors(req){
   const writeTargets=paths.length?paths:(masterPath?[masterPath]:[]);
   if(!writeTargets.length)return [];
   await Promise.all(writeTargets.map(path=>writeSignatureJson(path,payload)));
+  await syncSignaturePortalIndexes(payload);
   req.master_request_path=payload.master_request_path||'';
   req._storage_path=req._storage_path||writeTargets[0];
   return writeTargets;
@@ -2383,6 +2409,25 @@ async function loadMySignatureRequests(){
   if(!clientRecord){mySignatureRequests=[];return;}
   const requestById={};
   const responseByRequestId={};
+  const indexByRequestId={};
+  const inboxFolder=`client-general/${clientRecord.id}`;
+  try{
+    const {data:indexData,error:indexErr}=await sb.storage.from(FIRM_BUCKET).list(inboxFolder,{limit:200,sortBy:{column:'created_at',order:'desc'}});
+    if(!indexErr&&indexData){
+      await Promise.all(indexData
+        .filter(f=>f.name&&f.name.endsWith('.json')&&f.name.startsWith(SIGNATURE_INDEX_PREFIX))
+        .map(async f=>{
+          try{
+            const rec=await readSignatureJson(`${inboxFolder}/${f.name}`);
+            if(rec?.request_id&&rec?.request_path){
+              indexByRequestId[rec.request_id]={...rec,_index_path:`${inboxFolder}/${f.name}`};
+            }
+          }catch(e){
+            console.warn('[DKMA Portal] signature inbox index',f.name,e.message);
+          }
+        }));
+    }
+  }catch(_e){}
   const matterIds=[...new Set((myMatters||[]).map(m=>m?.id).filter(Boolean))];
   await Promise.all(matterIds.map(async matterId=>{
     try{
@@ -2405,6 +2450,26 @@ async function loadMySignatureRequests(){
           }
         }));
     }catch(_e){}
+  }));
+  await Promise.all(Object.values(indexByRequestId).map(async rec=>{
+    try{
+      const masterRec=await readSignatureJson(rec.request_path);
+      if(masterRec?.id===rec.request_id){
+        masterRec._storage_path=rec.request_path;
+        keepLatestSignatureRecord(requestById,masterRec.id,{...masterRec});
+      }
+      if(rec.response_path){
+        try{
+          const responseRec=await readSignatureJson(rec.response_path);
+          if(responseRec?.request_id){
+            responseRec._response_path=rec.response_path;
+            keepLatestSignatureRecord(responseByRequestId,responseRec.request_id,{...responseRec});
+          }
+        }catch(_e){}
+      }
+    }catch(e){
+      console.warn('[DKMA Portal] signature inbox request',rec.request_path,e.message);
+    }
   }));
   await Promise.all(Object.values(requestById).map(async rec=>{
     const masterPath=rec.master_request_path||getSignatureRequestMasterPath(rec);
