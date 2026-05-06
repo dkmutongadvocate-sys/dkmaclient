@@ -3650,7 +3650,7 @@ async function openSignatureCertificate(req,options={}){
         <div class="sig-record-meta">
           <div style="color:var(--txt3);font-weight:600">Document</div><div style="min-width:0;overflow-wrap:anywhere">${esc(req.document_name||'Document')}</div>
           <div style="color:var(--txt3);font-weight:600">Matter</div><div style="min-width:0;overflow-wrap:anywhere">${esc(matter?.title||req.matter_title||'-')}</div>
-          <div style="color:var(--txt3);font-weight:600">Sent</div><div>${esc(fmtAuditDateTime(req.sent_at||req.created_at,req.signed_timezone||''))}</div>
+          <div style="color:var(--txt3);font-weight:600">Sent</div><div>${esc(fmtAuditDateTime(req.sent_at||req.created_at,req.sent_timezone||''))}</div>
           <div style="color:var(--txt3);font-weight:600">Finalized</div><div>${esc(fmtAuditDateTime(req.signed_at||'',req.signed_timezone||''))}</div>
           <div style="color:var(--txt3);font-weight:600">Signing Order</div><div>${req.signing_order_enabled===false?'Parallel':'Ordered'}</div>
           <div style="color:var(--txt3);font-weight:600">Current Step</div><div style="min-width:0;overflow-wrap:anywhere">${nextSigner?`Step ${nextSigner.order||1} - ${esc(nextSigner.name||nextSigner.email||'Pending signer')}`:'All signers complete'}</div>
@@ -3803,7 +3803,7 @@ function buildSignatureCertificateHtml(req,typedName,signatureDataUrl){
       <div class="grid">
         <div class="label">Document</div><div class="value">${esc(req.document_name||'Document')}</div>
         <div class="label">Matter</div><div class="value">${esc(matter?.title||req.matter_title||'Matter')}</div>
-        <div class="label">Sent</div><div class="value">${esc(fmtAuditDateTime(req.sent_at||req.created_at,req.signed_timezone||''))}</div>
+        <div class="label">Sent</div><div class="value">${esc(fmtAuditDateTime(req.sent_at||req.created_at,req.sent_timezone||''))}</div>
         <div class="label">Finalized</div><div class="value">${esc(fmtAuditDateTime(req.signed_at,req.signed_timezone||''))}</div>
         <div class="label">Signing Order</div><div class="value">${req.signing_order_enabled===false?'Parallel':'Ordered'}</div>
         <div class="label">Current Step</div><div class="value">${nextSigner?`Step ${nextSigner.order||1} - ${esc(nextSigner.name||nextSigner.email||'Pending signer')}`:'All signers complete'}</div>
