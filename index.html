@@ -1440,7 +1440,9 @@ function keepLatestSignatureRecord(map, requestId, record){
   if(!requestId||!record)return;
   const normalized=normalizeLoadedSignatureRequest(record);
   const prev=map[requestId];
-  if(!prev||signatureStateValue(normalized)>=signatureStateValue(prev))map[requestId]=normalized;
+  map[requestId]=prev
+    ? normalizeLoadedSignatureRequest(mergeSignatureRequestRecords(prev,normalized))
+    : normalized;
 }
 function docBadge(kind,cls){
   return `<span class="doc-list-icon ${cls}">${portalIcon(kind)}</span>`;
@@ -2246,24 +2248,24 @@ async function hydrateLatestSignatureRequest(req){
   try{
     const response=await readSignatureJson(responsePath);
     if(response&&response.request_id===req.id){
-      const merged=normalizeLoadedSignatureRequest(mergeSignatureRequestRecords({
+      latest=normalizeLoadedSignatureRequest(mergeSignatureRequestRecords(latest,{
         ...req,
         _storage_path:req._storage_path,
         _response_path:responsePath
-      },{...response,_response_path:responsePath}));
-      if(signatureStateValue(merged)>=signatureStateValue(latest))latest=merged;
+      }));
+      latest=normalizeLoadedSignatureRequest(mergeSignatureRequestRecords(latest,{...response,_response_path:responsePath}));
     }
   }catch(_e){}
   if(masterPath&&masterPath!==req._storage_path){
     try{
       const masterReq=await readSignatureJson(masterPath);
       if(masterReq&&masterReq.id===req.id){
-        const mergedMaster=normalizeLoadedSignatureRequest(mergeSignatureRequestRecords({
-          ...req,
+        latest=normalizeLoadedSignatureRequest(mergeSignatureRequestRecords(latest,{
+          ...latest,
           _storage_path:masterPath,
           _response_path:latest?._response_path||req._response_path||responsePath
-        },{...masterReq,_storage_path:masterPath}));
-        if(signatureStateValue(mergedMaster)>=signatureStateValue(latest))latest=mergedMaster;
+        }));
+        latest=normalizeLoadedSignatureRequest(mergeSignatureRequestRecords(latest,{...masterReq,_storage_path:masterPath}));
       }
     }catch(_e){}
   }
