@@ -3020,13 +3020,22 @@ function renderPublicSignLoading(message='Loading signing link...'){
 function openPublicSignDocument(){
   if(publicSignSession?.document_url)openUrlInNewTab(publicSignSession.document_url);
 }
+function downloadPublicSignedPdf(){
+  if(publicSignSession?.signed_pdf_url)openUrlInNewTab(publicSignSession.signed_pdf_url);
+  else portalToast('Signed PDF is not available yet.',true);
+}
+function downloadPublicAuditPdf(){
+  if(publicSignSession?.audit_pdf_url)openUrlInNewTab(publicSignSession.audit_pdf_url);
+  else portalToast('Audit PDF is not available yet.',true);
+}
 async function openPublicSignRecord(){
   try{
     const req=publicSignSession?.request||null;
     if(req){
       await openSignatureCertificate(req,{
         documentUrl:publicSignSession?.document_url||'',
-        recordUrl:publicSignSession?.certificate_url||''
+        recordUrl:publicSignSession?.certificate_url||'',
+        signedPreviewUrl:publicSignSession?.signed_pdf_url||null
       });
       return;
     }
@@ -3428,6 +3437,10 @@ async function submitPublicSignatureLink(){
     publicSignSession.request.status=result.status||'signed';
     publicSignSession.request.signed_at=result.signed_at||publicSignSession.request.signed_at||null;
     publicSignSession.certificate_url=result.certificate_url||publicSignSession.certificate_url||null;
+    publicSignSession.signed_pdf_url=result.signed_pdf_url||publicSignSession.signed_pdf_url||null;
+    publicSignSession.audit_pdf_url=result.audit_pdf_url||publicSignSession.audit_pdf_url||null;
+    publicSignSession.request.signed_pdf_path=result.signed_pdf_path||publicSignSession.request.signed_pdf_path||'';
+    publicSignSession.request.audit_pdf_path=result.audit_pdf_path||publicSignSession.request.audit_pdf_path||'';
     renderPublicSignatureLink();
     const remainingSigners=(publicSignSession.request.signers||[]).filter(s=>!isSignatureSignerClosed(s));
     const releaseMsg=result?.released_next_signer
@@ -3503,6 +3516,8 @@ function renderPublicSignatureLink(){
           <div class="public-sign-actions" style="margin-top:14px">
             <button class="pbtn view" type="button" id="public-open-doc">View document</button>
             ${publicSignSession.certificate_url?'<button class="pbtn" type="button" id="public-open-record">Open signed record</button>':''}
+            ${publicSignSession.signed_pdf_url?'<button class="pbtn" type="button" id="public-download-signed-pdf">Download signed PDF</button>':''}
+            ${publicSignSession.audit_pdf_url?'<button class="pbtn" type="button" id="public-download-audit-pdf">Download audit PDF</button>':''}
           </div>
           <div id="public-sign-preview" style="margin-top:16px"></div>
         </div>
@@ -3559,6 +3574,8 @@ function renderPublicSignatureLink(){
   </div>`;
   root.querySelector('#public-open-doc')?.addEventListener('click',openPublicSignDocument);
   root.querySelector('#public-open-record')?.addEventListener('click',openPublicSignRecord);
+  root.querySelector('#public-download-signed-pdf')?.addEventListener('click',downloadPublicSignedPdf);
+  root.querySelector('#public-download-audit-pdf')?.addEventListener('click',downloadPublicAuditPdf);
   const previewMount=root.querySelector('#public-sign-preview');
   renderSignatureDocPreviewFromUrl(req,publicSignSession.document_url,previewMount,signer.signed_name||signer.name||'','',signer.id||'');
   if(canSign){
