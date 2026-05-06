@@ -1340,6 +1340,11 @@ function normalizeSignatureStatus(status){
   if(value==='ready')return'sent';
   return value||'sent';
 }
+function signatureAuditTimeValue(signer){
+  const raw=signer?.updated_at||signer?.signed_at||signer?.declined_at||signer?.opened_at||signer?.sent_at||0;
+  const t=new Date(raw).getTime();
+  return isNaN(t)?0:t;
+}
 function isSignatureSignerSigned(signer){
   const status=normalizeSignatureStatus(signer?.status||'');
   return status==='signed'||!!signer?.signed_at||!!signer?.signature_path;
@@ -1347,6 +1352,63 @@ function isSignatureSignerSigned(signer){
 function isSignatureSignerClosed(signer){
   const status=normalizeSignatureStatus(signer?.status||'');
   return isSignatureSignerSigned(signer)||status==='declined'||status==='cancelled';
+}
+function mergeSignatureSignerRecords(a={},b={}){
+  const aSigned=isSignatureSignerSigned(a);
+  const bSigned=isSignatureSignerSigned(b);
+  const aStatus=normalizeSignatureStatus(a?.status||'sent');
+  const bStatus=normalizeSignatureStatus(b?.status||'sent');
+  const winner=signatureAuditTimeValue(b)>=signatureAuditTimeValue(a)?b:a;
+  const other=winner===a?b:a;
+  const merged={...a,...b};
+  merged.id=winner.id||other.id||'';
+  merged.name=winner.name||other.name||'';
+  merged.email=winner.email||other.email||'';
+  merged.delivery=winner.delivery||other.delivery||'portal';
+  merged.order=Math.max(1,Number(winner.order||other.order)||1);
+  merged.role=winner.role||other.role||'Signer';
+  merged.client_id=winner.client_id||other.client_id||null;
+  merged.party_id=winner.party_id||other.party_id||null;
+  merged.signed_at=b.signed_at||a.signed_at||null;
+  merged.signed_name=b.signed_name||a.signed_name||winner.name||other.name||'';
+  merged.signature_path=b.signature_path||a.signature_path||'';
+  merged.link_sent_at=b.link_sent_at||a.link_sent_at||null;
+  merged.portal_notice_sent_at=b.portal_notice_sent_at||a.portal_notice_sent_at||null;
+  merged.decline_reason=b.decline_reason||a.decline_reason||'';
+  merged.declined_at=b.declined_at||a.declined_at||null;
+  merged.declined_timezone=b.declined_timezone||a.declined_timezone||'';
+  merged.declined_ip=b.declined_ip||a.declined_ip||'';
+  merged.declined_via=b.declined_via||a.declined_via||'';
+  merged.signed_location=b.signed_location||a.signed_location||'';
+  if(bSigned||aSigned)merged.status='signed';
+  else if(aStatus==='declined'||bStatus==='declined')merged.status='declined';
+  else if(aStatus==='cancelled'||bStatus==='cancelled')merged.status='cancelled';
+  else if(aStatus==='opened'||bStatus==='opened')merged.status='opened';
+  else merged.status=normalizeSignatureStatus(winner.status||other.status||'sent');
+  return merged;
+}
+function mergeSignatureRequestRecords(baseRecord, incomingRecord){
+  const base=baseRecord&&typeof baseRecord==='object'?baseRecord:{};
+  const incoming=incomingRecord&&typeof incomingRecord==='object'?incomingRecord:{};
+  const merged={...base,...incoming};
+  const signerMap={};
+  [...(Array.isArray(base.signers)?base.signers:[]),...(Array.isArray(incoming.signers)?incoming.signers:[])].forEach((signer,idx)=>{
+    const key=signer?.id||`${merged.id||'sig'}__${signer?.order||idx+1}`;
+    signerMap[key]=signerMap[key]?mergeSignatureSignerRecords(signerMap[key],signer):{...signer};
+  });
+  merged.signers=Object.values(signerMap).sort((a,b)=>(a.order||0)-(b.order||0));
+  if(merged.signers.length){
+    merged.status=deriveSignatureRequestStatus(merged.signers);
+    const signedTimes=merged.signers.map(s=>s?.signed_at).filter(Boolean).map(v=>new Date(v).getTime()).filter(v=>!isNaN(v));
+    if(signedTimes.length){
+      const latestSigner=[...merged.signers].filter(s=>s?.signed_at).sort((a,b)=>new Date(b.signed_at).getTime()-new Date(a.signed_at).getTime())[0];
+      merged.updated_at=merged.updated_at||new Date(Math.max(...signedTimes)).toISOString();
+      if(merged.status==='signed')merged.signed_at=merged.signed_at||new Date(Math.max(...signedTimes)).toISOString();
+      if(!merged.signature_path&&latestSigner?.signature_path)merged.signature_path=latestSigner.signature_path;
+      if(!merged.signed_name&&(latestSigner?.signed_name||latestSigner?.name))merged.signed_name=latestSigner.signed_name||latestSigner.name;
+    }
+  }
+  return merged;
 }
 function normalizeLoadedSignatureRequest(req){
   if(!req||typeof req!=='object')return req;
@@ -2170,12 +2232,11 @@ async function hydrateLatestSignatureRequest(req){
   try{
     const response=await readSignatureJson(responsePath);
     if(response&&response.request_id===req.id){
-      const merged=normalizeLoadedSignatureRequest({
+      const merged=normalizeLoadedSignatureRequest(mergeSignatureRequestRecords({
         ...req,
-        ...response,
         _storage_path:req._storage_path,
         _response_path:responsePath
-      });
+      },{...response,_response_path:responsePath}));
       if(signatureStateValue(merged)>=signatureStateValue(latest))latest=merged;
     }
   }catch(_e){}
@@ -2183,12 +2244,11 @@ async function hydrateLatestSignatureRequest(req){
     try{
       const masterReq=await readSignatureJson(masterPath);
       if(masterReq&&masterReq.id===req.id){
-        const mergedMaster=normalizeLoadedSignatureRequest({
+        const mergedMaster=normalizeLoadedSignatureRequest(mergeSignatureRequestRecords({
           ...req,
-          ...masterReq,
           _storage_path:masterPath,
           _response_path:latest?._response_path||req._response_path||responsePath
-        });
+        },{...masterReq,_storage_path:masterPath}));
         if(signatureStateValue(mergedMaster)>=signatureStateValue(latest))latest=mergedMaster;
       }
     }catch(_e){}
@@ -2373,8 +2433,11 @@ async function loadMySignatureRequests(){
   }));
   const rows=Object.values(requestById).map(rec=>{
     const response=responseByRequestId[rec.id];
-    if(response&&signatureStateValue(response)>=signatureStateValue(rec)){
-      return normalizeLoadedSignatureRequest({...rec,...response,_storage_path:rec._storage_path,_response_path:response._response_path});
+    if(response){
+      return normalizeLoadedSignatureRequest(mergeSignatureRequestRecords(
+        {...rec,_storage_path:rec._storage_path,_response_path:response._response_path||rec._response_path},
+        {...response,_response_path:response._response_path}
+      ));
     }
     return normalizeLoadedSignatureRequest({...rec,_response_path:response?._response_path||rec._response_path});
   }).sort((a,b)=>signatureSortValue(b)-signatureSortValue(a));
