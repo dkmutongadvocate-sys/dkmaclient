@@ -1340,6 +1340,14 @@ function normalizeSignatureStatus(status){
   if(value==='ready')return'sent';
   return value||'sent';
 }
+function isSignatureSignerSigned(signer){
+  const status=normalizeSignatureStatus(signer?.status||'');
+  return status==='signed'||!!signer?.signed_at||!!signer?.signature_path;
+}
+function isSignatureSignerClosed(signer){
+  const status=normalizeSignatureStatus(signer?.status||'');
+  return isSignatureSignerSigned(signer)||status==='declined'||status==='cancelled';
+}
 function normalizeLoadedSignatureRequest(req){
   if(!req||typeof req!=='object')return req;
   const normalized={...req};
@@ -1349,7 +1357,7 @@ function normalizeLoadedSignatureRequest(req){
       id:s?.id||`${normalized.id||'sig'}__${i+1}`,
       delivery:s?.delivery==='email_link'?'email_link':'portal',
       order:Math.max(1,Number(s?.order)||i+1),
-      status:normalizeSignatureStatus(s?.status),
+      status:isSignatureSignerSigned(s)?'signed':normalizeSignatureStatus(s?.status),
       signed_at:s?.signed_at||null,
       signed_name:s?.signed_name||'',
       signature_path:s?.signature_path||'',
@@ -1531,11 +1539,11 @@ function getPortalSignerState(req){
   ));
   if(!matches.length)return{signer:null,signers,canSign:false,reason:'not_assigned'};
   function signerStateFor(signer){
-    if(normalizeSignatureStatus(signer.status)==='signed')return{signer,signers,canSign:false,reason:'signed'};
+    if(isSignatureSignerSigned(signer))return{signer,signers,canSign:false,reason:'signed'};
     if(normalizeSignatureStatus(signer.status)==='declined')return{signer,signers,canSign:false,reason:'declined'};
     if(req?.status==='cancelled'||normalizeSignatureStatus(signer.status)==='cancelled')return{signer,signers,canSign:false,reason:'cancelled'};
     if(req?.signing_order_enabled){
-      const blocked=signers.some(prev=>(prev.order||0)<(signer.order||0)&&normalizeSignatureStatus(prev.status||'')!=='signed');
+      const blocked=signers.some(prev=>(prev.order||0)<(signer.order||0)&&!isSignatureSignerSigned(prev));
       if(blocked)return{signer,signers,canSign:false,reason:'waiting_turn'};
     }
     return{signer,signers,canSign:true,reason:'ready'};
@@ -1568,19 +1576,19 @@ function getPortalRequestDisplayStatus(req){
 }
 function getNextPendingSignatureSigner(req,signersOverride=null){
   const signers=(Array.isArray(signersOverride)&&signersOverride.length?signersOverride:getRequestSigners(req)).slice().sort((a,b)=>(a.order||0)-(b.order||0));
-  return signers.find(s=>!['signed','declined','cancelled'].includes(normalizeSignatureStatus(s.status||'')))||null;
+  return signers.find(s=>!isSignatureSignerClosed(s))||null;
 }
 function canPreviewSignedDocument(req){
   const signers=getRequestSigners(req);
-  return !!(req?.signature_path||req?.signed_at||signers.some(s=>!!s.signed_at||!!s.signature_path||normalizeSignatureStatus(s.status||'')==='signed'));
+  return !!(req?.signature_path||req?.signed_at||signers.some(s=>isSignatureSignerSigned(s)));
 }
 function signatureSignerProgressMeta(req,signer){
   const signers=getRequestSigners(req).slice().sort((a,b)=>(a.order||0)-(b.order||0));
   const normalizedStatus=normalizeSignatureStatus(signer?.status||'sent');
-  if(normalizedStatus==='signed')return{label:'Signed',tone:'#2D6A4F',bg:'#EAF3DE'};
+  if(isSignatureSignerSigned(signer))return{label:'Signed',tone:'#2D6A4F',bg:'#EAF3DE'};
   if(normalizedStatus==='declined')return{label:'Declined',tone:'#A32D2D',bg:'#FCEBEB'};
   if(normalizedStatus==='cancelled')return{label:'Cancelled',tone:'var(--txt3)',bg:'var(--cream2)'};
-  const next=signers.find(s=>!['signed','declined','cancelled'].includes(normalizeSignatureStatus(s.status||'')));
+  const next=signers.find(s=>!isSignatureSignerClosed(s));
   if(next?.id===signer?.id){
     return{
       label:signer.delivery==='email_link'&&signer.link_sent_at?'Awaiting signature':'Next',
@@ -1599,9 +1607,9 @@ function getSignersReadyForEmailRelease(req,signersOverride=null){
   const signers=(Array.isArray(signersOverride)&&signersOverride.length?signersOverride:getRequestSigners(req)).slice().sort((a,b)=>(a.order||0)-(b.order||0));
   if(['declined','cancelled'].includes(normalizeSignatureStatus(req?.status||''))||signers.some(s=>['declined','cancelled'].includes(normalizeSignatureStatus(s.status||''))))return [];
   if(!req?.signing_order_enabled){
-    return signers.filter(s=>s.delivery==='email_link'&&s.email&&!['signed','declined','cancelled'].includes(normalizeSignatureStatus(s.status||''))&&!s.link_sent_at);
+    return signers.filter(s=>s.delivery==='email_link'&&s.email&&!isSignatureSignerClosed(s)&&!s.link_sent_at);
   }
-  const next=signers.find(s=>!['signed','declined','cancelled'].includes(normalizeSignatureStatus(s.status||'')));
+  const next=signers.find(s=>!isSignatureSignerClosed(s));
   if(!next)return [];
   if(next.delivery==='email_link'&&next.email&&!next.link_sent_at)return [next];
   return [];
@@ -1610,17 +1618,17 @@ function getSignersReadyForPortalNotice(req,signersOverride=null){
   const signers=(Array.isArray(signersOverride)&&signersOverride.length?signersOverride:getRequestSigners(req)).slice().sort((a,b)=>(a.order||0)-(b.order||0));
   if(['declined','cancelled'].includes(normalizeSignatureStatus(req?.status||''))||signers.some(s=>['declined','cancelled'].includes(normalizeSignatureStatus(s.status||''))))return [];
   if(!req?.signing_order_enabled){
-    return signers.filter(s=>s.delivery==='portal'&&s.email&&!['signed','declined','cancelled'].includes(normalizeSignatureStatus(s.status||''))&&!s.portal_notice_sent_at);
+    return signers.filter(s=>s.delivery==='portal'&&s.email&&!isSignatureSignerClosed(s)&&!s.portal_notice_sent_at);
   }
-  const next=signers.find(s=>!['signed','declined','cancelled'].includes(normalizeSignatureStatus(s.status||'')));
+  const next=signers.find(s=>!isSignatureSignerClosed(s));
   if(!next)return [];
   if(next.delivery==='portal'&&next.email&&!next.portal_notice_sent_at)return [next];
   return [];
 }
 function deriveSignatureRequestStatus(signers){
   if((signers||[]).some(s=>normalizeSignatureStatus(s.status||'')==='declined'))return'declined';
-  if((signers||[]).length&&(signers||[]).every(s=>s.status==='signed'))return'signed';
-  if((signers||[]).some(s=>s.status==='opened'||s.status==='signed'))return'in_progress';
+  if((signers||[]).length&&(signers||[]).every(s=>isSignatureSignerSigned(s)))return'signed';
+  if((signers||[]).some(s=>normalizeSignatureStatus(s.status||'')==='opened'||isSignatureSignerSigned(s)))return'in_progress';
   return'sent';
 }
 function assignedFieldLabel(req,field){
