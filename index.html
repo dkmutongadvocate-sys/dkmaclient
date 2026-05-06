@@ -3018,7 +3018,7 @@ function renderPublicSignLoading(message='Loading signing link...'){
   if(root)root.innerHTML=`<div class="public-sign-wrap"><div class="public-sign-card"><div class="public-sign-empty">${esc(message)}</div></div></div>`;
 }
 function openPublicSignDocument(){
-  if(publicSignSession?.document_url)window.open(publicSignSession.document_url,'_blank','noopener');
+  if(publicSignSession?.document_url)openUrlInNewTab(publicSignSession.document_url);
 }
 async function openPublicSignRecord(){
   try{
@@ -3378,16 +3378,34 @@ function createHtmlBlobUrl(html){
   setTimeout(()=>URL.revokeObjectURL(blobUrl),300000);
   return blobUrl;
 }
+function openUrlInNewTab(url){
+  if(!url)throw new Error('URL not available.');
+  const a=document.createElement('a');
+  a.href=url;
+  a.target='_blank';
+  a.rel='noopener noreferrer';
+  a.style.display='none';
+  document.body.appendChild(a);
+  try{
+    a.click();
+  }finally{
+    a.remove();
+  }
+  return true;
+}
 async function openHtmlRecordUrl(recordUrl,title='Signed Record'){
   if(!recordUrl)throw new Error('Record URL not available.');
   const resp=await fetch(recordUrl,{cache:'no-store'});
   if(!resp.ok)throw new Error('Could not load the saved record.');
   const html=await resp.text();
   const blobUrl=createHtmlBlobUrl(html);
-  const win=window.open(blobUrl,'_blank','noopener');
-  if(!win)throw new Error('Popup blocked. Please allow popups for signed records.');
-  try{win.document.title=title;}catch(_e){}
-  return win;
+  try{
+    openUrlInNewTab(blobUrl);
+  }catch(_e){
+    window.location.href=blobUrl;
+  }
+  try{document.title=title;}catch(_e){}
+  return blobUrl;
 }
 async function submitPublicSignatureLink(){
   const shell=document.getElementById('public-sign-root');
@@ -3650,12 +3668,12 @@ async function openSignatureCertificate(req,options={}){
   overlay.querySelector('#sig-record-close').onclick=()=>overlay.remove();
   overlay.querySelector('#sig-record-open-doc').onclick=()=>{
     if(sourceDocumentUrl){
-      window.open(sourceDocumentUrl,'_blank','noopener');
+      openUrlInNewTab(sourceDocumentUrl);
       return;
     }
     openSignatureSourceDocument(req);
   };
-  overlay.querySelector('#sig-record-open-signed')?.addEventListener('click',()=>window.open(signedPreviewUrl,'_blank','noopener'));
+  overlay.querySelector('#sig-record-open-signed')?.addEventListener('click',()=>openUrlInNewTab(signedPreviewUrl));
   overlay.querySelector('#sig-record-download-signed')?.addEventListener('click',async()=>{
     const base=(req.document_name||'signed-document').replace(/\.[^.]+$/,'').replace(/[\\/:*?"<>|]+/g,' ').trim()||'signed-document';
     try{
@@ -5252,7 +5270,7 @@ async function viewClientUpload(folder,storageName,displayName){
 function openViewer(url,displayName,dlFn){
   document.getElementById('viewer-filename').textContent=displayName;
   const dlBtn=document.getElementById('viewer-dl-btn');
-  dlBtn.onclick=dlFn||function(){window.open(url,'_blank');};
+  dlBtn.onclick=dlFn||function(){openUrlInNewTab(url);};
   const ext=(displayName.split('.').pop()||'').toLowerCase();
   const body=document.getElementById('viewer-body');
   if(['jpg','jpeg','png','gif','webp'].includes(ext)){
