@@ -1428,7 +1428,11 @@ function normalizeLoadedSignatureRequest(req){
     })).sort((a,b)=>(a.order||0)-(b.order||0));
   }
   const currentStatus=normalizeSignatureStatus(normalized.status);
-  if(!['cancelled','declined'].includes(currentStatus)){
+  const explicitSigned=currentStatus==='signed'||!!normalized.signed_at||!!normalized.certificate_path;
+  if(explicitSigned&&Array.isArray(normalized.signers)&&normalized.signers.length&&!normalized.signers.some(s=>['declined','cancelled'].includes(normalizeSignatureStatus(s?.status||'')))){
+    normalized.signers=normalized.signers.map(s=>isSignatureSignerSigned(s)?s:{...s,status:'signed'}).sort((a,b)=>(a.order||0)-(b.order||0));
+    normalized.status='signed';
+  }else if(!['cancelled','declined'].includes(currentStatus)){
     normalized.status=Array.isArray(normalized.signers)&&normalized.signers.length
       ? deriveSignatureRequestStatus(normalized.signers)
       : currentStatus;
