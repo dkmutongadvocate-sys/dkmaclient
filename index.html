@@ -1392,6 +1392,7 @@ function mergeSignatureRequestRecords(baseRecord, incomingRecord){
   const base=baseRecord&&typeof baseRecord==='object'?baseRecord:{};
   const incoming=incomingRecord&&typeof incomingRecord==='object'?incomingRecord:{};
   const merged={...base,...incoming};
+  merged.signed_signer_ids=[...new Set([...(Array.isArray(base.signed_signer_ids)?base.signed_signer_ids:[]),...(Array.isArray(incoming.signed_signer_ids)?incoming.signed_signer_ids:[])].filter(Boolean))];
   const signerMap={};
   [...(Array.isArray(base.signers)?base.signers:[]),...(Array.isArray(incoming.signers)?incoming.signers:[])].forEach((signer,idx)=>{
     const key=signer?.id||`${merged.id||'sig'}__${signer?.order||idx+1}`;
@@ -1414,13 +1415,14 @@ function mergeSignatureRequestRecords(baseRecord, incomingRecord){
 function normalizeLoadedSignatureRequest(req){
   if(!req||typeof req!=='object')return req;
   const normalized={...req};
+  const signedSignerIds=new Set((Array.isArray(normalized.signed_signer_ids)?normalized.signed_signer_ids:[]).filter(Boolean));
   if(Array.isArray(normalized.signers)){
     normalized.signers=normalized.signers.map((s,i)=>({
       ...s,
       id:s?.id||`${normalized.id||'sig'}__${i+1}`,
       delivery:s?.delivery==='email_link'?'email_link':'portal',
       order:Math.max(1,Number(s?.order)||i+1),
-      status:isSignatureSignerSigned(s)?'signed':normalizeSignatureStatus(s?.status),
+      status:(signedSignerIds.has(s?.id)||isSignatureSignerSigned(s))?'signed':normalizeSignatureStatus(s?.status),
       signed_at:s?.signed_at||null,
       signed_name:s?.signed_name||'',
       signature_path:s?.signature_path||'',
@@ -3865,6 +3867,7 @@ submitSignatureRequest=async function(requestId,overlay){
     const {error:sigErr}=await sb.storage.from(FIRM_BUCKET).upload(signaturePath,blobFromDataUrl(signatureDataUrl),{upsert:true,contentType:'image/png'});
     if(sigErr)throw sigErr;
     const signers=getRequestSigners(req).map(s=>s.id===state.signer.id?{...s,status:'signed',signed_at:now,signed_name:typedName,signature_path:signaturePath,signed_timezone:signerTimeZone,signed_via:'Client Portal'}:s);
+    const signedSignerIds=[...new Set([...(Array.isArray(req.signed_signer_ids)?req.signed_signer_ids:[]),...signers.filter(s=>isSignatureSignerSigned(s)).map(s=>s.id)].filter(Boolean))];
     const overallStatus=deriveSignatureRequestStatus(signers);
     let certificatePath=req.certificate_path||'';
     if(overallStatus==='signed'){
@@ -3894,6 +3897,7 @@ submitSignatureRequest=async function(requestId,overlay){
       signed_timezone:overallStatus==='signed'?signerTimeZone:(req.signed_timezone||''),
       signed_via:overallStatus==='signed'?'Client Portal':(req.signed_via||''),
       signed_by_user_id:currentUser?.id||null,
+      signed_signer_ids:signedSignerIds,
       signature_path:overallStatus==='signed'?signaturePath:(req.signature_path||''),
       certificate_path:certificatePath,
       user_agent:navigator.userAgent||''
@@ -3924,6 +3928,7 @@ submitSignatureRequest=async function(requestId,overlay){
       signature_path:req.signature_path,
       certificate_path:req.certificate_path,
       user_agent:req.user_agent,
+      signed_signer_ids:req.signed_signer_ids||[],
       signers:req.signers
     });
     mySignatureRequests=mySignatureRequests.map(r=>r.id===req.id?req:r).sort((a,b)=>signatureSortValue(b)-signatureSortValue(a));
