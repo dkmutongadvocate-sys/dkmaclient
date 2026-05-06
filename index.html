@@ -503,6 +503,9 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
   .sig-record-sidebar-head{top:-14px}
   .sig-record-actions{display:grid!important;grid-template-columns:1fr 1fr;top:-14px;padding:8px 0 12px}
   .sig-record-actions .pbtn{width:100%}
+  .sig-record-main{order:2}
+  .sig-record-sidebar{order:1}
+  .sig-record-preview{display:none!important}
   .sig-record-preview{min-height:220px}
   .sig-record-preview-frame{padding:8px}
   .sig-record-preview-frame iframe{height:48dvh!important;min-height:260px}
@@ -2973,6 +2976,9 @@ function getPublicSignatureToken(){
   const url=new URL(window.location.href);
   return (url.searchParams.get('sign_token')||url.searchParams.get('token')||'').trim();
 }
+function isPublicSignatureStandaloneFlow(){
+  return !!getPublicSignatureToken();
+}
 function signatureFunctionUrl(name){return `${SUPABASE_URL}/functions/v1/${name}`;}
 async function callPublicSignatureFunction(name,payload){
   const resp=await fetch(signatureFunctionUrl(name),{
@@ -3007,6 +3013,7 @@ function showPublicSignShell(){
 }
 function renderPublicSignLoading(message='Loading signing link...'){
   showPublicSignShell();
+  document.title='Request Sign - DKMA';
   const root=document.getElementById('public-sign-root');
   if(root)root.innerHTML=`<div class="public-sign-wrap"><div class="public-sign-card"><div class="public-sign-empty">${esc(message)}</div></div></div>`;
 }
@@ -3413,6 +3420,7 @@ function renderPublicSignatureLink(){
   const root=document.getElementById('public-sign-root');
   if(!root||!publicSignSession)return;
   const req=publicSignSession.request||{};
+  document.title=`${req.request_title||req.document_name||'Request Sign'} - DKMA`;
   const state=getPublicSignatureState(publicSignSession);
   const signer=state.signer||publicSignSession.signer||{};
   const canSign=state.canSign;
@@ -5879,6 +5887,10 @@ const _pwaInstallKey = 'dkma-portal-pwa-dismissed';
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   _deferredInstallPrompt = e;
+  if(isPublicSignatureStandaloneFlow()){
+    hidePwaBanner();
+    return;
+  }
   // Only show if not previously dismissed
   if(!sessionStorage.getItem(_pwaInstallKey)){
     setTimeout(showPwaBanner, 4000);
@@ -5893,6 +5905,7 @@ window.addEventListener('appinstalled', () => {
 
 function showPwaBanner(){
   // Don't show if already running as installed PWA
+  if(isPublicSignatureStandaloneFlow()) return;
   if(window.matchMedia('(display-mode: standalone)').matches) return;
   if(window.navigator.standalone) return; // iOS Safari
   const b = document.getElementById('pwa-install-banner');
