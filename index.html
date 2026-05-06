@@ -397,6 +397,18 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 .sig-modal-consent{display:flex;align-items:flex-start;gap:10px;font-size:12px;color:var(--txt2);line-height:1.7;background:#FBF8F1;border:1px solid var(--brd);border-radius:12px;padding:12px 13px}
 .sig-modal-footer{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;padding-top:4px}
 .sig-modal-preview{min-width:0}
+.sig-record-shell{background:#fff;border-radius:22px;width:min(1280px,100%);height:min(94dvh,980px);overflow:hidden;box-shadow:0 30px 90px rgba(13,27,42,0.28);display:flex;flex-direction:column}
+.sig-record-head{padding:20px 24px;border-bottom:1px solid var(--brd);display:flex;align-items:flex-start;gap:14px;background:linear-gradient(180deg,#FFFFFF 0%,#FBF8F1 100%)}
+.sig-record-grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(320px,380px);flex:1;min-height:0}
+.sig-record-main{min-height:0;overflow:auto;padding:20px 24px;background:#fff}
+.sig-record-actions{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;position:sticky;top:-20px;padding:10px 0 14px;background:linear-gradient(180deg,#fff 72%,rgba(255,255,255,0));z-index:2}
+.sig-record-preview{min-height:420px}
+.sig-record-preview-frame{border:1px solid var(--brd);border-radius:18px;background:#F8F5F0;padding:10px}
+.sig-record-preview-frame iframe{width:100%;height:min(70vh,780px);border:none;border-radius:12px;background:#fff}
+.sig-record-sidebar{min-height:0;overflow-y:auto;overflow-x:hidden;padding:20px 22px;border-left:1px solid var(--brd);background:#FBF8F1}
+.sig-record-sidebar-head{position:sticky;top:-20px;background:linear-gradient(180deg,#FBF8F1 82%,rgba(251,248,241,0));padding-bottom:12px;z-index:2}
+.sig-record-meta{display:grid;grid-template-columns:120px minmax(0,1fr);gap:10px 14px;font-size:13px;line-height:1.6}
+.sig-record-signers{margin-top:20px;display:grid;gap:12px}
 
 @media(max-width:768px){
   .pstats{grid-template-columns:1fr 1fr}
@@ -483,6 +495,19 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
   .public-sign-form-actions{display:grid!important;grid-template-columns:1fr!important}
   .public-sign-form-actions .pbtn{width:100%}
   .public-sign-panel{padding:0}
+  .sig-record-shell{width:100%!important;height:100dvh!important;max-height:none!important;border-radius:0!important}
+  .sig-record-head{padding:calc(12px + env(safe-area-inset-top)) 16px 12px 16px!important;gap:10px;position:sticky;top:0;z-index:2}
+  .sig-record-grid{grid-template-columns:1fr!important;grid-template-rows:auto 1fr}
+  .sig-record-main{padding:14px!important}
+  .sig-record-sidebar{padding:14px 14px calc(14px + env(safe-area-inset-bottom))!important;border-left:none!important;border-top:1px solid var(--brd)}
+  .sig-record-sidebar-head{top:-14px}
+  .sig-record-actions{display:grid!important;grid-template-columns:1fr 1fr;top:-14px;padding:8px 0 12px}
+  .sig-record-actions .pbtn{width:100%}
+  .sig-record-preview{min-height:220px}
+  .sig-record-preview-frame{padding:8px}
+  .sig-record-preview-frame iframe{height:48dvh!important;min-height:260px}
+  .sig-record-meta{grid-template-columns:1fr!important;gap:4px 0}
+  .sig-record-meta > div:nth-child(odd){margin-top:10px}
 }
 
 @media(max-width:480px){
@@ -493,6 +518,8 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
   .sig-modal-actions{grid-template-columns:1fr!important}
   .sig-modal-title{font-size:17px!important}
   .sig-modal-canvas-wrap canvas{height:136px!important}
+  .sig-record-actions{grid-template-columns:1fr!important}
+  .sig-record-preview-frame iframe{height:42dvh!important;min-height:220px}
 }
 
 @media(max-width:360px){
@@ -3510,8 +3537,8 @@ async function openSignatureCertificate(req){
   const overlay=document.createElement('div');
   overlay.id='signature-record-overlay';
   overlay.style.cssText='position:fixed;inset:0;background:rgba(13,27,42,0.78);z-index:3400;display:flex;align-items:center;justify-content:center;padding:22px';
-  overlay.innerHTML=`<div style="background:#fff;border-radius:22px;width:min(1280px,100%);height:min(94dvh,980px);overflow:hidden;box-shadow:0 30px 90px rgba(13,27,42,0.28);display:flex;flex-direction:column">
-    <div style="padding:20px 24px;border-bottom:1px solid var(--brd);display:flex;align-items:flex-start;gap:14px;background:linear-gradient(180deg,#FFFFFF 0%,#FBF8F1 100%)">
+  overlay.innerHTML=`<div class="sig-record-shell">
+    <div class="sig-record-head">
       <div style="flex:1;min-width:0">
         <div style="font-family:'Playfair Display',serif;font-size:24px;color:var(--txt)">Signing Record</div>
         <div style="font-size:12px;color:var(--txt3);margin-top:4px;overflow-wrap:anywhere">${esc(req.document_name||'Document')}${matter?' - '+esc(matter.title):''}</div>
@@ -3519,23 +3546,23 @@ async function openSignatureCertificate(req){
       ${signaturePill(deriveSignatureRequestStatus(getRequestSigners(req)))}
       <button type="button" id="sig-record-close" style="width:38px;height:38px;border-radius:999px;border:1px solid var(--brd);background:#fff;font-size:22px;line-height:1;color:var(--txt3);cursor:pointer">×</button>
     </div>
-    <div style="display:grid;grid-template-columns:minmax(0,1.4fr) minmax(320px,380px);flex:1;min-height:0">
-      <div style="min-height:0;overflow:auto;padding:20px 24px;background:#fff">
-        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;position:sticky;top:-20px;padding:10px 0 14px;background:linear-gradient(180deg,#fff 72%,rgba(255,255,255,0));z-index:2">
+    <div class="sig-record-grid">
+      <div class="sig-record-main">
+        <div class="sig-record-actions">
           <button class="pbtn view" type="button" id="sig-record-open-doc">View source document</button>
           ${signedPreviewUrl?'<button class="pbtn" type="button" id="sig-record-open-signed">Open signed document</button>':''}
           ${signedPreviewUrl?'<button class="pbtn" type="button" id="sig-record-download-signed">Download signed PDF</button>':''}
           ${req.certificate_path?'<button class="pbtn" type="button" id="sig-record-open-html">Open saved record</button>':''}
           <button class="pbtn" type="button" id="sig-record-download-html">Download audit PDF</button>
         </div>
-        <div id="sig-record-preview" style="min-height:420px">${signedPreviewUrl?`<div style="border:1px solid var(--brd);border-radius:18px;background:#F8F5F0;padding:10px"><iframe src="${signedPreviewUrl}" style="width:100%;height:min(70vh,780px);border:none;border-radius:12px;background:#fff"></iframe></div>`:'<div style="padding:18px;border:1px solid var(--brd);border-radius:10px;background:#fff;color:var(--txt3);font-size:12px">No signature has been applied yet. Once the first signer completes their step, the signed preview will appear here.</div>'}</div>
+        <div id="sig-record-preview" class="sig-record-preview">${signedPreviewUrl?`<div class="sig-record-preview-frame"><iframe src="${signedPreviewUrl}"></iframe></div>`:'<div style="padding:18px;border:1px solid var(--brd);border-radius:10px;background:#fff;color:var(--txt3);font-size:12px">No signature has been applied yet. Once the first signer completes their step, the signed preview will appear here.</div>'}</div>
       </div>
-      <aside style="min-height:0;overflow-y:auto;overflow-x:hidden;padding:20px 22px;border-left:1px solid var(--brd);background:#FBF8F1">
-        <div style="position:sticky;top:-20px;background:linear-gradient(180deg,#FBF8F1 82%,rgba(251,248,241,0));padding-bottom:12px;z-index:2">
+      <aside class="sig-record-sidebar">
+        <div class="sig-record-sidebar-head">
           <div style="font-family:'Playfair Display',serif;font-size:20px;color:var(--txt);margin-bottom:8px">Audit Trail</div>
           <div style="font-size:11px;color:var(--txt3);line-height:1.6">Signer-by-signer activity, signing order, timestamps, origin details, and any decline or location notes.</div>
         </div>
-        <div style="display:grid;grid-template-columns:120px minmax(0,1fr);gap:10px 14px;font-size:13px;line-height:1.6">
+        <div class="sig-record-meta">
           <div style="color:var(--txt3);font-weight:600">Document</div><div style="min-width:0;overflow-wrap:anywhere">${esc(req.document_name||'Document')}</div>
           <div style="color:var(--txt3);font-weight:600">Matter</div><div style="min-width:0;overflow-wrap:anywhere">${esc(matter?.title||req.matter_title||'-')}</div>
           <div style="color:var(--txt3);font-weight:600">Sent</div><div>${esc(fmtAuditDateTime(req.sent_at||req.created_at,req.signed_timezone||''))}</div>
@@ -3545,7 +3572,7 @@ async function openSignatureCertificate(req){
           <div style="color:var(--txt3);font-weight:600">Request ID</div><div style="min-width:0"><code style="font-size:11px;white-space:pre-wrap;overflow-wrap:anywhere">${esc(req.id||'-')}</code></div>
           <div style="color:var(--txt3);font-weight:600">Source Path</div><div style="min-width:0"><code style="font-size:11px;white-space:pre-wrap;overflow-wrap:anywhere">${esc(req.document_path||'-')}</code></div>
         </div>
-        <div style="margin-top:20px;display:grid;gap:12px">
+        <div class="sig-record-signers">
           ${signers.map((signer,idx)=>`
             <div style="border:1px solid var(--brd);border-radius:14px;background:#fff;padding:14px 16px">
               <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
