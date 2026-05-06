@@ -1628,10 +1628,13 @@ function assignedFieldLabel(req,field){
   return signer?.name?`${signer.name} - ${field.label||field.type}`:(field.label||field.type);
 }
 function signatureFieldValue(req,field,typedName='',signatureMap={},activeSignerId=''){
-  const signer=field?.signer_id?getRequestSigners(req).find(s=>s.id===field.signer_id):null;
+  const signers=getRequestSigners(req);
+  const signer=field?.signer_id?signers.find(s=>s.id===field.signer_id):null;
+  const multiSigner=signers.length>1;
   const active=!!(signer&&activeSignerId&&signer.id===activeSignerId);
   if(field.type==='name'){
     if(signer)return active?(typedName||signer.signed_name||signer.name||''):(signer.signed_name||signer.name||'');
+    if(multiSigner)return '';
     return typedName||req.signed_name||req.signer_name||'';
   }
   if(field.type==='date'){
@@ -1640,6 +1643,7 @@ function signatureFieldValue(req,field,typedName='',signatureMap={},activeSigner
       raw=signer.signed_at||'';
       if(active&&!raw&&(typedName||signatureMap[signer.id]))raw=new Date().toISOString();
     }else{
+      if(multiSigner)return '';
       raw=req.signed_at||'';
       if(activeSignerId&&!raw&&(typedName||Object.keys(signatureMap||{}).length))raw=new Date().toISOString();
     }
@@ -1648,6 +1652,7 @@ function signatureFieldValue(req,field,typedName='',signatureMap={},activeSigner
   }
   if(field.type==='signature'){
     if(signer)return signatureMap?.[signer.id]||'';
+    if(multiSigner)return '';
     return activeSignerId?(signatureMap?.[activeSignerId]||''):'';
   }
   return '';
