@@ -2165,6 +2165,8 @@ async function writeSignatureResponse(req,payload){
 async function hydrateLatestSignatureRequest(req){
   if(!req||!req.id||!req.matter_id)return req;
   const responsePath=req._response_path||signatureResponsePath(req);
+  const masterPath=req.master_request_path||getSignatureRequestMasterPath(req);
+  let latest=normalizeLoadedSignatureRequest(req);
   try{
     const response=await readSignatureJson(responsePath);
     if(response&&response.request_id===req.id){
@@ -2174,9 +2176,24 @@ async function hydrateLatestSignatureRequest(req){
         _storage_path:req._storage_path,
         _response_path:responsePath
       });
-      Object.assign(req,merged);
+      if(signatureStateValue(merged)>=signatureStateValue(latest))latest=merged;
     }
   }catch(_e){}
+  if(masterPath&&masterPath!==req._storage_path){
+    try{
+      const masterReq=await readSignatureJson(masterPath);
+      if(masterReq&&masterReq.id===req.id){
+        const mergedMaster=normalizeLoadedSignatureRequest({
+          ...req,
+          ...masterReq,
+          _storage_path:masterPath,
+          _response_path:latest?._response_path||req._response_path||responsePath
+        });
+        if(signatureStateValue(mergedMaster)>=signatureStateValue(latest))latest=mergedMaster;
+      }
+    }catch(_e){}
+  }
+  Object.assign(req,latest);
   return req;
 }
 function buildPortalSignatureNoticeHtml({toName,requestTitle,documentName,message,portalUrl,trackingId}){
@@ -2304,7 +2321,7 @@ async function loadMySignatureRequests(){
   const folder=`client-general/${clientRecord.id}`;
   const {data,error}=await sb.storage.from(FIRM_BUCKET).list(folder,{limit:200,sortBy:{column:'created_at',order:'desc'}});
   if(error){mySignatureRequests=[];return;}
-  const requestRows=[];
+  const requestById={};
   const responseByRequestId={};
   await Promise.all((data||[])
     .filter(f=>f.name&&f.name.endsWith('.json')&&(f.name.startsWith(SIGNATURE_REQUESTS_PREFIX)||f.name.startsWith(SIGNATURE_RESPONSE_PREFIX)))
@@ -2313,7 +2330,7 @@ async function loadMySignatureRequests(){
         const rec=await readSignatureJson(`${folder}/${f.name}`);
         if(f.name.startsWith(SIGNATURE_REQUESTS_PREFIX)){
           rec._storage_path=`${folder}/${f.name}`;
-          requestRows.push(normalizeLoadedSignatureRequest(rec));
+          keepLatestSignatureRecord(requestById,rec.id,{...rec});
         }else if(f.name.startsWith(SIGNATURE_RESPONSE_PREFIX)&&rec?.request_id){
           rec._response_path=`${folder}/${f.name}`;
           keepLatestSignatureRecord(responseByRequestId,rec.request_id,{...rec});
@@ -2322,6 +2339,7 @@ async function loadMySignatureRequests(){
         console.warn('[DKMA Portal] signature record',f.name,e.message);
       }
     }));
+  const requestRows=Object.values(requestById);
   const matterIds=[...new Set(requestRows.map(r=>r.matter_id).filter(Boolean))];
   await Promise.all(matterIds.map(async matterId=>{
     try{
@@ -2342,9 +2360,23 @@ async function loadMySignatureRequests(){
         }));
     }catch(_e){}
   }));
-  const rows=requestRows.map(rec=>{
+  await Promise.all(Object.values(requestById).map(async rec=>{
+    const masterPath=rec.master_request_path||getSignatureRequestMasterPath(rec);
+    if(!masterPath||masterPath===rec._storage_path)return;
+    try{
+      const masterRec=await readSignatureJson(masterPath);
+      if(masterRec?.id===rec.id){
+        masterRec._storage_path=masterPath;
+        keepLatestSignatureRecord(requestById,rec.id,{...masterRec});
+      }
+    }catch(_e){}
+  }));
+  const rows=Object.values(requestById).map(rec=>{
     const response=responseByRequestId[rec.id];
-    return normalizeLoadedSignatureRequest(response?{...rec,...response,_storage_path:rec._storage_path,_response_path:response._response_path}:rec);
+    if(response&&signatureStateValue(response)>=signatureStateValue(rec)){
+      return normalizeLoadedSignatureRequest({...rec,...response,_storage_path:rec._storage_path,_response_path:response._response_path});
+    }
+    return normalizeLoadedSignatureRequest({...rec,_response_path:response?._response_path||rec._response_path});
   }).sort((a,b)=>signatureSortValue(b)-signatureSortValue(a));
   mySignatureRequests=rows;
 }
