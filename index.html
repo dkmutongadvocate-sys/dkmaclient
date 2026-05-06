@@ -3384,7 +3384,7 @@ async function submitPublicSignatureLink(){
     const releaseMsg=result?.released_next_signer
       ? `Document signed successfully. Next signer notified: ${result.released_next_signer}.`
       : remainingSigners.length
-        ? 'Document signed successfully. The next signer was not notified automatically yet.'
+        ? `Document signed successfully. The next signer was not notified automatically yet.${result?.released_next_signer_error?` ${result.released_next_signer_error}`:''}`
         : 'Document signed successfully.';
     portalToast(releaseMsg);
   }catch(e){
