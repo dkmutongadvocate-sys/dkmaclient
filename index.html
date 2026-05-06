@@ -3380,7 +3380,13 @@ async function submitPublicSignatureLink(){
     publicSignSession.request.signed_at=result.signed_at||publicSignSession.request.signed_at||null;
     publicSignSession.certificate_url=result.certificate_url||publicSignSession.certificate_url||null;
     renderPublicSignatureLink();
-    portalToast('Document signed successfully.');
+    const remainingSigners=(publicSignSession.request.signers||[]).filter(s=>!isSignatureSignerClosed(s));
+    const releaseMsg=result?.released_next_signer
+      ? `Document signed successfully. Next signer notified: ${result.released_next_signer}.`
+      : remainingSigners.length
+        ? 'Document signed successfully. The next signer was not notified automatically yet.'
+        : 'Document signed successfully.';
+    portalToast(releaseMsg);
   }catch(e){
     portalToast('Could not save the signature: '+e.message,true);
     if(btn){btn.disabled=false;btn.textContent='Confirm Signature';}
