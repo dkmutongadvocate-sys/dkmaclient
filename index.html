@@ -1519,7 +1519,7 @@ function blobFromDataUrl(dataUrl){
 function signatureRequestForPath(docPath){
   const rows=(mySignatureRequests||[]).filter(r=>r.document_path===docPath);
   function priority(req){
-    const status=deriveSignatureRequestStatus(getRequestSigners(req));
+    const status=getEffectiveSignatureRequestStatus(req);
     if(status==='signed')return 3;
     if(status==='declined')return 2.5;
     if(status==='cancelled')return 2.25;
@@ -1632,7 +1632,7 @@ function shouldShowPortalSignatureRequest(req){
 }
 function getPortalRequestDisplayStatus(req){
   const state=getPortalSignerState(req);
-  if(!state?.signer)return deriveSignatureRequestStatus(getRequestSigners(req));
+  if(!state?.signer)return getEffectiveSignatureRequestStatus(req);
   if(state.reason==='signed')return'signed';
   if(state.reason==='declined')return'declined';
   if(state.reason==='cancelled')return'cancelled';
@@ -1641,9 +1641,10 @@ function getPortalRequestDisplayStatus(req){
     const signerStatus=normalizeSignatureStatus(state.signer?.status||'sent');
     return signerStatus==='opened'?'opened':'sent';
   }
-  return deriveSignatureRequestStatus(getRequestSigners(req));
+  return getEffectiveSignatureRequestStatus(req);
 }
 function getNextPendingSignatureSigner(req,signersOverride=null){
+  if(getEffectiveSignatureRequestStatus(req)==='signed')return null;
   const signers=(Array.isArray(signersOverride)&&signersOverride.length?signersOverride:getRequestSigners(req)).slice().sort((a,b)=>(a.order||0)-(b.order||0));
   return signers.find(s=>!isSignatureSignerClosed(s))||null;
 }
@@ -1699,6 +1700,15 @@ function deriveSignatureRequestStatus(signers){
   if((signers||[]).length&&(signers||[]).every(s=>isSignatureSignerSigned(s)))return'signed';
   if((signers||[]).some(s=>normalizeSignatureStatus(s.status||'')==='opened'||isSignatureSignerSigned(s)))return'in_progress';
   return'sent';
+}
+function getEffectiveSignatureRequestStatus(req){
+  const topLevel=normalizeSignatureStatus(req?.status||'');
+  const hasSignedArtifact=!!(req?.certificate_path||req?.signed_at);
+  const signers=getRequestSigners(req);
+  if(hasSignedArtifact&&topLevel!=='declined'&&topLevel!=='cancelled')return'signed';
+  if(topLevel==='signed')return'signed';
+  if(topLevel==='declined'||topLevel==='cancelled')return topLevel;
+  return deriveSignatureRequestStatus(signers);
 }
 function assignedFieldLabel(req,field){
   const signer=field?.signer_id?getRequestSigners(req).find(s=>s.id===field.signer_id):null;
