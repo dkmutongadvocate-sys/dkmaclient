@@ -2187,20 +2187,13 @@ function stripSignatureRequestTransientFields(req){
 }
 function getSignatureRequestMasterPath(req){
   if(req?.master_request_path)return req.master_request_path;
-  const clientId=String(req?.client_id||clientRecord?.id||'').trim();
-  if(!clientId||!req?.matter_id||!req?.id)return '';
-  return `client-general/${clientId}/${SIGNATURE_REQUESTS_PREFIX}${req.matter_id}__${req.id}.json`;
+  if(!req?.matter_id||!req?.id)return '';
+  return `${req.matter_id}/${SIGNATURE_REQUESTS_PREFIX}${req.id}.json`;
 }
 function getSignatureRequestMirrorPaths(req){
   const paths=new Set();
   const masterPath=getSignatureRequestMasterPath(req);
   if(masterPath)paths.add(masterPath);
-  (Array.isArray(req?.signers)?req.signers:[]).forEach(signer=>{
-    if((signer?.delivery||'portal')!=='portal')return;
-    const clientId=String(signer?.client_id||'').trim();
-    if(!clientId||!req?.matter_id||!req?.id)return;
-    paths.add(`client-general/${clientId}/${SIGNATURE_REQUESTS_PREFIX}${req.matter_id}__${req.id}.json`);
-  });
   return [...paths];
 }
 async function syncSignatureRequestMirrors(req){
@@ -2225,12 +2218,6 @@ function getSignatureResponseMirrorPaths(req){
   if(req?.matter_id&&req?.id){
     paths.add(signatureResponsePath(req));
   }
-  (Array.isArray(req?.signers)?req.signers:[]).forEach(signer=>{
-    if((signer?.delivery||'portal')!=='portal')return;
-    const clientId=String(signer?.client_id||'').trim();
-    if(!clientId||!req?.matter_id||!req?.id)return;
-    paths.add(`client-general/${clientId}/${SIGNATURE_RESPONSE_PREFIX}${req.matter_id}__${req.id}.json`);
-  });
   return [...paths];
 }
 async function writeSignatureResponse(req,payload){
@@ -2363,7 +2350,7 @@ async function notifyNextPendingSigner(req,signers){
           trackingId:(crypto?.randomUUID?crypto.randomUUID():makeSigId()),
           signatureRequest:{
             requestId:req.id,
-            requestPath:getSignatureRequestMasterPath(req)||req._storage_path||`client-general/${req.client_id}/${SIGNATURE_REQUESTS_PREFIX}${req.matter_id}__${req.id}.json`,
+            requestPath:getSignatureRequestMasterPath(req)||req._storage_path||`${req.matter_id}/${SIGNATURE_REQUESTS_PREFIX}${req.id}.json`,
             matterId:req.matter_id,
             clientId:req.client_id,
             documentPath:req.document_path,
@@ -2394,48 +2381,53 @@ async function notifyNextPendingSigner(req,signers){
 }
 async function loadMySignatureRequests(){
   if(!clientRecord){mySignatureRequests=[];return;}
-  const folder=`client-general/${clientRecord.id}`;
-  const {data,error}=await sb.storage.from(FIRM_BUCKET).list(folder,{limit:200,sortBy:{column:'created_at',order:'desc'}});
-  if(error){mySignatureRequests=[];return;}
   const requestById={};
   const responseByRequestId={};
-  await Promise.all((data||[])
-    .filter(f=>f.name&&f.name.endsWith('.json')&&(f.name.startsWith(SIGNATURE_REQUESTS_PREFIX)||f.name.startsWith(SIGNATURE_RESPONSE_PREFIX)))
-    .map(async f=>{
-      try{
-        const rec=await readSignatureJson(`${folder}/${f.name}`);
-        if(f.name.startsWith(SIGNATURE_REQUESTS_PREFIX)){
-          rec._storage_path=`${folder}/${f.name}`;
-          keepLatestSignatureRecord(requestById,rec.id,{...rec});
-        }else if(f.name.startsWith(SIGNATURE_RESPONSE_PREFIX)&&rec?.request_id){
-          rec._response_path=`${folder}/${f.name}`;
-          keepLatestSignatureRecord(responseByRequestId,rec.request_id,{...rec});
-        }
-      }catch(e){
-        console.warn('[DKMA Portal] signature record',f.name,e.message);
-      }
-    }));
-  const requestRows=Object.values(requestById);
-  const matterIds=[...new Set(requestRows.map(r=>r.matter_id).filter(Boolean))];
+  const matterIds=[...new Set((myMatters||[]).map(m=>m?.id).filter(Boolean))];
   await Promise.all(matterIds.map(async matterId=>{
     try{
       const {data:matterData,error:matterErr}=await sb.storage.from(FIRM_BUCKET).list(matterId,{limit:200,sortBy:{column:'created_at',order:'desc'}});
       if(matterErr||!matterData)return;
       await Promise.all(matterData
-        .filter(f=>f.name&&f.name.endsWith('.json')&&f.name.startsWith(SIGNATURE_RESPONSE_PREFIX))
+        .filter(f=>f.name&&f.name.endsWith('.json')&&(f.name.startsWith(SIGNATURE_REQUESTS_PREFIX)||f.name.startsWith(SIGNATURE_RESPONSE_PREFIX)))
         .map(async f=>{
           try{
             const rec=await readSignatureJson(`${matterId}/${f.name}`);
-            if(rec?.request_id){
+            if(f.name.startsWith(SIGNATURE_REQUESTS_PREFIX)&&rec?.id){
+              rec._storage_path=`${matterId}/${f.name}`;
+              keepLatestSignatureRecord(requestById,rec.id,{...rec});
+            }else if(f.name.startsWith(SIGNATURE_RESPONSE_PREFIX)&&rec?.request_id){
               rec._response_path=`${matterId}/${f.name}`;
               keepLatestSignatureRecord(responseByRequestId,rec.request_id,{...rec});
             }
           }catch(e){
-            console.warn('[DKMA Portal] signature response',f.name,e.message);
+            console.warn('[DKMA Portal] signature matter record',f.name,e.message);
           }
         }));
     }catch(_e){}
   }));
+  const legacyFolder=`client-general/${clientRecord.id}`;
+  try{
+    const {data:legacyData,error:legacyErr}=await sb.storage.from(FIRM_BUCKET).list(legacyFolder,{limit:200,sortBy:{column:'created_at',order:'desc'}});
+    if(!legacyErr&&legacyData){
+      await Promise.all(legacyData
+        .filter(f=>f.name&&f.name.endsWith('.json')&&(f.name.startsWith(SIGNATURE_REQUESTS_PREFIX)||f.name.startsWith(SIGNATURE_RESPONSE_PREFIX)))
+        .map(async f=>{
+          try{
+            const rec=await readSignatureJson(`${legacyFolder}/${f.name}`);
+            if(f.name.startsWith(SIGNATURE_REQUESTS_PREFIX)&&rec?.id){
+              rec._storage_path=`${legacyFolder}/${f.name}`;
+              keepLatestSignatureRecord(requestById,rec.id,{...rec});
+            }else if(f.name.startsWith(SIGNATURE_RESPONSE_PREFIX)&&rec?.request_id){
+              rec._response_path=`${legacyFolder}/${f.name}`;
+              keepLatestSignatureRecord(responseByRequestId,rec.request_id,{...rec});
+            }
+          }catch(e){
+            console.warn('[DKMA Portal] legacy signature record',f.name,e.message);
+          }
+        }));
+    }
+  }catch(_e){}
   await Promise.all(Object.values(requestById).map(async rec=>{
     const masterPath=rec.master_request_path||getSignatureRequestMasterPath(rec);
     if(!masterPath||masterPath===rec._storage_path)return;
