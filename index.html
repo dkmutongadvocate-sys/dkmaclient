@@ -3023,8 +3023,12 @@ function openPublicSignDocument(){
 async function openPublicSignRecord(){
   try{
     const req=publicSignSession?.request||null;
-    if(req&&(req.document_path||req.certificate_path)){
-      await openSignatureCertificate(req);
+    if(req){
+      await openSignatureCertificate(req,{
+        documentUrl:publicSignSession?.document_url||'',
+        recordUrl:publicSignSession?.certificate_url||'',
+        signedPreviewUrl:''
+      });
       return;
     }
     if(!publicSignSession?.certificate_url)throw new Error('Signed record not available yet.');
@@ -3559,14 +3563,19 @@ async function initPublicSignatureLinkFlow(token){
     if(root)root.innerHTML=`<div class="public-sign-wrap"><div class="public-sign-card"><div class="public-sign-empty"><div style="font-family:'Playfair Display',serif;font-size:30px;color:var(--txt);margin-bottom:10px">Signing Link</div><div>${esc(e.message||'This signing link could not be opened.')}</div></div></div></div>`;
   }
 }
-async function openSignatureCertificate(req){
-  if(!req?.document_path&&!req?.certificate_path){portalToast('Signing record not available yet.',true);return;}
+async function openSignatureCertificate(req,options={}){
+  const sourceDocumentUrl=options?.documentUrl||'';
+  const recordUrl=options?.recordUrl||'';
+  const forcedSignedPreviewUrl=typeof options?.signedPreviewUrl==='string'?options.signedPreviewUrl:null;
+  if(!req?.document_path&&!req?.certificate_path&&!sourceDocumentUrl&&!recordUrl){portalToast('Signing record not available yet.',true);return;}
   const matter=myMatters.find(m=>m.id===req.matter_id);
   const signers=getAuditSigners(req,req.signed_name||req.signer_name||'');
   const nextSigner=getNextPendingSignatureSigner(req,signers);
   let signedPreviewUrl='';
   try{
-    if(canPreviewSignedDocument(req)){
+    if(forcedSignedPreviewUrl!==null){
+      signedPreviewUrl=forcedSignedPreviewUrl;
+    }else if(canPreviewSignedDocument(req)){
       signedPreviewUrl=await createPortalSignedDocumentPreviewUrl(req);
     }
   }catch(_e){}
@@ -3636,7 +3645,13 @@ async function openSignatureCertificate(req){
   document.body.appendChild(overlay);
   overlay.addEventListener('click',e=>{if(e.target===overlay)overlay.remove();});
   overlay.querySelector('#sig-record-close').onclick=()=>overlay.remove();
-  overlay.querySelector('#sig-record-open-doc').onclick=()=>openSignatureSourceDocument(req);
+  overlay.querySelector('#sig-record-open-doc').onclick=()=>{
+    if(sourceDocumentUrl){
+      window.open(sourceDocumentUrl,'_blank','noopener');
+      return;
+    }
+    openSignatureSourceDocument(req);
+  };
   overlay.querySelector('#sig-record-open-signed')?.addEventListener('click',()=>window.open(signedPreviewUrl,'_blank','noopener'));
   overlay.querySelector('#sig-record-download-signed')?.addEventListener('click',async()=>{
     const base=(req.document_name||'signed-document').replace(/\.[^.]+$/,'').replace(/[\\/:*?"<>|]+/g,' ').trim()||'signed-document';
@@ -3653,6 +3668,10 @@ async function openSignatureCertificate(req){
   });
   overlay.querySelector('#sig-record-open-html')?.addEventListener('click',async()=>{
     try{
+      if(recordUrl){
+        await openHtmlRecordUrl(recordUrl,`${req.document_name||'Signed Record'} - Signed Record`);
+        return;
+      }
       const {data,error}=await sb.storage.from(FIRM_BUCKET).createSignedUrl(req.certificate_path,300);
       if(error||!data?.signedUrl)throw error||new Error('Could not open the saved record.');
       await openHtmlRecordUrl(data.signedUrl,`${req.document_name||'Signed Record'} - Signed Record`);
