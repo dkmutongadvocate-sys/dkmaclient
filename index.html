@@ -14,6 +14,7 @@
 <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='80' fill='%230D1B2A'/><text y='320' x='256' font-size='220' text-anchor='middle' font-family='Georgia,serif' fill='%23B8953A'>DK</text></svg>"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<script src="app-config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" crossorigin="anonymous"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -25,7 +26,7 @@
 body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--txt);min-height:100vh}
 h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 
-#auth-screen{display:none;position:fixed;inset:0;background:var(--navy);z-index:9000;align-items:center;justify-content:center;flex-direction:column}
+#auth-screen{display:none;position:fixed;inset:0;background:var(--navy);z-index:9000;align-items:center;justify-content:center;flex-direction:column;padding:calc(18px + var(--safe-top)) 0 18px;overflow:auto}
 .auth-box{background:#fff;border-radius:14px;padding:40px;width:100%;max-width:400px;margin:20px}
 .auth-logo{text-align:center;margin-bottom:28px}
 .auth-logo-name{font-family:'Playfair Display',serif;font-size:24px;color:var(--navy);font-weight:500}
@@ -41,10 +42,42 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 .auth-switch{text-align:center;font-size:12px;color:var(--txt3);margin-top:16px}
 .auth-switch a{color:var(--navy);cursor:pointer;text-decoration:underline}
 .auth-notice{text-align:center;font-size:11px;color:rgba(255,255,255,0.5);margin-top:20px;max-width:340px;line-height:1.6}
+.biometric-lock-screen{display:none;position:fixed;inset:0;background:rgba(13,27,42,0.84);backdrop-filter:blur(10px);z-index:9200;align-items:center;justify-content:center;padding:24px}
+.biometric-lock-card{width:min(100%,420px);background:#fff;border-radius:24px;padding:28px 22px;box-shadow:0 26px 60px rgba(13,27,42,0.26);display:grid;gap:14px;text-align:center}
+.biometric-lock-badge{display:inline-flex;justify-content:center;align-items:center;background:rgba(184,149,58,0.16);color:#7A4800;font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;padding:6px 10px;border-radius:999px;justify-self:center}
+.biometric-lock-title{font-family:'Playfair Display',serif;font-size:28px;line-height:1.1;color:var(--navy)}
+.biometric-lock-copy{font-size:13px;line-height:1.7;color:var(--txt3)}
+.biometric-lock-actions{display:grid;gap:10px}
+.biometric-lock-field{display:none;text-align:left}
+.biometric-lock-field label{display:block;font-size:11px;color:var(--txt3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;font-weight:500}
+.biometric-secondary-btn{width:100%;background:#fff;color:var(--navy);border:1px solid var(--brd);padding:11px;border-radius:10px;font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer;font-weight:500;transition:all 0.15s}
+.biometric-secondary-btn:hover{border-color:rgba(13,27,42,0.28);background:#F7F4EC}
+.biometric-secondary-btn:disabled{opacity:0.6;cursor:not-allowed}
+.security-setup-screen{display:none;position:fixed;inset:0;background:rgba(13,27,42,0.72);backdrop-filter:blur(10px);z-index:9210;align-items:center;justify-content:center;padding:22px}
+.security-setup-card{width:min(100%,430px);background:#fff;border-radius:24px;padding:28px 22px;box-shadow:0 26px 60px rgba(13,27,42,0.26);display:grid;gap:14px}
+.security-setup-title{font-family:'Playfair Display',serif;font-size:28px;line-height:1.1;color:var(--navy);text-align:center}
+.security-setup-copy{font-size:13px;line-height:1.7;color:var(--txt3);text-align:center}
+.security-setup-actions{display:grid;gap:10px}
+.security-setup-pin{display:none;gap:10px}
 
-#portal-shell{display:none;min-height:100vh;min-height:100dvh;flex-direction:column}
+  #portal-shell{display:none;min-height:100vh;min-height:100dvh;flex-direction:column}
+  :root{
+    --safe-top: env(safe-area-inset-top, 0px);
+  }
 
-.topnav{background:var(--navy);height:60px;display:flex;align-items:center;padding:0 28px;gap:16px;flex-shrink:0;position:sticky;top:0;z-index:100}
+.topnav{
+  background:var(--navy);
+  min-height:60px;
+  display:flex;
+  align-items:center;
+  padding:12px 28px;
+  padding-top:calc(12px + var(--safe-top));
+  gap:16px;
+  flex-shrink:0;
+  position:sticky;
+  top:0;
+  z-index:100
+}
 .topnav-logo{font-family:'Playfair Display',serif;font-size:16px;color:#fff;font-weight:500;white-space:nowrap}
 .topnav-badge{background:var(--gold);color:var(--navy);font-size:9px;font-weight:600;padding:2px 7px;border-radius:3px;margin-left:8px;letter-spacing:0.5px}
 .topnav-tabs{display:none;gap:2px;margin-left:32px;flex:1;overflow-x:auto;scrollbar-width:none;-ms-overflow-style:none;-webkit-overflow-scrolling:touch}
@@ -440,6 +473,12 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
   .topnav-right{margin-left:auto}
   .portal-hamburger{display:flex}
 
+  .topnav{
+    min-height:58px;
+    padding:10px 14px;
+    padding-top:calc(10px + var(--safe-top));
+    gap:10px
+  }
   .portal-content{padding:12px}
 
   /* Stats */
@@ -459,8 +498,23 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
   }
 
   /* Auth box */
-  .auth-box{border-radius:20px 20px 0 0;position:fixed;bottom:0;width:100%;margin:0;padding:28px 24px}
-  #auth-screen{justify-content:flex-end}
+  .auth-box{
+    border-radius:22px;
+    position:relative;
+    bottom:auto;
+    width:calc(100% - 24px);
+    max-width:430px;
+    margin:0 12px;
+    padding:28px 24px calc(24px + env(safe-area-inset-bottom));
+    max-height:calc(100dvh - var(--safe-top) - 24px);
+    overflow:auto
+  }
+  #auth-screen{
+    justify-content:center;
+    padding:calc(16px + var(--safe-top)) 0 16px;
+    background:linear-gradient(180deg,var(--navy) 0 30%, #F5F2EA 30% 100%)
+  }
+  .auth-notice{display:none}
 
   /* Modals/overlays */
   .pwa-banner-sub{font-size:10px}
@@ -515,7 +569,11 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 
 @media(max-width:480px){
   .pstats{grid-template-columns:1fr 1fr}
-  .topnav{height:52px}
+  .topnav{
+    min-height:54px;
+    padding:9px 12px;
+    padding-top:calc(9px + var(--safe-top))
+  }
   .portal-content{padding:10px}
   .pcard-header{flex-direction:column;align-items:flex-start;gap:6px}
   .sig-modal-actions{grid-template-columns:1fr!important}
@@ -528,12 +586,26 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
 @media(max-width:360px){
   .pstats{grid-template-columns:1fr}
   .portal-content{padding:8px}
-  .auth-box{padding:24px 16px}
-}
+  .auth-box{
+    width:calc(100% - 16px);
+    margin:0 8px;
+    padding:24px 16px calc(18px + env(safe-area-inset-bottom))
+  }
+  .biometric-lock-screen{padding:18px}
+  .biometric-lock-card{padding:24px 18px 18px}
+  .biometric-lock-title{font-size:24px}
+  .security-setup-screen{padding:18px}
+  .security-setup-card{padding:24px 18px 18px}
+  .security-setup-title{font-size:24px}
+    }
 
 @media(max-height:500px) and (orientation:landscape){
   /* Compact topnav */
-  .topnav{height:44px;padding:0 12px}
+  .topnav{
+    min-height:44px;
+    padding:6px 12px;
+    padding-top:calc(6px + var(--safe-top))
+  }
   .topnav-logo{font-size:13px}
   .topnav-tab{padding:6px 10px;font-size:11px}
   .portal-content{padding:8px 12px}
@@ -622,10 +694,45 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
     </div>
   </div>
   <div class="auth-notice">Your portal is secured with end-to-end encryption. Dennis Kimani Mutonga Advocate - Advocates of the High Court of Kenya.</div>
-</div>
+  </div>
 
+  <div class="biometric-lock-screen" id="biometric-lock-screen">
+    <div class="biometric-lock-card">
+      <div class="biometric-lock-badge">Secure Unlock</div>
+      <div class="biometric-lock-title">Unlock DKMA Client</div>
+      <div class="biometric-lock-copy" id="biometric-lock-copy">Use your fingerprint or face unlock to continue.</div>
+      <div class="biometric-lock-field" id="pin-lock-field">
+        <label for="pin-lock-input">Portal PIN</label>
+        <input class="auth-input" id="pin-lock-input" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" placeholder="Enter your PIN" onkeydown="if(event.key==='Enter')unlockPortalWithPin()"/>
+      </div>
+      <div class="auth-error" id="biometric-lock-error" style="margin-bottom:0;min-height:18px"></div>
+      <div class="biometric-lock-actions">
+        <button class="auth-btn" id="biometric-unlock-btn" onclick="unlockPortalWithBiometrics(true)">Unlock with Biometrics</button>
+        <button class="biometric-secondary-btn" id="biometric-signout-btn" onclick="disableBiometricAndSignOut()">Use Password Sign-In Instead</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="security-setup-screen" id="security-setup-screen">
+    <div class="security-setup-card">
+      <div class="biometric-lock-badge">Device Security</div>
+      <div class="security-setup-title">Protect this app</div>
+      <div class="security-setup-copy" id="security-setup-copy">Choose how this device should unlock the client portal after you sign in.</div>
+      <div class="auth-error" id="security-setup-error" style="margin-bottom:0;min-height:18px"></div>
+      <div class="security-setup-pin" id="security-setup-pin">
+        <input class="auth-input" id="security-pin-input" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" placeholder="Create a 4-8 digit PIN"/>
+        <input class="auth-input" id="security-pin-confirm" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" placeholder="Confirm PIN" onkeydown="if(event.key==='Enter')savePinSecurityPreference()"/>
+      </div>
+      <div class="security-setup-actions" id="security-setup-actions">
+        <button class="auth-btn" id="security-setup-biometric-btn" onclick="enableBiometricSecurity()">Use Biometrics</button>
+        <button class="biometric-secondary-btn" id="security-setup-pin-btn" onclick="showPinSecuritySetup()">Use PIN Instead</button>
+        <button class="biometric-secondary-btn" id="security-setup-skip-btn" onclick="dismissSecuritySetup()">Not Now</button>
+      </div>
+    </div>
+  </div>
+  
 <!-- PORTAL SHELL -->
-<div id="portal-shell" style="display:none;flex-direction:column;min-height:100vh">
+  <div id="portal-shell" style="display:none;flex-direction:column;min-height:100vh">
 
   <!-- TOP NAV -->
   <nav class="topnav">
@@ -1232,7 +1339,7 @@ function _showConfigSetup(){
   };
 }
 
-const _envConfig=(window.__DKMA_ENV__||window.DKMA_ENV||window.__APP_CONFIG__||window.APP_CONFIG||window.__RUNTIME_CONFIG__||{});
+const _envConfig=(window.DKMA_CLIENT_CONFIG||window.DKMA_PORTAL_CONFIG||window.__DKMA_ENV__||window.DKMA_ENV||window.__APP_CONFIG__||window.APP_CONFIG||window.__RUNTIME_CONFIG__||{});
 const SUPABASE_URL=_resolveInjectedValue(RAW_SUPABASE_URL,{
   sources:[
     _envConfig.SUPABASE_URL,
@@ -1301,6 +1408,18 @@ const FIRM_BUCKET='matter-documents';
 
 let currentUser=null;
 let clientRecord=null;       // row from clients table
+const biometricPlugin=window.Capacitor?.Plugins?.BiometricAuth||null;
+const capacitorAppPlugin=window.Capacitor?.Plugins?.App||null;
+const BIOMETRIC_ENABLED_USERS_KEY='dkmaPortalBiometricEnabledUsers';
+const SECURITY_MODE_USERS_KEY='dkmaPortalSecurityModes';
+const SECURITY_PIN_HASH_USERS_KEY='dkmaPortalPinHashes';
+const PORTAL_DEVICE_ID_KEY='dkmaPortalDeviceId';
+const BIOMETRIC_RESUME_DELAY_MS=15000;
+let biometricUnlockInFlight=false;
+let biometricLastBackgroundAt=0;
+let biometricResumeGuardBound=false;
+let portalLaunchedOnce=false;
+let pendingSecuritySetup=false;
 let myMatters=[];
 let myEvents=[];
 let myInvoices=[];
@@ -1870,6 +1989,374 @@ function showMode(mode){
     if(el)el.style.display=m===mode?'block':'none';
   });
 }
+function biometricUserKey(user=currentUser){
+  return String(user?.id||user?.email||'').trim().toLowerCase();
+}
+function getBiometricEnabledUsers(){
+  try{
+    const parsed=JSON.parse(localStorage.getItem(BIOMETRIC_ENABLED_USERS_KEY)||'{}');
+    return parsed&&typeof parsed==='object'?parsed:{};
+  }catch(_e){
+    return {};
+  }
+}
+function setBiometricEnabledForUser(user,enabled){
+  const key=biometricUserKey(user);
+  if(!key)return;
+  const map=getBiometricEnabledUsers();
+  if(enabled)map[key]=true;
+  else delete map[key];
+  localStorage.setItem(BIOMETRIC_ENABLED_USERS_KEY,JSON.stringify(map));
+}
+function getUserSecurityModes(){
+  try{
+    const parsed=JSON.parse(localStorage.getItem(SECURITY_MODE_USERS_KEY)||'{}');
+    return parsed&&typeof parsed==='object'?parsed:{};
+  }catch(_e){
+    return {};
+  }
+}
+function setUserSecurityMode(user,mode){
+  const key=biometricUserKey(user);
+  if(!key)return;
+  const map=getUserSecurityModes();
+  if(mode)map[key]=mode;
+  else delete map[key];
+  localStorage.setItem(SECURITY_MODE_USERS_KEY,JSON.stringify(map));
+  setBiometricEnabledForUser(user,mode==='biometric');
+}
+function getPinHashMap(){
+  try{
+    const parsed=JSON.parse(localStorage.getItem(SECURITY_PIN_HASH_USERS_KEY)||'{}');
+    return parsed&&typeof parsed==='object'?parsed:{};
+  }catch(_e){
+    return {};
+  }
+}
+function setPinHashForUser(user,hash){
+  const key=biometricUserKey(user);
+  if(!key)return;
+  const map=getPinHashMap();
+  if(hash)map[key]=hash;
+  else delete map[key];
+  localStorage.setItem(SECURITY_PIN_HASH_USERS_KEY,JSON.stringify(map));
+}
+function getPinHashForUser(user=currentUser){
+  const key=biometricUserKey(user);
+  if(!key)return'';
+  return getPinHashMap()[key]||'';
+}
+function getUserSecurityMode(user=currentUser){
+  const key=biometricUserKey(user);
+  if(!key)return'none';
+  const modes=getUserSecurityModes();
+  if(modes[key])return modes[key];
+  if(isBiometricEnabledForUser(user))return'biometric';
+  if(getPinHashForUser(user))return'pin';
+  return'none';
+}
+function ensurePortalDeviceId(){
+  let id=String(localStorage.getItem(PORTAL_DEVICE_ID_KEY)||'').trim();
+  if(id)return id;
+  try{
+    if(window.crypto?.randomUUID)id=window.crypto.randomUUID();
+  }catch(_e){}
+  if(!id)id=`dkma-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,10)}`;
+  localStorage.setItem(PORTAL_DEVICE_ID_KEY,id);
+  return id;
+}
+function clientHasPortalDeviceColumns(row){
+  return !!row
+    && Object.prototype.hasOwnProperty.call(row,'portal_device_id')
+    && Object.prototype.hasOwnProperty.call(row,'portal_device_label')
+    && Object.prototype.hasOwnProperty.call(row,'portal_device_locked_at')
+    && Object.prototype.hasOwnProperty.call(row,'portal_device_last_seen_at');
+}
+function getPortalDeviceLabel(){
+  const ua=navigator.userAgent||'';
+  const platform=window.Capacitor?.getPlatform?.()||'web';
+  const base=typeof getDevice==='function'?getDevice(ua):platform;
+  return `${base} (${platform})`;
+}
+async function enforcePortalDeviceBinding(){
+  if(!clientRecord)return{ok:true};
+  if(!clientHasPortalDeviceColumns(clientRecord)){
+    return{ok:false,reason:'Portal device lock is not configured yet. Apply the latest Supabase migration, then sign in again.'};
+  }
+  const deviceId=ensurePortalDeviceId();
+  const deviceLabel=getPortalDeviceLabel();
+  const nowIso=new Date().toISOString();
+  const lockedId=String(clientRecord.portal_device_id||'').trim();
+  if(!lockedId){
+    const payload={
+      portal_device_id:deviceId,
+      portal_device_label:deviceLabel,
+      portal_device_locked_at:nowIso,
+      portal_device_last_seen_at:nowIso
+    };
+    const {data,error}=await sb.from('clients').update(payload).eq('id',clientRecord.id).select('*').single();
+    if(error)return{ok:false,reason:error.message||'Could not lock this portal account to the current device.'};
+    clientRecord=data||{...clientRecord,...payload};
+    return{ok:true,firstBind:true};
+  }
+  if(lockedId!==deviceId){
+    const label=String(clientRecord.portal_device_label||'another device').trim();
+    return{ok:false,reason:`This portal account is already linked to ${label}. Contact the firm to move access to this device.`};
+  }
+  const seenPayload={portal_device_last_seen_at:nowIso,portal_device_label:deviceLabel};
+  const {error:updateErr}=await sb.from('clients').update(seenPayload).eq('id',clientRecord.id);
+  if(!updateErr)clientRecord={...clientRecord,...seenPayload};
+  return{ok:true};
+}
+async function hashPortalPin(pin){
+  const enc=new TextEncoder().encode(pin);
+  const buf=await crypto.subtle.digest('SHA-256',enc);
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function setSecuritySetupBusy(isBusy,primaryLabel='Use Biometrics'){
+  const biometricBtn=document.getElementById('security-setup-biometric-btn');
+  const pinBtn=document.getElementById('security-setup-pin-btn');
+  const skipBtn=document.getElementById('security-setup-skip-btn');
+  if(biometricBtn){
+    biometricBtn.disabled=!!isBusy;
+    biometricBtn.innerHTML=isBusy?'<span class="spinner"></span>Saving...':primaryLabel;
+  }
+  if(pinBtn)pinBtn.disabled=!!isBusy;
+  if(skipBtn)skipBtn.disabled=!!isBusy;
+}
+function showSecuritySetup(mode='choice',message='Choose how this device should unlock the client portal after you sign in.'){
+  pendingSecuritySetup=true;
+  const shell=document.getElementById('security-setup-screen');
+  const copy=document.getElementById('security-setup-copy');
+  const err=document.getElementById('security-setup-error');
+  const pinWrap=document.getElementById('security-setup-pin');
+  const pinBtn=document.getElementById('security-setup-pin-btn');
+  const bioBtn=document.getElementById('security-setup-biometric-btn');
+  if(copy)copy.textContent=message;
+  if(err)err.textContent='';
+  if(pinWrap)pinWrap.style.display=mode==='pin'?'grid':'none';
+  if(pinBtn)pinBtn.style.display=mode==='pin'?'none':'block';
+  if(bioBtn){
+    bioBtn.textContent=mode==='pin'?'Save PIN':'Use Biometrics';
+    bioBtn.onclick=mode==='pin'?savePinSecurityPreference:enableBiometricSecurity;
+  }
+  if(shell)shell.style.display='flex';
+  setSecuritySetupBusy(false,mode==='pin'?'Save PIN':'Use Biometrics');
+}
+function dismissSecuritySetup(){
+  pendingSecuritySetup=false;
+  const shell=document.getElementById('security-setup-screen');
+  const pinWrap=document.getElementById('security-setup-pin');
+  const err=document.getElementById('security-setup-error');
+  if(shell)shell.style.display='none';
+  if(pinWrap)pinWrap.style.display='none';
+  if(err)err.textContent='';
+  const pinInput=document.getElementById('security-pin-input');
+  const pinConfirm=document.getElementById('security-pin-confirm');
+  if(pinInput)pinInput.value='';
+  if(pinConfirm)pinConfirm.value='';
+}
+function showPinSecuritySetup(){
+  showSecuritySetup('pin','Set a 4 to 8 digit PIN for unlocking the client portal on this device.');
+}
+function isBiometricEnabledForUser(user=currentUser){
+  const key=biometricUserKey(user);
+  if(!key)return false;
+  return !!getBiometricEnabledUsers()[key];
+}
+function showBiometricLockScreen(message='Use your fingerprint or face unlock to continue.',error=''){
+  const shell=document.getElementById('biometric-lock-screen');
+  const copy=document.getElementById('biometric-lock-copy');
+  const err=document.getElementById('biometric-lock-error');
+  const pinField=document.getElementById('pin-lock-field');
+  const pinInput=document.getElementById('pin-lock-input');
+  const isPin=getUserSecurityMode()==='pin';
+  if(copy)copy.textContent=message;
+  if(err)err.textContent=error||'';
+  if(pinField)pinField.style.display=isPin?'block':'none';
+  if(pinInput&&!isPin)pinInput.value='';
+  const unlockBtn=document.getElementById('biometric-unlock-btn');
+  if(unlockBtn)unlockBtn.textContent=isPin?'Unlock with PIN':'Unlock with Biometrics';
+  if(shell)shell.style.display='flex';
+}
+function hideBiometricLockScreen(){
+  const shell=document.getElementById('biometric-lock-screen');
+  const err=document.getElementById('biometric-lock-error');
+  const pinInput=document.getElementById('pin-lock-input');
+  if(err)err.textContent='';
+  if(pinInput)pinInput.value='';
+  if(shell)shell.style.display='none';
+  setBiometricLockBusy(false);
+}
+function setBiometricLockBusy(isBusy){
+  const unlockBtn=document.getElementById('biometric-unlock-btn');
+  const fallbackBtn=document.getElementById('biometric-signout-btn');
+  if(unlockBtn){
+    unlockBtn.disabled=!!isBusy;
+    unlockBtn.innerHTML=isBusy?'<span class="spinner"></span>Unlocking...':(getUserSecurityMode()==='pin'?'Unlock with PIN':'Unlock with Biometrics');
+  }
+  if(fallbackBtn)fallbackBtn.disabled=!!isBusy;
+}
+async function biometricAvailability(){
+  if(!biometricPlugin?.isAvailable)return{available:false,message:'Biometric unlock is not available on this device.'};
+  try{
+    const res=await biometricPlugin.isAvailable();
+    return res&&typeof res==='object'?res:{available:false,message:'Biometric unlock is not available on this device.'};
+  }catch(e){
+    return{available:false,message:e?.message||'Biometric unlock is not available on this device.'};
+  }
+}
+async function unlockPortalWithBiometrics(interactive=true,launchAfterUnlock=false){
+  if(getUserSecurityMode()==='pin')return unlockPortalWithPin(launchAfterUnlock);
+  if(!isBiometricEnabledForUser())return launchAfterUnlock?(await launchPortal(),true):true;
+  if(!biometricPlugin?.authenticate){
+    setBiometricEnabledForUser(currentUser,false);
+    hideBiometricLockScreen();
+    if(launchAfterUnlock)await launchPortal();
+    return true;
+  }
+  const availability=await biometricAvailability();
+  if(!availability.available){
+    setBiometricEnabledForUser(currentUser,false);
+    hideBiometricLockScreen();
+    if(launchAfterUnlock)await launchPortal();
+    portalToast(availability.message||'Biometric lock was disabled because this device no longer supports it.',true);
+    return true;
+  }
+  if(biometricUnlockInFlight)return false;
+  biometricUnlockInFlight=true;
+    showBiometricLockScreen('Use your fingerprint or face unlock to continue.');
+  setBiometricLockBusy(true);
+  try{
+    await biometricPlugin.authenticate({
+      title:'Unlock DKMA Client',
+      subtitle:'Use biometrics to continue',
+      description:'This device is protected with biometric lock for the client portal.'
+    });
+    biometricLastBackgroundAt=0;
+    hideBiometricLockScreen();
+    if(launchAfterUnlock)await launchPortal();
+    return true;
+  }catch(e){
+    const err=document.getElementById('biometric-lock-error');
+    if(err)err.textContent=interactive?(e?.message||'Biometric verification was not completed.'):'Unlock with biometrics to continue.';
+    showBiometricLockScreen('Use your fingerprint, face, or device credential to continue.',err?.textContent||'');
+    return false;
+  }finally{
+    biometricUnlockInFlight=false;
+    setBiometricLockBusy(false);
+  }
+}
+async function enableBiometricSecurity(){
+  const availability=await biometricAvailability();
+  if(!availability.available){
+    showPinSecuritySetup();
+    return;
+  }
+  setSecuritySetupBusy(true,'Use Biometrics');
+  try{
+    await biometricPlugin.authenticate({
+      title:'Enable Biometric Lock',
+      subtitle:'Confirm your biometrics for future portal unlocks',
+      description:'This keeps the client portal protected on this device.'
+    });
+    setUserSecurityMode(currentUser,'biometric');
+    dismissSecuritySetup();
+    hideBiometricLockScreen();
+    portalToast('Biometric lock enabled for this device.');
+  }catch(e){
+    setSecuritySetupBusy(false,'Use Biometrics');
+    showPinSecuritySetup();
+    const err=document.getElementById('security-setup-error');
+    if(err)err.textContent='Biometric setup did not complete. Set a PIN for this device instead.';
+  }
+}
+async function savePinSecurityPreference(){
+  const pin=(document.getElementById('security-pin-input')?.value||'').trim();
+  const confirmPin=(document.getElementById('security-pin-confirm')?.value||'').trim();
+  const err=document.getElementById('security-setup-error');
+  if(err)err.textContent='';
+  if(!/^\d{4,8}$/.test(pin)){
+    if(err)err.textContent='Use a 4 to 8 digit PIN.';
+    return;
+  }
+  if(pin!==confirmPin){
+    if(err)err.textContent='PIN entries do not match.';
+    return;
+  }
+  setSecuritySetupBusy(true,'Save PIN');
+  const hash=await hashPortalPin(pin);
+  setPinHashForUser(currentUser,hash);
+  setUserSecurityMode(currentUser,'pin');
+  dismissSecuritySetup();
+  hideBiometricLockScreen();
+  portalToast('PIN lock enabled for this device.');
+}
+async function maybeOfferBiometricSetup(force=false){
+  if((window._offerBiometricSetup!==true&&!force)||pendingSecuritySetup)return;
+  window._offerBiometricSetup=false;
+  if(!currentUser||getUserSecurityMode(currentUser)!=='none')return;
+  const availability=await biometricAvailability();
+  if(availability.available){
+    showSecuritySetup('choice','Choose how this device should unlock the client portal after you sign in.');
+  }else{
+    showSecuritySetup('pin','Biometric unlock is not available here, so let’s secure the client portal with a PIN on this device.');
+  }
+}
+async function unlockPortalWithPin(launchAfterUnlock=false){
+  const expectedHash=getPinHashForUser();
+  if(!expectedHash){
+    setUserSecurityMode(currentUser,null);
+    if(launchAfterUnlock)await launchPortal();
+    return true;
+  }
+  const pinInput=document.getElementById('pin-lock-input');
+  const err=document.getElementById('biometric-lock-error');
+  const pin=(pinInput?.value||'').trim();
+  showBiometricLockScreen('Enter your portal PIN to continue.');
+  if(!/^\d{4,8}$/.test(pin)){
+    if(err)err.textContent='Enter your 4 to 8 digit PIN.';
+    return false;
+  }
+  setBiometricLockBusy(true);
+  const hash=await hashPortalPin(pin);
+  const ok=hash===expectedHash;
+  setBiometricLockBusy(false);
+  if(!ok){
+    if(err)err.textContent='That PIN did not match.';
+    return false;
+  }
+  biometricLastBackgroundAt=0;
+  hideBiometricLockScreen();
+  if(launchAfterUnlock)await launchPortal();
+  return true;
+}
+async function disableBiometricAndSignOut(){
+  setUserSecurityMode(currentUser,null);
+  setPinHashForUser(currentUser,null);
+  pendingSecuritySetup=false;
+  dismissSecuritySetup();
+  hideBiometricLockScreen();
+  await signOut();
+}
+function installBiometricResumeGuard(){
+  if(biometricResumeGuardBound||!capacitorAppPlugin?.addListener)return;
+  biometricResumeGuardBound=true;
+  capacitorAppPlugin.addListener('appStateChange',async({isActive})=>{
+    const mode=getUserSecurityMode();
+    if(!currentUser||mode==='none')return;
+    if(!isActive){
+      biometricLastBackgroundAt=Date.now();
+      return;
+    }
+    const portalVisible=document.getElementById('portal-shell')?.style.display!=='none';
+    const elapsed=biometricLastBackgroundAt?(Date.now()-biometricLastBackgroundAt):(BIOMETRIC_RESUME_DELAY_MS+1);
+    biometricLastBackgroundAt=0;
+    if(!portalVisible||elapsed<BIOMETRIC_RESUME_DELAY_MS)return;
+    if(mode==='pin')showBiometricLockScreen('Enter your portal PIN to continue.');
+    else await unlockPortalWithBiometrics(false,false);
+  });
+}
 async function signIn(){
   // Strip +portal alias in case the browser's password manager autofilled it
   const email=document.getElementById('auth-email').value.trim().replace('+portal@','@');
@@ -1879,6 +2366,8 @@ async function signIn(){
   if(!email||!pw){errEl.textContent='Please enter email and password.';return;}
   const btn=document.getElementById('auth-btn');
   btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Signing in...';
+  window._offerBiometricSetup=false;
+  window._pendingPasswordSignIn=true;
 
   // Primary attempt: +portal alias (e.g. client+portal@gmail.com)
   const portalEmail=toPortalEmail(email);
@@ -1902,6 +2391,7 @@ async function signIn(){
 
   btn.disabled=false;btn.textContent='Sign In to Portal';
   if(error){
+    window._pendingPasswordSignIn=false;
     const msg=error.message||'';
     if(msg.toLowerCase().includes('invalid login')||msg.toLowerCase().includes('invalid credentials')||msg.toLowerCase().includes('invalid')){
       errEl.innerHTML='Incorrect email or password.<br><span style="font-size:11px;color:var(--txt3)">If you were sent a temporary password, please ensure you copied it exactly, or contact the firm for a new one.</span>';
@@ -1915,18 +2405,24 @@ async function signIn(){
   const{data:{user:freshUser}}=await sb.auth.getUser();
   const meta=freshUser?.user_metadata||data.user?.user_metadata||{};
   if(meta.must_change_password){
+    window._pendingPasswordSignIn=false;
     window._mustChangePassword=true;
     showNewPasswordScreen();
     return;
   }
+  window._offerBiometricSetup=true;
   // Normal login - portal launches via onAuthStateChange SIGNED_IN
 }
 // signUp and sendReset removed - accounts are managed by the firm
 async function signOut(){
   await sb.auth.signOut();
+  portalLaunchedOnce=false;
+  pendingSecuritySetup=false;
   document.getElementById('portal-shell').style.display='none';
   const publicShell=document.getElementById('public-sign-shell');
   if(publicShell)publicShell.style.display='none';
+  dismissSecuritySetup();
+  hideBiometricLockScreen();
   showAuthScreen();
   showMode('signin');
 }
@@ -1995,6 +2491,7 @@ function showAuthScreen(){
   hideSplash();
   const publicShell=document.getElementById('public-sign-shell');
   if(publicShell)publicShell.style.display='none';
+  hideBiometricLockScreen();
   document.getElementById('auth-screen').style.display='flex';
   document.getElementById('portal-shell').style.display='none';
 }
@@ -2005,6 +2502,7 @@ async function initPortal(){
     await initPublicSignatureLinkFlow(linkToken);
     return;
   }
+  installBiometricResumeGuard();
   // Supabase picks up the #access_token from the URL automatically
   const{data:{session}}=await sb.auth.getSession();
 
@@ -2013,19 +2511,35 @@ async function initPortal(){
       // If user just signed in and must change their temporary password, stay on that screen
       if(window._mustChangePassword){return;}
       currentUser=session.user;
+      const freshPasswordLogin=!!window._pendingPasswordSignIn;
+      window._pendingPasswordSignIn=false;
       // Always fetch fresh metadata - session.user.user_metadata can be stale
       // (e.g. after an admin resets the client's password via the service role API)
       const{data:{user:freshSignedInUser}}=await sb.auth.getUser();
-      if(freshSignedInUser?.user_metadata?.must_change_password||session.user?.user_metadata?.must_change_password){
-        window._mustChangePassword=true;
-        showNewPasswordScreen();
-        return;
+        if(freshSignedInUser?.user_metadata?.must_change_password||session.user?.user_metadata?.must_change_password){
+          window._mustChangePassword=true;
+          showNewPasswordScreen();
+          return;
+        }
+        if(freshPasswordLogin){
+          await launchPortal();
+          await maybeOfferBiometricSetup(true);
+        }else if(getUserSecurityMode(session.user)==='biometric'){
+          await unlockPortalWithBiometrics(false,!portalLaunchedOnce);
+        }else if(getUserSecurityMode(session.user)==='pin'){
+          if(!portalLaunchedOnce)await launchPortal();
+          showBiometricLockScreen('Enter your portal PIN to continue.');
+        }else{
+          await launchPortal();
+          await maybeOfferBiometricSetup(true);
+        }
       }
-      launchPortal();
-    }
     if(event==='SIGNED_OUT'){
       currentUser=null;clientRecord=null;
       window._mustChangePassword=false;
+      window._pendingPasswordSignIn=false;
+      window._offerBiometricSetup=false;
+      portalLaunchedOnce=false;
       document.getElementById('portal-shell').style.display='none';
       showAuthScreen();
       showMode('signin');
@@ -2041,7 +2555,10 @@ async function initPortal(){
       window._mustChangePassword=true;
       showNewPasswordScreen();
     } else {
-      launchPortal();
+      const mode=getUserSecurityMode(session.user);
+      if(mode==='biometric')await unlockPortalWithBiometrics(false,true);
+      else if(mode==='pin'){await launchPortal();showBiometricLockScreen('Enter your portal PIN to continue.');}
+      else {await launchPortal();await maybeOfferBiometricSetup(true);}
     }
   } else {
     showAuthScreen();
@@ -2050,6 +2567,7 @@ async function initPortal(){
 
 function showNewPasswordScreen(){
   hideSplash();
+  hideBiometricLockScreen();
   document.getElementById('auth-screen').style.display='flex';
   document.getElementById('portal-shell').style.display='none';
   // Show new password mode
@@ -2086,20 +2604,23 @@ async function setNewPassword(){
   }
   errEl.style.color='var(--green)';
   errEl.textContent='Password updated! Signing you in...';
+  window._offerBiometricSetup=true;
+  window._pendingPasswordSignIn=true;
   // Fallback: if onAuthStateChange already fired and launched the portal, this
   // setTimeout is a no-op. If it hasn't fired yet (e.g. slow network), we launch manually.
   setTimeout(async()=>{
-    // Only launch if we're still on the auth screen (i.e. onAuthStateChange didn't do it)
-    if(document.getElementById('auth-screen').style.display!=='none'){
-      const{data:{user:freshUser}}=await sb.auth.getUser();
-      if(freshUser){currentUser=freshUser;launchPortal();}
-      else{showMode('signin');}
-    }
-  },1800);
-}
+      // Only launch if we're still on the auth screen (i.e. onAuthStateChange didn't do it)
+      if(document.getElementById('auth-screen').style.display!=='none'){
+        const{data:{user:freshUser}}=await sb.auth.getUser();
+      if(freshUser){currentUser=freshUser;await launchPortal();await maybeOfferBiometricSetup(true);}
+        else{showMode('signin');}
+      }
+    },1800);
+  }
 
 async function launchPortal(){
   hideSplash();
+  hideBiometricLockScreen();
   document.getElementById('auth-screen').style.display='none';
   document.getElementById('portal-shell').style.display='flex';
   document.getElementById('portal-loading').style.display='flex';
@@ -2119,6 +2640,20 @@ async function launchPortal(){
     return;
   }
 
+  const deviceBinding=await enforcePortalDeviceBinding();
+  if(!deviceBinding.ok){
+    await sb.auth.signOut();
+    clientRecord=null;
+    document.getElementById('portal-loading').style.display='none';
+    document.getElementById('auth-screen').style.display='flex';
+    const errEl=document.getElementById('auth-error');
+    if(errEl){
+      errEl.textContent=deviceBinding.reason||'This portal account cannot be opened on this device.';
+      errEl.style.display='block';
+    }
+    return;
+  }
+
   await loadFirmSettings();
 
   if(clientRecord){
@@ -2135,10 +2670,14 @@ async function launchPortal(){
     setupMessagesRealtime();
   }
   document.getElementById('portal-loading').style.display='none';
+  portalLaunchedOnce=true;
   updateNavUser();
   showPView('overview',null);
   // Init notifications after data is loaded so we can seed known state
   setTimeout(initPortalNotifications, 1000);
+  if(window._offerBiometricSetup===true){
+    setTimeout(()=>{ maybeOfferBiometricSetup(true); }, 200);
+  }
 }
 
 function updateNavUser(){
