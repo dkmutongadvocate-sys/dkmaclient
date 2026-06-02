@@ -682,6 +682,18 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
       <div class="auth-switch" style="font-size:11px;color:var(--txt3);text-align:center;margin-top:14px">Don't have access? Contact the firm to get your login credentials.</div>
     </div>
 
+    <div id="auth-mode-desktopotp" style="display:none">
+      <p id="desktop-otp-copy" style="font-size:12px;color:var(--txt3);text-align:center;margin-bottom:20px;line-height:1.6">Enter the one-time code sent to your email to continue on desktop.</p>
+      <label class="auth-label">One-Time Code</label>
+      <input class="auth-input" id="desktop-otp-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="6-digit code" onkeydown="if(event.key==='Enter')verifyDesktopOtp()"/>
+      <div class="auth-error" id="desktop-otp-error"></div>
+      <button class="auth-btn" id="desktop-otp-btn" onclick="verifyDesktopOtp()">Verify &amp; Continue</button>
+      <div class="auth-switch" style="display:flex;justify-content:center;gap:14px;margin-top:14px;font-size:11px">
+        <a onclick="resendDesktopOtp()">Resend code</a>
+        <a onclick="cancelDesktopOtp()">Back to sign in</a>
+      </div>
+    </div>
+
     <div id="auth-mode-newpassword" style="display:none">
       <p style="font-size:12px;color:var(--txt3);text-align:center;margin-bottom:20px;line-height:1.6">You signed in with a temporary password. Please choose a new password to secure your account and continue.</p>
       <label class="auth-label">New Password</label>
@@ -1984,10 +1996,22 @@ function empty(icon,title,sub=''){
 }
 
 function showMode(mode){
-  ['signin','newpassword'].forEach(m=>{
+  ['signin','desktopotp','newpassword'].forEach(m=>{
     const el=document.getElementById('auth-mode-'+m);
     if(el)el.style.display=m===mode?'block':'none';
   });
+}
+function isNativeClientApp(){
+  try{
+    if(window.Capacitor?.isNativePlatform?.())return true;
+    const platform=String(window.Capacitor?.getPlatform?.()||'web').toLowerCase();
+    return platform==='android'||platform==='ios';
+  }catch(_e){
+    return false;
+  }
+}
+function shouldRequireDesktopOtp(){
+  return !isNativeClientApp();
 }
 function biometricUserKey(user=currentUser){
   return String(user?.id||user?.email||'').trim().toLowerCase();
@@ -2080,6 +2104,7 @@ function getPortalDeviceLabel(){
 }
 async function enforcePortalDeviceBinding(){
   if(!clientRecord)return{ok:true};
+  if(!isNativeClientApp())return{ok:true,skipped:true};
   if(!clientHasPortalDeviceColumns(clientRecord)){
     return{ok:false,reason:'Portal device lock is not configured yet. Apply the latest Supabase migration, then sign in again.'};
   }
@@ -2368,6 +2393,7 @@ async function signIn(){
   btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Signing in...';
   window._offerBiometricSetup=false;
   window._pendingPasswordSignIn=true;
+  window._desktopOtpInProgress=false;
 
   // Primary attempt: +portal alias (e.g. client+portal@gmail.com)
   const portalEmail=toPortalEmail(email);
@@ -2408,6 +2434,24 @@ async function signIn(){
     window._pendingPasswordSignIn=false;
     window._mustChangePassword=true;
     showNewPasswordScreen();
+    return;
+  }
+  if(shouldRequireDesktopOtp()){
+    const otpEmail=String(freshUser?.email||data.user?.email||portalEmail).trim().toLowerCase();
+    window._pendingPasswordSignIn=false;
+    window._desktopOtpInProgress=true;
+    btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Sending code...';
+    try{
+      await sb.auth.signOut();
+      await sendDesktopOtp(otpEmail);
+      btn.disabled=false;btn.textContent='Sign In to Portal';
+      showDesktopOtpScreen(otpEmail);
+    }catch(otpErr){
+      window._desktopOtpInProgress=false;
+      btn.disabled=false;btn.textContent='Sign In to Portal';
+      showMode('signin');
+      errEl.textContent='Could not send desktop OTP: '+(otpErr.message||otpErr);
+    }
     return;
   }
   window._offerBiometricSetup=true;
@@ -2486,6 +2530,90 @@ function closePortalDrawer(){
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closePortalDrawer();}});
 
+let desktopOtpEmail='';
+let desktopOtpRequestedAt=0;
+
+function showDesktopOtpScreen(email){
+  desktopOtpEmail=String(email||'').trim().toLowerCase();
+  desktopOtpRequestedAt=Date.now();
+  hideSplash();
+  hideBiometricLockScreen();
+  document.getElementById('portal-shell').style.display='none';
+  document.getElementById('auth-screen').style.display='flex';
+  showMode('desktopotp');
+  const copy=document.getElementById('desktop-otp-copy');
+  const err=document.getElementById('desktop-otp-error');
+  const input=document.getElementById('desktop-otp-code');
+  if(copy)copy.textContent=`Enter the one-time code sent to ${desktopOtpEmail.replace('+portal@','@')} to continue on desktop.`;
+  if(err)err.textContent='';
+  if(input){input.value='';setTimeout(()=>input.focus(),80);}
+}
+
+async function sendDesktopOtp(email){
+  const target=String(email||desktopOtpEmail||'').trim().toLowerCase();
+  if(!target)throw new Error('No portal email is available for OTP.');
+  const {error}=await sb.auth.signInWithOtp({
+    email:target,
+    options:{shouldCreateUser:false}
+  });
+  if(error)throw error;
+  desktopOtpEmail=target;
+  desktopOtpRequestedAt=Date.now();
+}
+
+async function resendDesktopOtp(){
+  const err=document.getElementById('desktop-otp-error');
+  if(err)err.textContent='';
+  if(Date.now()-desktopOtpRequestedAt<30000){
+    if(err)err.textContent='Please wait a few seconds before requesting another code.';
+    return;
+  }
+  try{
+    await sendDesktopOtp(desktopOtpEmail);
+    toast('A new desktop OTP has been sent.');
+  }catch(e){
+    if(err)err.textContent=e.message||'Could not send OTP.';
+  }
+}
+
+async function cancelDesktopOtp(){
+  window._desktopOtpInProgress=false;
+  desktopOtpEmail='';
+  desktopOtpRequestedAt=0;
+  await sb.auth.signOut();
+  showAuthScreen();
+  showMode('signin');
+}
+
+async function verifyDesktopOtp(){
+  const codeEl=document.getElementById('desktop-otp-code');
+  const err=document.getElementById('desktop-otp-error');
+  const btn=document.getElementById('desktop-otp-btn');
+  const code=String(codeEl?.value||'').replace(/\D/g,'').trim();
+  if(err)err.textContent='';
+  if(!desktopOtpEmail){if(err)err.textContent='Please sign in again to request a fresh code.';return;}
+  if(code.length<6){if(err)err.textContent='Enter the 6-digit code from your email.';return;}
+  if(btn){btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Verifying...';}
+  window._desktopOtpInProgress=false;
+  window._pendingPasswordSignIn=true;
+  const {data,error}=await sb.auth.verifyOtp({email:desktopOtpEmail,token:code,type:'email'});
+  if(btn){btn.disabled=false;btn.textContent='Verify & Continue';}
+  if(error){
+    window._desktopOtpInProgress=true;
+    window._pendingPasswordSignIn=false;
+    if(err)err.textContent=error.message||'That code could not be verified.';
+    return;
+  }
+  desktopOtpEmail='';
+  desktopOtpRequestedAt=0;
+  currentUser=data?.user||currentUser;
+  setTimeout(async()=>{
+    if(currentUser&&!portalLaunchedOnce&&document.getElementById('portal-shell').style.display==='none'){
+      await launchPortal();
+    }
+  },400);
+}
+
 function hideSplash(){const s=document.getElementById('portal-splash');if(s)s.style.display='none';}
 function showAuthScreen(){
   hideSplash();
@@ -2508,6 +2636,7 @@ async function initPortal(){
 
   sb.auth.onAuthStateChange(async(event,session)=>{
     if(event==='SIGNED_IN'&&session){
+      if(window._desktopOtpInProgress){return;}
       // If user just signed in and must change their temporary password, stay on that screen
       if(window._mustChangePassword){return;}
       currentUser=session.user;
@@ -2536,6 +2665,7 @@ async function initPortal(){
       }
     if(event==='SIGNED_OUT'){
       currentUser=null;clientRecord=null;
+      if(window._desktopOtpInProgress){return;}
       window._mustChangePassword=false;
       window._pendingPasswordSignIn=false;
       window._offerBiometricSetup=false;
@@ -2612,11 +2742,60 @@ async function setNewPassword(){
       // Only launch if we're still on the auth screen (i.e. onAuthStateChange didn't do it)
       if(document.getElementById('auth-screen').style.display!=='none'){
         const{data:{user:freshUser}}=await sb.auth.getUser();
-      if(freshUser){currentUser=freshUser;await launchPortal();await maybeOfferBiometricSetup(true);}
+  if(freshUser){currentUser=freshUser;await launchPortal();await maybeOfferBiometricSetup(true);}
         else{showMode('signin');}
       }
     },1800);
   }
+
+function normalizePortalEmail(value){
+  return String(value||'').trim().toLowerCase().replace('+portal@','@');
+}
+
+function choosePortalClientRecord(rows){
+  const list=(rows||[]).filter(Boolean);
+  if(!list.length)return null;
+  const authId=String(currentUser?.id||'').trim();
+  const authEmail=String(currentUser?.email||'').trim().toLowerCase();
+  const realEmail=normalizePortalEmail(authEmail);
+  return list.find(r=>authId&&String(r.user_id||'').trim()===authId)
+    || list.find(r=>String(r.auth_email||'').trim().toLowerCase()===authEmail)
+    || list.find(r=>normalizePortalEmail(r.email)===realEmail&&r.portal_enabled!==false)
+    || list.find(r=>normalizePortalEmail(r.email)===realEmail)
+    || list[0];
+}
+
+async function fetchPortalClientRecord(){
+  const authId=String(currentUser?.id||'').trim();
+  const authEmail=String(currentUser?.email||'').trim().toLowerCase();
+  const realEmail=normalizePortalEmail(authEmail);
+  const byId=[];
+  const byEmail=[];
+
+  if(authId){
+    const{data,error}=await sb.from('clients').select('*').eq('user_id',authId).limit(10);
+    if(!error&&Array.isArray(data))byId.push(...data);
+    else if(error)console.warn('[DKMA Portal] client lookup by user_id:',error.message);
+  }
+  if(realEmail){
+    const{data,error}=await sb.from('clients').select('*').ilike('email',realEmail).limit(10);
+    if(!error&&Array.isArray(data))byEmail.push(...data);
+    else if(error)console.warn('[DKMA Portal] client lookup by email:',error.message);
+  }
+
+  const merged=[];
+  const seen=new Set();
+  [...byId,...byEmail].forEach(row=>{
+    const key=String(row?.id||'');
+    if(!key||seen.has(key))return;
+    seen.add(key);
+    merged.push(row);
+  });
+  if(merged.length>1){
+    console.warn('[DKMA Portal] Multiple client records matched this portal login; using best linked match.',merged.map(r=>({id:r.id,email:r.email,user_id:r.user_id,portal_enabled:r.portal_enabled})));
+  }
+  return choosePortalClientRecord(merged);
+}
 
 async function launchPortal(){
   hideSplash();
@@ -2624,10 +2803,7 @@ async function launchPortal(){
   document.getElementById('auth-screen').style.display='none';
   document.getElementById('portal-shell').style.display='flex';
   document.getElementById('portal-loading').style.display='flex';
-  // currentUser.email is the +portal alias - strip it to find the real client record
-  const realEmail=currentUser.email.replace('+portal@','@');
-  const{data:cData}=await sb.from('clients').select('*').ilike('email',realEmail).maybeSingle();
-  clientRecord=cData||null;
+  clientRecord=await fetchPortalClientRecord();
 
   // Check if portal access has been disabled by the firm
   if(clientRecord&&clientRecord.portal_enabled===false){
