@@ -2398,6 +2398,7 @@ async function signIn(){
 
   // Primary attempt: +portal alias (e.g. client+portal@gmail.com)
   const portalEmail=toPortalEmail(email);
+  let signInEmail=portalEmail;
   let{data,error}=await sb.auth.signInWithPassword({email:portalEmail,password:pw});
 
   // Fallback: if the +portal alias doesn't exist, try the raw email.
@@ -2411,6 +2412,7 @@ async function signIn(){
       if(!fallback.error){
         data=fallback.data;
         error=null;
+        signInEmail=rawEmail;
       }
       // If both fail, keep the original error so the message below is shown
     }
@@ -2439,12 +2441,15 @@ async function signIn(){
   }
   if(shouldRequireDesktopOtp()){
     const otpEmail=String(freshUser?.email||data.user?.email||portalEmail).trim().toLowerCase();
+    desktopOtpAuthEmail=signInEmail;
+    desktopOtpPassword=pw;
+    desktopOtpUserId=String(freshUser?.id||data.user?.id||'').trim();
     window._pendingPasswordSignIn=false;
     window._desktopOtpInProgress=true;
     btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Sending code...';
     try{
-      await sb.auth.signOut();
       await sendDesktopOtp(otpEmail);
+      await sb.auth.signOut();
       btn.disabled=false;btn.textContent='Sign In to Portal';
       showDesktopOtpScreen(otpEmail);
     }catch(otpErr){
@@ -2532,6 +2537,9 @@ function closePortalDrawer(){
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){closePortalDrawer();}});
 
 let desktopOtpEmail='';
+let desktopOtpUserId='';
+let desktopOtpAuthEmail='';
+let desktopOtpPassword='';
 let desktopOtpRequestedAt=0;
 
 function showDesktopOtpScreen(email){
@@ -2553,16 +2561,54 @@ function showDesktopOtpScreen(email){
 async function sendDesktopOtp(email){
   const target=String(email||desktopOtpEmail||'').trim().toLowerCase();
   if(!target)throw new Error('No portal email is available for OTP.');
-  const {error}=await sb.auth.signInWithOtp({
-    email:target,
-    options:{
-      shouldCreateUser:false,
-      emailRedirectTo:getDesktopOtpRedirectUrl()
-    }
+  const {data:{session}}=await sb.auth.getSession();
+  const accessToken=session?.access_token||'';
+  if(!accessToken)throw new Error('Desktop OTP session was not available. Please sign in again.');
+  const res=await fetch(`${SUPABASE_URL_EDGE}/functions/v1/client-desktop-otp`,{
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'Authorization':`Bearer ${accessToken}`
+    },
+    body:JSON.stringify({action:'send'})
+  });
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok)throw new Error(data?.error||'Could not send desktop OTP.');
+  desktopOtpEmail=String(data?.email||target).trim().toLowerCase();
+  desktopOtpUserId=String(data?.userId||desktopOtpUserId||'').trim();
+  desktopOtpRequestedAt=Date.now();
+}
+
+async function verifyDesktopOtpOnServer(code){
+  const res=await fetch(`${SUPABASE_URL_EDGE}/functions/v1/client-desktop-otp`,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      action:'verify',
+      userId:desktopOtpUserId,
+      email:desktopOtpEmail,
+      code
+    })
+  });
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok)throw new Error(data?.error||'That code could not be verified.');
+  return data;
+}
+
+async function completeDesktopOtpSignIn(){
+  if(!desktopOtpAuthEmail||!desktopOtpPassword)throw new Error('Please sign in again to continue.');
+  const {data,error}=await sb.auth.signInWithPassword({
+    email:desktopOtpAuthEmail,
+    password:desktopOtpPassword
   });
   if(error)throw error;
-  desktopOtpEmail=target;
-  desktopOtpRequestedAt=Date.now();
+  desktopOtpPassword='';
+  desktopOtpAuthEmail='';
+  desktopOtpUserId='';
+  desktopOtpEmail='';
+  desktopOtpRequestedAt=0;
+  currentUser=data?.user||currentUser;
+  return data;
 }
 
 function getDesktopOtpRedirectUrl(){
@@ -2593,6 +2639,9 @@ async function resendDesktopOtp(){
 async function cancelDesktopOtp(){
   window._desktopOtpInProgress=false;
   desktopOtpEmail='';
+  desktopOtpUserId='';
+  desktopOtpAuthEmail='';
+  desktopOtpPassword='';
   desktopOtpRequestedAt=0;
   await sb.auth.signOut();
   showAuthScreen();
@@ -2608,24 +2657,23 @@ async function verifyDesktopOtp(){
   if(!desktopOtpEmail){if(err)err.textContent='Please sign in again to request a fresh code.';return;}
   if(code.length<6){if(err)err.textContent='Enter the 6-digit code from your email.';return;}
   if(btn){btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Verifying...';}
-  window._desktopOtpInProgress=false;
-  window._pendingPasswordSignIn=true;
-  const {data,error}=await sb.auth.verifyOtp({email:desktopOtpEmail,token:code,type:'email'});
-  if(btn){btn.disabled=false;btn.textContent='Verify & Continue';}
-  if(error){
+  try{
+    await verifyDesktopOtpOnServer(code);
+    window._desktopOtpInProgress=false;
+    window._pendingPasswordSignIn=true;
+    await completeDesktopOtpSignIn();
+    setTimeout(async()=>{
+      if(currentUser&&!portalLaunchedOnce&&document.getElementById('portal-shell').style.display==='none'){
+        await launchPortal();
+      }
+    },400);
+  }catch(error){
     window._desktopOtpInProgress=true;
     window._pendingPasswordSignIn=false;
     if(err)err.textContent=error.message||'That code could not be verified.';
-    return;
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='Verify & Continue';}
   }
-  desktopOtpEmail='';
-  desktopOtpRequestedAt=0;
-  currentUser=data?.user||currentUser;
-  setTimeout(async()=>{
-    if(currentUser&&!portalLaunchedOnce&&document.getElementById('portal-shell').style.display==='none'){
-      await launchPortal();
-    }
-  },400);
 }
 
 function hideSplash(){const s=document.getElementById('portal-splash');if(s)s.style.display='none';}
