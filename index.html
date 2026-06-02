@@ -2395,6 +2395,7 @@ async function signIn(){
   window._offerBiometricSetup=false;
   window._pendingPasswordSignIn=true;
   window._desktopOtpInProgress=false;
+  window._desktopOtpPasswordPrecheck=shouldRequireDesktopOtp();
 
   // Primary attempt: +portal alias (e.g. client+portal@gmail.com)
   const portalEmail=toPortalEmail(email);
@@ -2421,6 +2422,7 @@ async function signIn(){
   btn.disabled=false;btn.textContent='Sign In to Portal';
   if(error){
     window._pendingPasswordSignIn=false;
+    window._desktopOtpPasswordPrecheck=false;
     const msg=error.message||'';
     if(msg.toLowerCase().includes('invalid login')||msg.toLowerCase().includes('invalid credentials')||msg.toLowerCase().includes('invalid')){
       errEl.innerHTML='Incorrect email or password.<br><span style="font-size:11px;color:var(--txt3)">If you were sent a temporary password, please ensure you copied it exactly, or contact the firm for a new one.</span>';
@@ -2435,6 +2437,7 @@ async function signIn(){
   const meta=freshUser?.user_metadata||data.user?.user_metadata||{};
   if(meta.must_change_password){
     window._pendingPasswordSignIn=false;
+    window._desktopOtpPasswordPrecheck=false;
     window._mustChangePassword=true;
     showNewPasswordScreen();
     return;
@@ -2445,6 +2448,7 @@ async function signIn(){
     desktopOtpPassword=pw;
     desktopOtpUserId=String(freshUser?.id||data.user?.id||'').trim();
     window._pendingPasswordSignIn=false;
+    window._desktopOtpPasswordPrecheck=false;
     window._desktopOtpInProgress=true;
     btn.disabled=true;btn.innerHTML='<span class="spinner"></span>Sending code...';
     try{
@@ -2454,12 +2458,14 @@ async function signIn(){
       showDesktopOtpScreen(otpEmail);
     }catch(otpErr){
       window._desktopOtpInProgress=false;
+      window._desktopOtpPasswordPrecheck=false;
       btn.disabled=false;btn.textContent='Sign In to Portal';
       showMode('signin');
       errEl.textContent='Could not send desktop OTP: '+(otpErr.message||otpErr);
     }
     return;
   }
+  window._desktopOtpPasswordPrecheck=false;
   window._offerBiometricSetup=true;
   // Normal login - portal launches via onAuthStateChange SIGNED_IN
 }
@@ -2698,6 +2704,7 @@ async function initPortal(){
 
   sb.auth.onAuthStateChange(async(event,session)=>{
     if(event==='SIGNED_IN'&&session){
+      if(window._desktopOtpPasswordPrecheck){return;}
       if(window._desktopOtpInProgress){return;}
       // If user just signed in and must change their temporary password, stay on that screen
       if(window._mustChangePassword){return;}
@@ -2732,6 +2739,7 @@ async function initPortal(){
     if(event==='SIGNED_OUT'){
       currentUser=null;clientRecord=null;
       if(window._desktopOtpInProgress){return;}
+      if(window._desktopOtpPasswordPrecheck){return;}
       window._mustChangePassword=false;
       window._pendingPasswordSignIn=false;
       window._offerBiometricSetup=false;
