@@ -2318,6 +2318,7 @@ async function savePinSecurityPreference(){
   portalToast('PIN lock enabled for this device.');
 }
 async function maybeOfferBiometricSetup(force=false){
+  if(!isNativeClientApp())return;
   if((window._offerBiometricSetup!==true&&!force)||pendingSecuritySetup)return;
   window._offerBiometricSetup=false;
   if(!currentUser||getUserSecurityMode(currentUser)!=='none')return;
@@ -2554,11 +2555,24 @@ async function sendDesktopOtp(email){
   if(!target)throw new Error('No portal email is available for OTP.');
   const {error}=await sb.auth.signInWithOtp({
     email:target,
-    options:{shouldCreateUser:false}
+    options:{
+      shouldCreateUser:false,
+      emailRedirectTo:getDesktopOtpRedirectUrl()
+    }
   });
   if(error)throw error;
   desktopOtpEmail=target;
   desktopOtpRequestedAt=Date.now();
+}
+
+function getDesktopOtpRedirectUrl(){
+  try{
+    const loc=window.location;
+    if(/^https?:$/i.test(loc.protocol)){
+      return loc.origin+loc.pathname+(loc.search||'');
+    }
+  }catch(_e){}
+  return 'https://www.cms.dkma.co.ke/';
 }
 
 async function resendDesktopOtp(){
@@ -2653,14 +2667,18 @@ async function initPortal(){
         if(freshPasswordLogin){
           await launchPortal();
           await maybeOfferBiometricSetup(true);
-        }else if(getUserSecurityMode(session.user)==='biometric'){
-          await unlockPortalWithBiometrics(false,!portalLaunchedOnce);
-        }else if(getUserSecurityMode(session.user)==='pin'){
-          if(!portalLaunchedOnce)await launchPortal();
-          showBiometricLockScreen('Enter your portal PIN to continue.');
         }else{
-          await launchPortal();
-          await maybeOfferBiometricSetup(true);
+          if(!isNativeClientApp()){
+            await launchPortal();
+          }else if(getUserSecurityMode(session.user)==='biometric'){
+            await unlockPortalWithBiometrics(false,!portalLaunchedOnce);
+          }else if(getUserSecurityMode(session.user)==='pin'){
+            if(!portalLaunchedOnce)await launchPortal();
+            showBiometricLockScreen('Enter your portal PIN to continue.');
+          }else{
+            await launchPortal();
+            await maybeOfferBiometricSetup(true);
+          }
         }
       }
     if(event==='SIGNED_OUT'){
@@ -2685,10 +2703,14 @@ async function initPortal(){
       window._mustChangePassword=true;
       showNewPasswordScreen();
     } else {
-      const mode=getUserSecurityMode(session.user);
-      if(mode==='biometric')await unlockPortalWithBiometrics(false,true);
-      else if(mode==='pin'){await launchPortal();showBiometricLockScreen('Enter your portal PIN to continue.');}
-      else {await launchPortal();await maybeOfferBiometricSetup(true);}
+      if(!isNativeClientApp()){
+        await launchPortal();
+      }else{
+        const mode=getUserSecurityMode(session.user);
+        if(mode==='biometric')await unlockPortalWithBiometrics(false,true);
+        else if(mode==='pin'){await launchPortal();showBiometricLockScreen('Enter your portal PIN to continue.');}
+        else {await launchPortal();await maybeOfferBiometricSetup(true);}
+      }
     }
   } else {
     showAuthScreen();
