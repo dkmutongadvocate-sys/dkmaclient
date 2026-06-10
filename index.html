@@ -2875,6 +2875,23 @@ async function fetchPortalClientRecord(){
   return choosePortalClientRecord(merged);
 }
 
+async function stampPortalLogin(){
+  if(!clientRecord?.id)return;
+  const nowIso=new Date().toISOString();
+  const loginCount=(Number(clientRecord.portal_login_count)||0)+1;
+  const{data,error}=await sb.from('clients')
+    .update({portal_last_login_at:nowIso,portal_login_count:loginCount,portal_device_last_seen_at:nowIso})
+    .eq('id',clientRecord.id)
+    .select('*')
+    .maybeSingle();
+  if(error){
+    console.warn('[DKMA Portal] login stamp skipped:',error.message||error);
+    clientRecord={...clientRecord,portal_device_last_seen_at:nowIso};
+    return;
+  }
+  if(data)clientRecord=data;
+}
+
 async function launchPortal(){
   hideSplash();
   hideBiometricLockScreen();
@@ -2908,6 +2925,7 @@ async function launchPortal(){
     return;
   }
 
+  await stampPortalLogin();
   await loadFirmSettings();
 
   if(clientRecord){

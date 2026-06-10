@@ -30,13 +30,16 @@ jobs:
           sed -i "s|%%SUPABASE_URL%%|${{ secrets.SUPABASE_URL }}|g" index.html
           sed -i "s|%%SUPABASE_ANON_KEY%%|${{ secrets.SUPABASE_ANON_KEY }}|g" index.html
           sed -i "s|%%LAWYER_PHONE%%|${{ secrets.LAWYER_PHONE }}|g" index.html
+          sed -i "s|%%SUPABASE_URL%%|${{ secrets.SUPABASE_URL }}|g" app-config.js
+          sed -i "s|%%SUPABASE_ANON_KEY%%|${{ secrets.SUPABASE_ANON_KEY }}|g" app-config.js
+          sed -i "s|%%LAWYER_PHONE%%|${{ secrets.LAWYER_PHONE }}|g" app-config.js
           echo "Secrets injected"
 
       - name: Verify no placeholders remain
         run: |
-          if grep -q '%%SUPABASE_URL%%\|%%SUPABASE_ANON_KEY%%\|%%LAWYER_PHONE%%' index.html; then
+          if grep -q '%%SUPABASE_URL%%\|%%SUPABASE_ANON_KEY%%\|%%LAWYER_PHONE%%' index.html app-config.js; then
             echo "ERROR: Unreplaced placeholders found"
-            grep -n '%%SUPABASE_URL%%\|%%SUPABASE_ANON_KEY%%\|%%LAWYER_PHONE%%' index.html
+            grep -n '%%SUPABASE_URL%%\|%%SUPABASE_ANON_KEY%%\|%%LAWYER_PHONE%%' index.html app-config.js
             exit 1
           fi
           echo "All placeholders replaced successfully"

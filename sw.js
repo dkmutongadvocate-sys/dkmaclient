@@ -1,5 +1,5 @@
 // DKMA Service Worker — handles PWA install, offline shell caching, push notifications
-const CACHE_NAME = 'dkma-v1';
+const CACHE_NAME = 'dkma-client-v1.0.5-sign-record-11';
 // Derive base path dynamically so this SW works in any GitHub Pages repo
 const SW_BASE = self.location.pathname.replace(/sw\.js$/, '');
 const PORTAL_SHELL = SW_BASE;
