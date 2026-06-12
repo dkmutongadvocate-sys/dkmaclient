@@ -3006,7 +3006,7 @@ async function loadMyMatters(){
 async function loadMyEvents(){
   if(!clientRecord||!myMatters.length)return;
   const matterIds=myMatters.map(m=>m.id);
-  const{data,error}=await sb.from('events').select('*').in('matter_id',matterIds).order('event_date',{ascending:true});
+  const{data,error}=await sb.from('events').select('*').in('matter_id',matterIds).eq('share_with_client',true).order('event_date',{ascending:true});
   if(!error)myEvents=data||[];
 }
 async function loadMyInvoices(){
