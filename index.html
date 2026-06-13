@@ -3001,7 +3001,10 @@ async function loadMyEvents(){
   if(!clientRecord||!myMatters.length)return;
   const matterIds=myMatters.map(m=>m.id);
   const{data,error}=await sb.from('events').select('*').in('matter_id',matterIds).order('event_date',{ascending:true});
-  if(!error)myEvents=data||[];
+  if(!error)myEvents=(data||[]).map(e=>({...e,portal_visible:eventVisibleToClient(e)}));
+}
+function eventVisibleToClient(event){
+  return !!event&&(event.share_with_client===true||event.portal_visible===true);
 }
 async function loadMyInvoices(){
   if(!clientRecord)return;
@@ -5072,7 +5075,7 @@ function renderOverview(){
   // Stats
   const now=new Date();
   const in30=new Date(now.getTime()+30*24*60*60*1000);
-  const upcoming=myEvents.filter(e=>{const d=parseDateLocal(e.event_date);return e.portal_visible&&d>=now&&d<=in30;});
+  const upcoming=myEvents.filter(e=>{const d=parseDateLocal(e.event_date);return eventVisibleToClient(e)&&d>=now&&d<=in30;});
   document.getElementById('stat-matters').textContent=myMatters.filter(m=>m.status!=='closed').length;
   document.getElementById('stat-events').textContent=upcoming.length;
   document.getElementById('stat-invoices').textContent=myInvoices.length;
@@ -5744,7 +5747,7 @@ function renderPortalCalendar(){
   const me={};
   const monthStart=new Date(portalCalYear,portalCalMonth,1);
   const monthEnd=new Date(portalCalYear,portalCalMonth+1,0);
-  (myEvents||[]).filter(e=>e.portal_visible).forEach(e=>{
+  (myEvents||[]).filter(eventVisibleToClient).forEach(e=>{
     const start=parseDateLocal(e.event_date);
     const end=e.event_end_date?parseDateLocal(e.event_end_date):start;
     const iterStart=start<monthStart?monthStart:start;
@@ -5837,8 +5840,8 @@ function renderEvents(){
   gazettedHolidays.forEach(h=>{if(!allHolidays.find(x=>x.date===h.date&&x.name===h.name))allHolidays.push({date:h.date,name:h.name,gazetted:true,ghType:h.type});});
   const upcomingHolidays=allHolidays.filter(h=>h.date>=todayStr).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,10);
   const pastHolidays=allHolidays.filter(h=>h.date<todayStr).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,4);
-  const upcomingEvents=myEvents.filter(e=>e.portal_visible&&parseDateLocal(e.event_date)>=now);
-  const pastEvents=myEvents.filter(e=>e.portal_visible&&parseDateLocal(e.event_date)<now);
+  const upcomingEvents=myEvents.filter(e=>eventVisibleToClient(e)&&parseDateLocal(e.event_date)>=now);
+  const pastEvents=myEvents.filter(e=>eventVisibleToClient(e)&&parseDateLocal(e.event_date)<now);
   const upcomingMixed=[
     ...upcomingEvents.map(e=>({date:e.event_date,type:'event',data:e})),
     ...upcomingHolidays.map(h=>({date:h.date,type:'holiday',data:h}))
