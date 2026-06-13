@@ -683,7 +683,7 @@ h1,h2,h3,h4{font-family:'Playfair Display',serif;font-weight:500}
     </div>
 
     <div id="auth-mode-desktopotp" style="display:none">
-      <p id="desktop-otp-copy" style="font-size:12px;color:var(--txt3);text-align:center;margin-bottom:20px;line-height:1.6">Enter the one-time code sent to your email to continue on desktop.</p>
+      <p id="desktop-otp-copy" style="font-size:12px;color:var(--txt3);text-align:center;margin-bottom:20px;line-height:1.6">Enter the one-time code sent to your email to continue.</p>
       <label class="auth-label">One-Time Code</label>
       <input class="auth-input" id="desktop-otp-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="6-digit code" onkeydown="if(event.key==='Enter')verifyDesktopOtp()"/>
       <div class="auth-error" id="desktop-otp-error"></div>
@@ -1439,6 +1439,7 @@ let sharedDocs=[];           // files from matter-documents bucket tagged with s
 let myUploads=[];            // files from client-uploads bucket
 let mySignatureRequests=[];  // storage-backed signature request records
 let myMessages=[];           // messages from client_messages table
+let _messagesChannel=null;
 let myGroup=null;            // client_groups row if this client belongs to a group
 let gazettedHolidays=[];     // ad-hoc holidays from gazetted_holidays table
 let profileEditing=false;
@@ -2010,8 +2011,11 @@ function isNativeClientApp(){
     return false;
   }
 }
+function shouldRequireLoginOtp(){
+  return true;
+}
 function shouldRequireDesktopOtp(){
-  return !isNativeClientApp();
+  return shouldRequireLoginOtp();
 }
 function biometricUserKey(user=currentUser){
   return String(user?.id||user?.email||'').trim().toLowerCase();
@@ -2471,6 +2475,14 @@ async function signIn(){
 }
 // signUp and sendReset removed - accounts are managed by the firm
 async function signOut(){
+  if(_messagesChannel){
+    sb.removeChannel(_messagesChannel);
+    _messagesChannel=null;
+  }
+  if(_portalPollInterval){
+    clearInterval(_portalPollInterval);
+    _portalPollInterval=null;
+  }
   await sb.auth.signOut();
   portalLaunchedOnce=false;
   pendingSecuritySetup=false;
@@ -2559,7 +2571,7 @@ function showDesktopOtpScreen(email){
   const copy=document.getElementById('desktop-otp-copy');
   const err=document.getElementById('desktop-otp-error');
   const input=document.getElementById('desktop-otp-code');
-  if(copy)copy.textContent=`Enter the one-time code sent to ${desktopOtpEmail.replace('+portal@','@')} to continue on desktop.`;
+  if(copy)copy.textContent=`Enter the one-time code sent to ${desktopOtpEmail.replace('+portal@','@')} to continue.`;
   if(err)err.textContent='';
   if(input){input.value='';setTimeout(()=>input.focus(),80);}
 }
@@ -2569,7 +2581,7 @@ async function sendDesktopOtp(email){
   if(!target)throw new Error('No portal email is available for OTP.');
   const {data:{session}}=await sb.auth.getSession();
   const accessToken=session?.access_token||'';
-  if(!accessToken)throw new Error('Desktop OTP session was not available. Please sign in again.');
+  if(!accessToken)throw new Error('OTP session was not available. Please sign in again.');
   const res=await fetch(`${SUPABASE_URL_EDGE}/functions/v1/client-desktop-otp`,{
     method:'POST',
     headers:{
@@ -2875,23 +2887,6 @@ async function fetchPortalClientRecord(){
   return choosePortalClientRecord(merged);
 }
 
-async function stampPortalLogin(){
-  if(!clientRecord?.id)return;
-  const nowIso=new Date().toISOString();
-  const loginCount=(Number(clientRecord.portal_login_count)||0)+1;
-  const{data,error}=await sb.from('clients')
-    .update({portal_last_login_at:nowIso,portal_login_count:loginCount,portal_device_last_seen_at:nowIso})
-    .eq('id',clientRecord.id)
-    .select('*')
-    .maybeSingle();
-  if(error){
-    console.warn('[DKMA Portal] login stamp skipped:',error.message||error);
-    clientRecord={...clientRecord,portal_device_last_seen_at:nowIso};
-    return;
-  }
-  if(data)clientRecord=data;
-}
-
 async function launchPortal(){
   hideSplash();
   hideBiometricLockScreen();
@@ -2925,7 +2920,6 @@ async function launchPortal(){
     return;
   }
 
-  await stampPortalLogin();
   await loadFirmSettings();
 
   if(clientRecord){
@@ -3006,7 +3000,7 @@ async function loadMyMatters(){
 async function loadMyEvents(){
   if(!clientRecord||!myMatters.length)return;
   const matterIds=myMatters.map(m=>m.id);
-  const{data,error}=await sb.from('events').select('*').in('matter_id',matterIds).eq('share_with_client',true).order('event_date',{ascending:true});
+  const{data,error}=await sb.from('events').select('*').in('matter_id',matterIds).order('event_date',{ascending:true});
   if(!error)myEvents=data||[];
 }
 async function loadMyInvoices(){
@@ -6259,21 +6253,80 @@ function setupPortalPolling(){
   _portalPollInterval=setInterval(portalPollAll,4000);
 }
 
+function mergePortalMessage(row){
+  if(!row||!row.id)return;
+  const incoming={...row};
+  const existingIdx=myMessages.findIndex(m=>m.id===incoming.id);
+  if(existingIdx>=0){
+    myMessages=myMessages.map(m=>m.id===incoming.id?{...m,...incoming}:m);
+    return;
+  }
+  const optimisticIdx=myMessages.findIndex(m=>
+    String(m.id||'').startsWith('_tmp_') &&
+    m.sender===incoming.sender &&
+    m.client_id===incoming.client_id &&
+    (m.message||'')===(incoming.message||'') &&
+    Math.abs(new Date(m.created_at||0)-new Date(incoming.created_at||0))<180000
+  );
+  if(optimisticIdx>=0){
+    myMessages=myMessages.map((m,i)=>i===optimisticIdx?incoming:m);
+  }else{
+    myMessages=[...myMessages,incoming];
+  }
+  myMessages.sort((a,b)=>new Date(a.created_at||0)-new Date(b.created_at||0));
+}
+
+async function markVisibleFirmMessagesRead(){
+  if(!clientRecord)return;
+  const unreadIds=myMessages.filter(m=>m.sender==='firm'&&!m.read_by_client).map(m=>m.id).filter(id=>!String(id).startsWith('_tmp_'));
+  if(!unreadIds.length)return;
+  myMessages=myMessages.map(m=>unreadIds.includes(m.id)?{...m,read_by_client:true}:m);
+  updateMsgBadge();
+  sb.from('client_messages').update({read_by_client:true}).in('id',unreadIds).then(({error})=>{
+    if(error)console.warn('[DKMA Portal] mark messages read failed:',error.message);
+  });
+}
+
 function setupMessagesRealtime(){
-  // Legacy name - now handled by polling
   setupPortalPolling();
+  if(!clientRecord)return;
+  if(_messagesChannel){
+    sb.removeChannel(_messagesChannel);
+    _messagesChannel=null;
+  }
+  const cid=clientRecord.id;
+  _messagesChannel=sb.channel(`client-messages-${cid}`)
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'client_messages',filter:`client_id=eq.${cid}`},payload=>{
+      mergePortalMessage(payload.new);
+      if(payload.new?.created_at)_portalSnap.messages=payload.new.created_at;
+      updateMsgBadge();
+      if(_activePortalView()==='messages'){
+        renderMsgFeed();
+        if(payload.new?.sender==='firm')markVisibleFirmMessagesRead();
+      }
+    })
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'client_messages',filter:`client_id=eq.${cid}`},payload=>{
+      mergePortalMessage(payload.new);
+      updateMsgBadge();
+      if(_activePortalView()==='messages')renderMsgFeed();
+    })
+    .on('postgres_changes',{event:'DELETE',schema:'public',table:'client_messages',filter:`client_id=eq.${cid}`},payload=>{
+      const deletedId=payload.old?.id;
+      if(deletedId)myMessages=myMessages.filter(m=>m.id!==deletedId);
+      updateMsgBadge();
+      if(_activePortalView()==='messages')renderMsgFeed();
+    })
+    .subscribe(status=>{
+      if(status==='CHANNEL_ERROR'||status==='TIMED_OUT'){
+        console.warn('[DKMA Portal] messages realtime status:',status);
+      }
+    });
 }
 
 async function loadAndRenderMessages(){
   if(!clientRecord)return;
   await loadMyMessages();
-  // Mark firm messages as read
-  const unreadIds=myMessages.filter(m=>m.sender==='firm'&&!m.read_by_client).map(m=>m.id);
-  if(unreadIds.length){
-    await sb.from('client_messages').update({read_by_client:true}).in('id',unreadIds);
-    myMessages=myMessages.map(m=>unreadIds.includes(m.id)?{...m,read_by_client:true}:m);
-    updateMsgBadge();
-  }
+  await markVisibleFirmMessagesRead();
   renderMsgFeed();
 }
 
@@ -6324,14 +6377,14 @@ async function sendPortalMessage(){
   myMessages=[...myMessages,optimistic];
   if(inp)inp.value='';
   renderMsgFeed();
-  const{data,error}=await sb.from('client_messages').insert([{
+  btn.disabled=false;btn.textContent='Send';
+  const{error}=await sb.from('client_messages').insert([{
     client_id:clientRecord.id,
     sender:'client',
     message:msg,
     read_by_firm:false,
     read_by_client:true
-  }]).select().single();
-  btn.disabled=false;btn.textContent='Send';
+  }]);
   if(error){
     // Roll back optimistic update on failure
     myMessages=myMessages.filter(m=>m.id!==optimistic.id);
@@ -6340,10 +6393,6 @@ async function sendPortalMessage(){
     if(inp)inp.value=msg;
     return;
   }
-  // Replace optimistic entry with real record from DB
-  myMessages=myMessages.map(m=>m.id===optimistic.id?(data||optimistic):m);
-  // Advance snapshot so next poll doesn't treat our own send as "new"
-  if(data?.created_at)_portalSnap.messages=data.created_at;
   renderMsgFeed();
 }
 
