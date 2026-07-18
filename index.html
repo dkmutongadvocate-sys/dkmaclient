@@ -5874,7 +5874,7 @@ function markNotifRead(id){
   renderClientAlerts();
 }
 
-function renderClientAlerts(){
+async function renderClientAlerts(){
   const el=document.getElementById('client-notifications-list');
   if(!el)return;
 
@@ -5898,11 +5898,33 @@ function renderClientAlerts(){
   const priorityBg={critical:'#FCEBEB',reminder:'#FAEEDA',info:'#E6F1FB'};
   const priorityColor={critical:'#A32D2D',reminder:'#854F0B',info:'#185FA5'};
 
+  // Pre-fetch signed URLs for any notifications carrying a photo/video attachment
+  const mediaAlerts=filtered.filter(a=>a.media_path);
+  const signedUrlMap={};
+  if(mediaAlerts.length){
+    await Promise.all(mediaAlerts.map(async a=>{
+      try{
+        const{data}=await sb.storage.from(FIRM_BUCKET).createSignedUrl(a.media_path,3600);
+        if(data?.signedUrl)signedUrlMap[a.id]=data.signedUrl;
+      }catch(e){/* attachment just won't render */}
+    }));
+  }
+
   el.innerHTML=filtered.map(a=>{
     const isUnread=!notifReadIds.has(a.id);
     const isCritical=a.priority==='critical';
     const dateStr=a.alert_date?new Date(a.alert_date+'T00:00').toLocaleDateString('en-KE',{day:'numeric',month:'long',year:'numeric'}):(a.created_at?new Date(a.created_at).toLocaleDateString('en-KE',{day:'numeric',month:'short',year:'numeric'}):'');
     const isTargeted=a.target_client_id===clientRecord?.id;
+    const linkHtml=a.link_url?`<div style="margin-top:9px"><a href="${esc(a.link_url)}" target="_blank" rel="noopener" style="font-size:12px;color:var(--navy);text-decoration:none;display:inline-flex;align-items:center;gap:5px;border:1px solid var(--brd);padding:5px 11px;border-radius:7px" onclick="event.stopPropagation()">🔗 ${esc(a.link_url.replace(/^https?:\/\//,'').slice(0,60))}</a></div>`:'';
+    const mediaUrl=signedUrlMap[a.id];
+    let mediaHtml='';
+    if(mediaUrl&&a.media_type==='image'){
+      mediaHtml=`<div style="margin-top:10px"><img src="${esc(mediaUrl)}" style="max-width:100%;max-height:220px;border-radius:8px;border:1px solid var(--brd);cursor:pointer" onclick="event.stopPropagation();window.open('${esc(mediaUrl)}','_blank')"/></div>`;
+    } else if(mediaUrl&&a.media_type==='video'){
+      mediaHtml=`<div style="margin-top:10px"><video src="${esc(mediaUrl)}" controls style="max-width:100%;max-height:240px;border-radius:8px;border:1px solid var(--brd)" onclick="event.stopPropagation()"></video></div>`;
+    } else if(a.media_path&&!mediaUrl){
+      mediaHtml=`<div style="margin-top:8px;font-size:11px;color:var(--txt3)">📎 Attachment unavailable</div>`;
+    }
     return`<div class="notif-item${isUnread?' unread':''}${isCritical?' critical':''}" id="notif-${a.id}">
       <div class="notif-dot ${dotClass[a.priority]||'nd-info'}" style="margin-top:6px"></div>
       <div style="flex:1;min-width:0">
@@ -5915,6 +5937,7 @@ function renderClientAlerts(){
           <div style="font-size:10px;color:var(--txt3);white-space:nowrap">${dateStr}</div>
         </div>
         <div style="font-size:13px;color:var(--txt);margin-top:8px;line-height:1.65;font-weight:${isUnread?500:400}">${esc(a.text)}</div>
+        ${linkHtml}${mediaHtml}
         ${isUnread?`<button onclick="markNotifRead('${a.id}')" style="margin-top:10px;font-size:10px;color:var(--txt3);background:none;border:1px solid var(--brd);padding:3px 10px;border-radius:6px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s" onmouseover="this.style.borderColor='var(--navy)';this.style.color='var(--navy)'" onmouseout="this.style.borderColor='var(--brd)';this.style.color='var(--txt3)'">Mark as read</button>`:''}
       </div>
     </div>`;
